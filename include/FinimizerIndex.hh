@@ -113,6 +113,8 @@ public:
     sdsl::int_vector<> global_offsets;
     sdsl::bit_vector Ustart;
     sdsl::rank_support_v5<> Ustart_rs;
+    std::unordered_map<std::string, std::vector<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+
 
     FinimizerIndex() {}
 
@@ -184,6 +186,68 @@ public:
         return answer;
     }
 
+    void serialize_HashTable(const std::unordered_map<std::string, std::vector<int>>& hashTable, const std::string& hashTableName) const{
+        std::ofstream hashTable_out(hashTableName, std::ios::binary);
+        if (!hashTable_out) {
+            std::cerr << "Error: Could not open file for writing!" << std::endl;
+            return;
+        }
+
+        // Write the number of elements in the hash table
+        size_t hashTableSize = hashTable.size();
+        hashTable_out.write(reinterpret_cast<const char*>(&hashTableSize), sizeof(hashTableSize));
+
+        for (const auto& [key, value] : hashTable) {
+            // Write the size of the key and the key itself
+            size_t keySize = key.size();
+            hashTable_out.write(reinterpret_cast<const char*>(&keySize), sizeof(keySize));
+            hashTable_out.write(key.data(), keySize);
+
+            // Write the size of the value vector and the vector itself
+            size_t valueSize = value.size();
+            hashTable_out.write(reinterpret_cast<const char*>(&valueSize), sizeof(valueSize));
+            hashTable_out.write(reinterpret_cast<const char*>(value.data()), valueSize * sizeof(int));
+        }
+
+        hashTable_out.close();
+    }
+
+    std::unordered_map<std::string, std::vector<int>> load_HashTable(const std::string& hashTableName) {
+        std::unordered_map<std::string, std::vector<int>> hashTable;
+
+        std::ifstream inFile(hashTableName, std::ios::binary);
+        if (!inFile) {
+            std::cerr << "Error: Could not open file for reading!" << std::endl;
+            return hashTable;
+        }
+
+        // Read the number of elements in the hash table
+        size_t hashTableSize;
+        inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize));
+
+        for (size_t i = 0; i < hashTableSize; ++i) {
+            // Read the key
+            size_t keySize;
+            inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize));
+            std::string key(keySize, '\0');
+            inFile.read(&key[0], keySize);
+
+            // Read the value vector
+            size_t valueSize;
+            inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize));
+            std::vector<int> value(valueSize);
+            inFile.read(reinterpret_cast<char*>(value.data()), valueSize * sizeof(int));
+
+            // Insert the key-value pair into the hash table
+            hashTable[key] = value;
+        }
+
+        inFile.close();
+        //std::cout << "Hash table loaded from " << hashTableName << std::endl;
+        return hashTable;
+    }
+
+    // TODO: add hash table
     void serialize(const string& index_prefix) const {
         std::ofstream global_offsets_out(index_prefix + ".O.sdsl");
         sdsl::serialize(global_offsets, global_offsets_out);
@@ -204,6 +268,8 @@ public:
         sdsl::serialize(*LCS, LCS_out);
 
         sbwt->serialize(index_prefix + ".sbwt");
+
+        serialize_HashTable(hashTable, index_prefix + "ht.BIN");
     }
 
     void load(const string& index_prefix) {
@@ -237,9 +303,13 @@ public:
 
         sbwt = make_unique<plain_matrix_sbwt_t>();
         sbwt->load(index_prefix + ".sbwt");
+        std::cerr << "SBWT matrix loaded" << std::endl;
 
+        load_HashTable(index_prefix + "ht.BIN");
+        std::cerr << "hashTable loaded" << std::endl;
     }
 
+    // TODO: add hash table (later. not relevant now)
     // This also includes the rank structures which are not serialized
     int64_t size_in_bytes() const{
         int64_t total = 0;
@@ -283,6 +353,9 @@ public:
         vector<uint64_t> global_offsets;
         global_offsets.reserve(n_nodes);
         global_offsets.resize(n_nodes, 0);
+
+        std::unordered_map<std::string, std::vector<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+
         
         pair<PackedStrings, sdsl::bit_vector> unitig_data = permute_unitigs(*(this->sbwt), reader);
         PackedStrings& unitigs = unitig_data.first;
@@ -293,7 +366,7 @@ public:
         vector<char> unitig_buf;
         for(int64_t i = 0; i < unitigs.number_of_strings(); i++){
             int64_t len = unitigs.get(i, unitig_buf);
-            set<tuple<int64_t, int64_t, int64_t>> new_search = add_sequence(unitig_buf.data(), fmin_bv, fmin_found, global_offsets, total_len);
+            set<tuple<int64_t, int64_t, int64_t>> new_search = add_sequence(unitig_buf.data(), fmin_bv, fmin_found, global_offsets, total_len, hashTable);
             total_len += len; 
             finimizers.insert(new_search.begin(), new_search.end());
         }
@@ -307,6 +380,8 @@ public:
     
         print_finimizer_stats(finimizers, this->sbwt->number_of_kmers(), this->sbwt->number_of_subsets(), 1);
 
+        //TODO scan the whole strings again to get the list of colors for each finimizer using hash table
+
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
         index->unitigs = std::move(unitigs); // Transfer ownership
@@ -314,11 +389,12 @@ public:
         index->fmin_rs = sdsl::rank_support_v5<>(&(index->fmin));
         index->global_offsets = std::move(packed_global_offsets); // Transfer ownership
         index->Ustart = std::move(Ustart); // Transfer ownership
-        index->Ustart_rs = sdsl::rank_support_v5<>(&(index->Ustart)); 
+        index->Ustart_rs = sdsl::rank_support_v5<>(&(index->Ustart));
+        index->hashTable = std::move(hashTable);
 
     }
 
-    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start) {
+    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::vector<int>> hashTable) {
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
         const vector<int64_t>& C = sbwt->get_C_array();
@@ -366,6 +442,13 @@ public:
             }
             if (end >= k -1 ){
                 count_all_w_fmin.insert({get<1>(w_fmin),get<0>(w_fmin), get<2>(w_fmin) });// (length,freq,colex) freq = 1 thus == (freq, length,colex)
+                // TODO need to insert input string back!!
+                //Finimizer = input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))
+
+                // Save the finimizer in the hash table if it's the first time you encounter it
+                if (fmin_found[get<2>(w_fmin)] == 0){
+                    hashTable[seq.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))] = {};
+                }
 
                 if (fmin_found[get<2>(w_fmin)] == 0 or fmin_found[get<2>(w_fmin)]< get<3>(w_fmin)){ // if the finimizer has been found before in a full kmer
                     fmin_bv[get<2>(w_fmin)]=1;
