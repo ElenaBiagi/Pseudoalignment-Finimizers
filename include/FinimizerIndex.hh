@@ -37,12 +37,13 @@ private:
     FinimizerIndex(const FinimizerIndex& other) = delete;
     FinimizerIndex& operator=(const FinimizerIndex& other) = delete;
 
-    void add_to_query_result(int64_t global_kmer_end, QueryResult& answer) const{
+ /*    void add_to_query_result(int64_t global_kmer_end, QueryResult& answer) const{
         int64_t global_kmer_start = global_kmer_end - sbwt->get_k() + 1;
         pair<int64_t, int64_t> local_start = unitigs.global_offset_to_local_offset(global_kmer_start);
         answer.local_offsets.push_back(local_start);
         answer.n_found++;
     }
+    
 
     void walk_in_unitigs(const std::string& query, const PackedStrings& unitigs, int64_t global_kmer_end, QueryResult& answer, int64_t& kmer_end, const int64_t k) const{
         //cout << "take a nice unitig walk" << endl;
@@ -101,7 +102,7 @@ private:
         kmer_end--; // will be updated later
     }
 
-
+ */
 public:
 
     // Note: if you add members, update size_in_bytes(), serialize(), and load()
@@ -118,7 +119,8 @@ public:
 
     FinimizerIndex() {}
 
-    QueryResult search(const std::string& query) const {
+    //QueryResult 
+    vector<pair<int,float>> search(const std::string& query) const {
         // For each k-mer S that is known to be in the SBWT
         //   - Find the finimizer x.
         //   - Walk forward in the SBWT from the colex rank of x (singleton interval), to the end of S,
@@ -128,6 +130,7 @@ public:
         //     branch. Otherwise, the k-mer containing x is at the unitig that x points to.
         //   - If there was a branch, the k- mer endpoint in that unitig is k + the number of steps taken after the last branch.
         //     
+        std::cerr << "Searching " << query << std::endl;
 
         const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
         const int64_t n_nodes = sbwt.number_of_subsets();
@@ -136,18 +139,20 @@ public:
         const int64_t query_len = query.length();
 
 
-        QueryResult answer{{}, 0};
+        //QueryResult answer{{}, 0};
+        //if(query.size() < k) answer; 
 
-        if(query.size() < k) answer; 
-
+        vector<pair<int,float>> results;
+        if (query.size() < k) results; 
 
         //Find kmers and Finimizers together
         vector<string> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
         //TODO Check the colors for every finimizer found
-        pseudoalignemnt_stats(Finimizers, hashTable);
-
-        return answer;
+        results = pseudoalignemnt_stats(Finimizers, hashTable);
+        printHashTable(hashTable);
+        return results;//answer;
     }
+
 
     void serialize_HashTable(const std::unordered_map<std::string, std::unordered_set<int>>& hashTable, const std::string& hashTableName) const{
         std::ofstream hashTable_out(hashTableName, std::ios::binary);
@@ -178,45 +183,42 @@ public:
     }
 
     std::unordered_map<std::string, std::unordered_set<int>> load_HashTable(const std::string& hashTableName) {
-        std::unordered_map<std::string, std::unordered_set<int>> hashTable;
+    std::unordered_map<std::string, std::unordered_set<int>> hashTable;
 
-        std::ifstream inFile(hashTableName, std::ios::binary);
-        if (!inFile) {
-            std::cerr << "Error: Could not open file for reading!" << std::endl;
-            return hashTable;
-        }
-
-        // Read the number of elements in the hash table
-        size_t hashTableSize;
-        inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize));
-
-        for (size_t i = 0; i < hashTableSize; ++i) {
-            // Read the key
-            size_t keySize;
-            inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize));
-            std::string key(keySize, '\0');
-            inFile.read(&key[0], keySize);
-
-            // Read the value vector
-            size_t valueSize;
-            inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize));
-            std::unordered_set<int> value(value);
-            for (size_t j = 0; j < valueSize; ++j) {
-                int elem;
-                inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem));
-                value.insert(elem);
-            }
-
-        hashTable[key] = value;
-
-            // insert the key-value into the hash table
-            hashTable[key] = value;
-        }
-
-        inFile.close();
-        //std::cout << "Hash table loaded from " << hashTableName << std::endl;
+    std::ifstream inFile(hashTableName, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Error: Could not open file for reading!" << std::endl;
         return hashTable;
     }
+
+    // Read the number of elements in the hash table
+    size_t hashTableSize;
+    inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize));
+
+    for (size_t i = 0; i < hashTableSize; ++i) {
+        // Read the key
+        size_t keySize;
+        inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize));
+        std::string key(keySize, '\0');
+        inFile.read(&key[0], keySize);
+
+        // Read the value vector
+        size_t valueSize;
+        inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize));
+        std::unordered_set<int> value;  // Fix: initialize the unordered_set properly
+        for (size_t j = 0; j < valueSize; ++j) {
+            int elem;
+            inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem));
+            value.insert(elem);
+        }
+
+        // Insert the key-value pair into the hash table
+        hashTable[key] = value;
+    }
+
+    inFile.close();
+    return hashTable;
+}
 
     // TODO: add hash table
     void serialize(const string& index_prefix) const {
@@ -240,7 +242,7 @@ public:
 
         sbwt->serialize(index_prefix + ".sbwt");
 
-        serialize_HashTable(hashTable, index_prefix + "ht.BIN");
+        serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
     }
 
     void load(const string& index_prefix) {
@@ -276,7 +278,7 @@ public:
         sbwt->load(index_prefix + ".sbwt");
         std::cerr << "SBWT matrix loaded" << std::endl;
 
-        load_HashTable(index_prefix + "ht.BIN");
+        load_HashTable(index_prefix + ".ht.BIN");
         std::cerr << "hashTable loaded" << std::endl;
     }
 
@@ -370,11 +372,8 @@ public:
                 //scan_color<in_colors_no_gzip>(incolors[i], hashTable, i);
             }
             std::cerr << "DONE"<< std::endl;
-            // TODO add reverse complement
-            //const string reverse = sbwt::get_rc(incolors[i]);
-            //std::cerr << "string reversed" << std::endl;
-            //scan_color(reverse, hashTable, i);
         }
+        printHashTable(hashTable);
 
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
@@ -390,13 +389,13 @@ public:
 
     // TODO fix return type
     template<typename reader_t>
-    int64_t run_colors_file(const string& infile, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i){
+    int64_t run_colors_file(const string& infile, unordered_map<std::string, std::unordered_set<int>>& hashTable, int64_t& i){
         reader_t reader(infile);
         write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
         return from_reader_to_seq(reader, hashTable, i);
     }
 
-    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::unordered_set<int>> hashTable) {
+    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::unordered_set<int>>& hashTable) {
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
         const vector<int64_t>& C = sbwt->get_C_array();
@@ -476,28 +475,27 @@ public:
     // TODO fix return type
     // TODO remove hashTable
     template<typename reader_t>
-    int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i) {
-        int64_t j =0;
+    int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::unordered_set<int>>& hashTable, int64_t& i) {
+        
         while(true){
             int64_t len = reader.get_next_read_to_buffer();
             if(len == 0) [[unlikely]] break;
 
             const std::string& seq =reader.read_buf;
-            scan_color(seq, hashTable, j);
+            scan_color(seq, hashTable, i);
             std::cerr << seq<< std::endl;
 
             const string reverse = sbwt::get_rc(reader.read_buf);
-            scan_color(reverse, hashTable, j);
-            j++;
+            scan_color(reverse, hashTable, i);
         }
         return 1;
     }
     // TODO fix return type
     // TODO remove hashTable
     //template<typename reader_t>
-    int scan_color(const std::string& seq, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i) {
+    int scan_color(const std::string& seq, unordered_map<std::string, std::unordered_set<int>>& hashTable, int64_t& i) {
         // this is the same as add_sequence but with genomes(colors) instead of unitigs
-
+        std::cerr << "i= " << i << endl;
         std::cerr << seq<< std::endl;
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();

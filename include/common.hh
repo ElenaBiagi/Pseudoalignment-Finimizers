@@ -72,18 +72,16 @@ int64_t lookup_from_finimizer_dictionary(int64_t finimizer_colex, const sdsl::ra
 }
 
 
-// If a kmer exists, it returns:
-// kmers colex rank
-// finimizer end, finimizer colex rank
-tuple<vector<optional<int64_t>>,vector<optional< pair<int64_t, int64_t> > >, vector<optional< pair<int64_t, int64_t> > >> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, const sdsl::int_vector<>& LCS, const string& input, const sdsl::bit_vector& Ustart){ 
+// TODO simplify this removing what is not necessary
+// Do we want to count the number of found kmers? NO
+// unordered_set ?
+vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, const sdsl::int_vector<>& LCS, const string& input){ 
     const int64_t n_nodes = sbwt.number_of_subsets();
     const int64_t k = sbwt.get_k();
     const vector<int64_t>& C = sbwt.get_C_array();
     BoundedDeque<tuple<int64_t, int64_t, int64_t, int64_t>> all_fmin(input.size());
     const int64_t str_len = input.size();
     tuple<int64_t, int64_t, int64_t, int64_t> w_fmin = {n_nodes,k+1,n_nodes,str_len+1}; // {freq, len, I start, end}
-    vector<optional<int64_t>> colex_ranks(str_len, optional<int64_t>());
-    vector<optional< pair<int64_t, int64_t>>> finimizers(str_len, optional<pair<int64_t, int64_t>>());
 
     int64_t freq;
     int64_t count = 0;
@@ -94,9 +92,10 @@ tuple<vector<optional<int64_t>>,vector<optional< pair<int64_t, int64_t> > >, vec
     pair<int64_t, int64_t> I_new, I_kmer_new;
     int64_t I_start;
     tuple<int64_t, int64_t, int64_t, int64_t> curr_substr;
-    pair<int64_t, int64_t> best_Ustart = {-1,-1};
 
-    vector<optional<pair<int64_t, int64_t>>> best(str_len, optional<pair<int64_t, int64_t>>());
+    vector<string> Fmin;
+    Fmin.reserve(str_len-k+1);
+    int64_t last_pos = 0;
     
     // the idea is to start from the first pos which is i and move until finding something of ok freq
     // then drop the first char keeping track of which char you are starting from
@@ -162,28 +161,66 @@ tuple<vector<optional<int64_t>>,vector<optional< pair<int64_t, int64_t> > >, vec
                 }
                 all_fmin.push_back(curr_substr);
             }
-
-            // Ustart
-            if (I_kmer.first == I_kmer.second && Ustart[I_kmer.first]==1){ best_Ustart = {end, I_kmer.first};}
-
+            
+            //TODO do we want to keep this check??
             // Check if the kmer is found
             if (end - kmer_start + 1 == k){
             
-                count++;
+                count++; // counts the number of kmers?? not used now
                 while ((get<3>(w_fmin)-get<1>(w_fmin) +1) < kmer_start) {
                     all_fmin.pop_front();
                     w_fmin = all_fmin.front();
                 }
-                colex_ranks[kmer_start+k-1] = optional<int64_t>(I_kmer.first);
-                finimizers[kmer_start+k-1] = optional<pair<int64_t, int64_t>>({get<3>(w_fmin), get<2>(w_fmin)});
-                if (best_Ustart.first >= get<3>(w_fmin)){ best[kmer_start+k-1] = optional<pair<int64_t, int64_t>>(best_Ustart);}
+                
+                if (last_pos != get<3>(w_fmin) ) Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
+                last_pos = get<3>(w_fmin);
+
                 kmer_start++;
                 I_kmer = drop_first_char(end - kmer_start + 1, I_kmer, LCS, n_nodes);
             }
         }
     }
-    return tie(colex_ranks, finimizers, best);
+    return Fmin;
 }
+
+    vector<pair<int,float>> pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::unordered_set<int>>& hashTable){
+        // count the number of finimizers found
+        size_t found_fmin = Fmin.size();
+        std::cerr << found_fmin << " found Finimizers" << std::endl;
+        // count the number of colors found
+        set<int> found_colors = {};
+        vector<unordered_set<int>> found_colors_single = {};
+        found_colors_single.reserve(found_fmin);
+        for(const string& fmin : Fmin){
+            unordered_set<int> colors = hashTable.at(fmin);
+            found_colors_single.push_back(colors);
+            for(const int& c : colors){ found_colors.insert(c); }
+        }
+        vector<pair<int,float>> results = {};
+        results.reserve(found_colors.size());
+
+        // for every color found, (#finimizers with that color)/(#tot finimizers)
+        for (const int& c : found_colors){
+            int64_t c_found_fmin = 0;
+            for (const unordered_set<int>& f : found_colors_single){
+                if (f.count(c)){ c_found_fmin++;}
+            }
+            results.push_back({c,static_cast<float>(c_found_fmin/static_cast<float>(found_fmin))});
+            //answers.push_back(c,c_found_fmin/found_fmin})
+        }
+        results.push_back({-1,static_cast<float>(-1)});
+        //print_vector();
+
+        /* 
+        std::ofstream statsfile;
+        for (const pair<int,int64_t> p : results){
+            statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
+            statsfile << to_string(k) + "," + to_string(kmers_count+kmers_count_rev) + "," + to_string(number_of_queries);
+            statsfile.close();
+        } */
+        return results;
+    }
+
 
 string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimizers, int64_t n_kmers, int64_t n_nodes, int64_t t){
     int64_t new_number_of_fmin = finimizers.size();
@@ -204,3 +241,24 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     write_log("Avg length: " + to_string(static_cast<float>(sum_len)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
     return result;
 }
+
+    std::ostream& operator<<(std::ostream& os, const std::unordered_set<int>& set) {
+    os << "{";
+    for (auto it = set.begin(); it != set.end(); ++it) {
+        os << *it;
+        if (std::next(it) != set.end()) {
+            os << ", ";
+        }
+    }
+    os << "}";
+    return os;
+}
+
+    void printHashTable(const std::unordered_map<std::string, std::unordered_set<int>>& hashTable) {
+        std::cerr << "HASH TABLE" << std::endl;
+        for (const auto& pair : hashTable) {
+            std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
+        }
+        std::cerr << "HASH TABLE done" << std::endl;
+
+    }

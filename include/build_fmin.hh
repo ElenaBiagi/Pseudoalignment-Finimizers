@@ -427,7 +427,7 @@ int build_fmin(int argc, char** argv) {
             outfile << result; // Append the string to the file
             outfile << "\n";
             outfile.close(); // Close the file
-            std::cout << "String appended to the file successfully." << std::endl;
+            std::cerr << "String appended to the file successfully." << std::endl;
         } else {
             std::cerr << "Error: Unable to open file." << std::endl;
         }
