@@ -113,7 +113,7 @@ public:
     sdsl::int_vector<> global_offsets;
     sdsl::bit_vector Ustart;
     sdsl::rank_support_v5<> Ustart_rs;
-    std::unordered_map<std::string, std::vector<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+    std::unordered_map<std::string, std::unordered_set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
 
 
     FinimizerIndex() {}
@@ -142,51 +142,14 @@ public:
 
 
         //Find kmers and Finimizers together
-        tuple<vector<optional<int64_t>>,vector<optional< pair<int64_t, int64_t> > >, vector<optional< pair<int64_t, int64_t> >>>colex_finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query, Ustart);
-        vector<optional<int64_t>> kmer_colex_ranks = get<0>(colex_finimizers);
-        vector<optional< pair<int64_t, int64_t>>> finimizers_ends_colex = get<1>(colex_finimizers);
-        vector<optional< pair<int64_t, int64_t>>> rightmost_Ustart = get<2>(colex_finimizers);
+        vector<string> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
+        //TODO Check the colors for every finimizer found
+        pseudoalignemnt_stats(Finimizers, hashTable);
 
-        for(int64_t kmer_end = k-1; kmer_end < query_len; kmer_end++) {
-
-            if(kmer_colex_ranks[kmer_end].has_value()){
-                // kmer exists
-                int64_t global_kmer_end;
-                int64_t finimizer_end = finimizers_ends_colex[kmer_end].value().first;
-                
-                //cout << "Finimizer ends at: " << finimizer_end << endl; //<< " with len " << shortest_unique_lengths[finimizer_end].value() << endl;
-                //optional<pair<int64_t, int64_t>> rightmost_branch_end = get_rightmost_Ustart(query, kmer_end, finimizer_end, finimizers_ends_colex, sbwt, Ustart);
-                optional<pair<int64_t, int64_t>> rightmost_branch_end = rightmost_Ustart[kmer_end];
-                if(rightmost_branch_end.has_value()) {
-                    // Look up from the branch dictionary
-                    int64_t p = rightmost_branch_end.value().first;
-                    int64_t colex = rightmost_branch_end.value().second; 
-                    // Get the global off set of the end of the k-mer
-                    global_kmer_end = lookup_from_branch_dictionary(colex, k, Ustart_rs, unitigs);
-                    global_kmer_end += kmer_end - p; // Shift to the right place in the unitig
-                } else {
-                    //Look up from Finimizer dictionary
-                    int64_t p = finimizer_end;
-                    //int64_t colex = shortest_unique_colex_ranks[p].value();
-                    int64_t colex = finimizers_ends_colex[kmer_end].value().second;
-
-                    global_kmer_end = lookup_from_finimizer_dictionary(colex, fmin_rs, global_offsets);
-                    global_kmer_end += kmer_end - p; // Shift to the right place in the unitig
-                }
-                // A kmer has been found 
-                add_to_query_result(global_kmer_end, answer);
-                if ((kmer_end + 1)< query.size()){
-                    walk_in_unitigs(query, unitigs, global_kmer_end, answer, kmer_end, k);
-                }
-                
-            } else { 
-                answer.local_offsets.push_back({-1, -1});
-            } 
-        }
         return answer;
     }
 
-    void serialize_HashTable(const std::unordered_map<std::string, std::vector<int>>& hashTable, const std::string& hashTableName) const{
+    void serialize_HashTable(const std::unordered_map<std::string, std::unordered_set<int>>& hashTable, const std::string& hashTableName) const{
         std::ofstream hashTable_out(hashTableName, std::ios::binary);
         if (!hashTable_out) {
             std::cerr << "Error: Could not open file for writing!" << std::endl;
@@ -206,14 +169,16 @@ public:
             // Write the size of the value vector and the vector itself
             size_t valueSize = value.size();
             hashTable_out.write(reinterpret_cast<const char*>(&valueSize), sizeof(valueSize));
-            hashTable_out.write(reinterpret_cast<const char*>(value.data()), valueSize * sizeof(int));
+            for (const int elem : value) {
+                hashTable_out.write(reinterpret_cast<const char*>(&elem), sizeof(elem));
+            }
         }
 
         hashTable_out.close();
     }
 
-    std::unordered_map<std::string, std::vector<int>> load_HashTable(const std::string& hashTableName) {
-        std::unordered_map<std::string, std::vector<int>> hashTable;
+    std::unordered_map<std::string, std::unordered_set<int>> load_HashTable(const std::string& hashTableName) {
+        std::unordered_map<std::string, std::unordered_set<int>> hashTable;
 
         std::ifstream inFile(hashTableName, std::ios::binary);
         if (!inFile) {
@@ -235,10 +200,16 @@ public:
             // Read the value vector
             size_t valueSize;
             inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize));
-            std::vector<int> value(valueSize);
-            inFile.read(reinterpret_cast<char*>(value.data()), valueSize * sizeof(int));
+            std::unordered_set<int> value(value);
+            for (size_t j = 0; j < valueSize; ++j) {
+                int elem;
+                inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem));
+                value.insert(elem);
+            }
 
-            // Insert the key-value pair into the hash table
+        hashTable[key] = value;
+
+            // insert the key-value into the hash table
             hashTable[key] = value;
         }
 
@@ -340,7 +311,7 @@ public:
 
     // Takes ownership of sbwt and LCS
     template<typename reader_t>
-    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, reader_t& reader) {
+    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, reader_t& reader, const vector<string>& incolors) {
         index = make_unique<FinimizerIndex>();
         this->sbwt = move(sbwt); // Take ownership
         this->LCS = move(LCS); // Take ownership
@@ -354,7 +325,7 @@ public:
         global_offsets.reserve(n_nodes);
         global_offsets.resize(n_nodes, 0);
 
-        std::unordered_map<std::string, std::vector<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+        std::unordered_map<std::string, std::unordered_set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
 
         
         pair<PackedStrings, sdsl::bit_vector> unitig_data = permute_unitigs(*(this->sbwt), reader);
@@ -366,6 +337,7 @@ public:
         vector<char> unitig_buf;
         for(int64_t i = 0; i < unitigs.number_of_strings(); i++){
             int64_t len = unitigs.get(i, unitig_buf);
+            // we cannot iterate here and get finimizers colors as these are unitigs and not genomes
             set<tuple<int64_t, int64_t, int64_t>> new_search = add_sequence(unitig_buf.data(), fmin_bv, fmin_found, global_offsets, total_len, hashTable);
             total_len += len; 
             finimizers.insert(new_search.begin(), new_search.end());
@@ -380,7 +352,29 @@ public:
     
         print_finimizer_stats(finimizers, this->sbwt->number_of_kmers(), this->sbwt->number_of_subsets(), 1);
 
-        //TODO scan the whole strings again to get the list of colors for each finimizer using hash table
+        // Scan the genomes to get the list of colors for each finimizer using the hash table
+        typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
+        typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
+        for (int64_t i=0; i< incolors.size(); i++){
+            std::cerr << "scanning color " << i << std::endl;
+
+            bool gzip_colors = SeqIO::figure_out_file_format(incolors[i]).gzipped;
+
+            if (gzip_colors){
+                run_colors_file<in_colors_gzip>(incolors[i], hashTable, i);
+                //scan_color<in_colors_gzip>(incolors[i], hashTable, i);
+            }
+            else{
+                std::cerr << "running colors not gizipped" << std::endl;
+                run_colors_file<in_colors_no_gzip>(incolors[i], hashTable, i);
+                //scan_color<in_colors_no_gzip>(incolors[i], hashTable, i);
+            }
+            std::cerr << "DONE"<< std::endl;
+            // TODO add reverse complement
+            //const string reverse = sbwt::get_rc(incolors[i]);
+            //std::cerr << "string reversed" << std::endl;
+            //scan_color(reverse, hashTable, i);
+        }
 
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
@@ -394,7 +388,15 @@ public:
 
     }
 
-    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::vector<int>> hashTable) {
+    // TODO fix return type
+    template<typename reader_t>
+    int64_t run_colors_file(const string& infile, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i){
+        reader_t reader(infile);
+        write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
+        return from_reader_to_seq(reader, hashTable, i);
+    }
+
+    set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::unordered_set<int>> hashTable) {
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
         const vector<int64_t>& C = sbwt->get_C_array();
@@ -469,6 +471,87 @@ public:
             }
         }
         return count_all_w_fmin;
+    }
+
+    // TODO fix return type
+    // TODO remove hashTable
+    template<typename reader_t>
+    int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i) {
+        int64_t j =0;
+        while(true){
+            int64_t len = reader.get_next_read_to_buffer();
+            if(len == 0) [[unlikely]] break;
+
+            const std::string& seq =reader.read_buf;
+            scan_color(seq, hashTable, j);
+            std::cerr << seq<< std::endl;
+
+            const string reverse = sbwt::get_rc(reader.read_buf);
+            scan_color(reverse, hashTable, j);
+            j++;
+        }
+        return 1;
+    }
+    // TODO fix return type
+    // TODO remove hashTable
+    //template<typename reader_t>
+    int scan_color(const std::string& seq, unordered_map<std::string, std::unordered_set<int>> hashTable, int64_t i) {
+        // this is the same as add_sequence but with genomes(colors) instead of unitigs
+
+        std::cerr << seq<< std::endl;
+        const int64_t n_nodes = sbwt->number_of_subsets();
+        const int64_t k = sbwt->get_k();
+        const vector<int64_t>& C = sbwt->get_C_array();
+        int64_t freq;
+        BoundedDeque<tuple<int64_t, int64_t, int64_t, int64_t>> all_fmin(seq.size());
+        const int64_t str_len = seq.size();
+        tuple<int64_t, int64_t, int64_t, int64_t> w_fmin = {n_nodes,k+1,n_nodes,str_len}; // {freq, len, I start, start}
+
+        int64_t kmer = 0;
+        int64_t start = 0;
+        int64_t end;
+        pair<int64_t, int64_t> I = {0, n_nodes - 1};
+        int64_t I_start;
+        tuple<int64_t, int64_t, int64_t, int64_t> curr_substr;
+        char c;
+        char char_idx;
+        
+        for (end = 0; end < str_len; end++) {
+            c = static_cast<char>(seq[end] & ~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
+            //update the sbwt INTERVAL
+            I = this->sbwt->update_sbwt_interval(&c, 1, I);
+            freq = (I.second - I.first + 1);
+            I_start = I.first;
+            if (freq == 1){ // 1. rarest 
+                while (freq == 1) {  //2. shortest
+                    curr_substr = {freq, end - start + 1, I_start, end};
+                    // (2) drop the first char
+                    // When you drop the first char you are sure to find x_2..m since you found x_1..m before
+                    start++;
+                    I = drop_first_char(end - start + 1, I, *(this->LCS), n_nodes);
+                    freq = (I.second - I.first + 1);
+                    I_start = I.first;
+                }
+                if (w_fmin > curr_substr) {
+                    all_fmin.clear();
+                    w_fmin = curr_substr;
+                } else{
+                    while (all_fmin.back() > curr_substr) {all_fmin.pop_back();}
+                }
+                all_fmin.push_back(curr_substr);
+            }
+            if (end >= k -1 ){
+                // add the color to the finimizer
+                hashTable[seq.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))].insert(i);
+                kmer++;
+                // Check if the current minimizer is still in this window
+                while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
+                    all_fmin.pop_front();
+                    w_fmin = (all_fmin.size()==0) ? tuple<int64_t, int64_t, int64_t, int64_t> {n_nodes,k+1,kmer+1,kmer+k} : all_fmin.front();
+                }
+            }
+        }
+        return 1;
     }
 
     // Transfer ownership of the index out of the builder
