@@ -32,54 +32,54 @@ using namespace sbwt;
 
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const string& stats_filename){
+    std::cerr << "Inside run_fmin_queries_streaming" << endl;
     const int64_t k = index.sbwt->get_k();
     int64_t total_micros = 0;
-    int64_t number_of_queries = 0;
+    int64_t number_of_queries = 1; // TODO remove or fix
     int64_t kmers_count = 0 , kmers_count_rev = 0;
     int64_t total_positive = 0;
     vector<int64_t> out_buffer, out_buffer_rev;
 
-    int64_t query_seq=0;
+    vector<pair<int,float>> result;
+    vector<pair<int,float>> r_result;
     while(true){
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
-        FinimizerIndex::QueryResult result = index.search(reader.read_buf);
+        result = index.search(reader.read_buf);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
 
         //reverse compl
         const string reverse = sbwt::get_rc(reader.read_buf);
-        FinimizerIndex::QueryResult r_result = index.search(reverse);
-        int64_t tot_kmers = result.local_offsets.size();
-        int64_t str_len = reverse.length(); // the string and its reverse complement have the same length
-        for(int64_t i = 0; i < tot_kmers; i++){
-            int64_t unitig, pos;
-            if (result.local_offsets[i].first==-1) {
-                std::tie(unitig,pos) = r_result.local_offsets[str_len-k-i];
-            } else{
-                std::tie(unitig,pos) = result.local_offsets[i];
-            }
-            if(unitig != -1) total_positive++;
-            if(i > 0) out << ' ';
-            out << '(' << unitig << ',' << pos << ')';
-        }
-        out << '\n';
-
-        kmers_count += result.n_found;
-        kmers_count_rev += r_result.n_found;
-        number_of_queries += tot_kmers;//result.local_offsets.size();
+        r_result = index.search(reverse);
+        //int64_t tot_kmers = result.local_offsets.size();
+        //int64_t str_len = reverse.length(); // the string and its reverse complement have the same length
      
         total_micros += cur_time_micros() - t0;
     }
     write_log("k " + to_string(k), LogLevel::MAJOR);
     write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
-    write_log("Found kmers: " + to_string(kmers_count), LogLevel::MAJOR);
-    write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
-    write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
+    //write_log("Found kmers: " + to_string(kmers_count), LogLevel::MAJOR);
+    //write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
+    //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
+
+    /* std::ofstream statsfile;
+    statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
+    statsfile << to_string(k) + "," + to_string(kmers_count+kmers_count_rev) + "," + to_string(number_of_queries);
+    statsfile.close(); */
+
 
     std::ofstream statsfile;
     statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
-    statsfile << to_string(k) + "," + to_string(kmers_count+kmers_count_rev) + "," + to_string(number_of_queries);
+    if (!statsfile.is_open()) {
+        std::cerr << "Failed to open file: " << stats_filename << std::endl;
+        return 1;
+    }
+    for (const std::pair<int, float>& p : result) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+    statsfile << std::endl;
+    for (const std::pair<int, float>& p : r_result) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+    statsfile << std::endl;
     statsfile.close();
+
     return number_of_queries;
 }
 
