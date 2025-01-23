@@ -183,10 +183,10 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     return Fmin;
 }
 
-    vector<pair<int,float>> pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::unordered_set<int>>& hashTable){
+    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::unordered_set<int>>& hashTable, vector<pair<int,float>>& results){
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
-        std::cerr << found_fmin << " found Finimizers" << std::endl;
+        
         // count the number of colors found
         set<int> found_colors = {};
         vector<unordered_set<int>> found_colors_single = {};
@@ -194,10 +194,10 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
         for(const string& fmin : Fmin){
             unordered_set<int> colors = hashTable.at(fmin);
             found_colors_single.push_back(colors);
-            for(const int& c : colors){ found_colors.insert(c); }
+            for(const int& c : colors){found_colors.insert(c); }
         }
-        vector<pair<int,float>> results = {};
-        results.reserve(found_colors.size());
+        //std::cerr << found_fmin << " found Finimizers" << std::endl;
+        //std::cerr << found_colors.size() << " found colors" << std::endl;
 
         // for every color found, (#finimizers with that color)/(#tot finimizers)
         for (const int& c : found_colors){
@@ -206,22 +206,16 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 if (f.count(c)){ c_found_fmin++;}
             }
             results.push_back({c,static_cast<float>(c_found_fmin/static_cast<float>(found_fmin))});
+            //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
+            //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
             //answers.push_back(c,c_found_fmin/found_fmin})
         }
-        results.push_back({-1,static_cast<float>(-1)});
-        //print_vector();
-
-        /* 
-        std::ofstream statsfile;
-        for (const pair<int,int64_t> p : results){
-            statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
-            statsfile << to_string(k) + "," + to_string(kmers_count+kmers_count_rev) + "," + to_string(number_of_queries);
-            statsfile.close();
-        } */
-        return results;
+            for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
+        return;
     }
 
 
+//TODO remove?
 string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimizers, int64_t n_kmers, int64_t n_nodes, int64_t t){
     int64_t new_number_of_fmin = finimizers.size();
     int64_t sum_freq = 0;

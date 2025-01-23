@@ -40,20 +40,25 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     int64_t total_positive = 0;
     vector<int64_t> out_buffer, out_buffer_rev;
 
-    vector<pair<int,float>> result;
-    vector<pair<int,float>> r_result;
+    vector<vector<pair<int,float>>> result = {};
+
+    vector<vector<pair<int,float>>> r_result = {};
+    int i=0;
     while(true){
+        result.push_back({});
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
-        result = index.search(reader.read_buf);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
+        
+        index.search(reader.read_buf, result[i]);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
 
         //reverse compl
+        r_result.push_back({});
         const string reverse = sbwt::get_rc(reader.read_buf);
-        r_result = index.search(reverse);
+        index.search(reverse, r_result[i]);
         //int64_t tot_kmers = result.local_offsets.size();
         //int64_t str_len = reverse.length(); // the string and its reverse complement have the same length
-     
+        i++;
         total_micros += cur_time_micros() - t0;
     }
     write_log("k " + to_string(k), LogLevel::MAJOR);
@@ -69,15 +74,19 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
 
 
     std::ofstream statsfile;
-    statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
+    statsfile.open(stats_filename);//, std::ios_base::app); // append instead of overwrite
     if (!statsfile.is_open()) {
         std::cerr << "Failed to open file: " << stats_filename << std::endl;
         return 1;
     }
-    for (const std::pair<int, float>& p : result) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
-    statsfile << std::endl;
-    for (const std::pair<int, float>& p : r_result) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
-    statsfile << std::endl;
+    for (int j = 0; j<i; j++ ){
+        for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+        statsfile << std::endl;
+        for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+        statsfile << std::endl;
+        statsfile << std::endl;
+    }
+    
     statsfile.close();
 
     return number_of_queries;
@@ -193,12 +202,12 @@ int search_fmin(int argc, char** argv){
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);
     
-    std::ofstream statsfile2;
-    statsfile2.open(index_prefix + "stats.txt", std::ios_base::app); // append instead of overwrite
+    /* std::ofstream statsfile2;
+    statsfile2.open(index_prefix + ".stats.txt", std::ios_base::app); // append instead of overwrite
     string results = to_string(number_of_queries);
-    statsfile2 << "," + to_string((double)new_total_micros / number_of_queries);
+    statsfile2 << "," + to_string((double)new_total_micros / number_of_queries); */
     
-    int64_t bytes = index.size_in_bytes();
+    /* int64_t bytes = index.size_in_bytes();
     write_log("bytes: " + to_string(bytes), LogLevel::MAJOR);
     statsfile2 <<  "," + to_string(bytes);
     statsfile2 << "," + to_string(static_cast<double>(bytes*8)/index.sbwt->number_of_kmers()) + "\n";
@@ -207,7 +216,8 @@ int search_fmin(int argc, char** argv){
 
     int64_t total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)total_micros / number_of_queries), LogLevel::MAJOR);
-    
+    */
+
     return 0;
 
 }
