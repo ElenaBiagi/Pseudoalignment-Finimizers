@@ -142,14 +142,13 @@ public:
         //QueryResult answer{{}, 0};
         //if(query.size() < k) answer; 
 
-        vector<pair<int,float>> results;
-        if (query.size() < k) results; 
+        if (query.size() < k) {}; 
 
         //Find kmers and Finimizers together
         vector<string> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
         //TODO Check the colors for every finimizer found
-        results = pseudoalignemnt_stats(Finimizers, hashTable);
-        printHashTable(hashTable);
+        vector<pair<int,float>> results = pseudoalignemnt_stats(Finimizers, this->hashTable);
+
         return results;//answer;
     }
 
@@ -171,18 +170,26 @@ public:
             hashTable_out.write(reinterpret_cast<const char*>(&keySize), sizeof(keySize));
             hashTable_out.write(key.data(), keySize);
 
-            // Write the size of the value vector and the vector itself
+            // Write the size of the value set and the set itself
             size_t valueSize = value.size();
             hashTable_out.write(reinterpret_cast<const char*>(&valueSize), sizeof(valueSize));
             for (const int elem : value) {
                 hashTable_out.write(reinterpret_cast<const char*>(&elem), sizeof(elem));
             }
         }
-
         hashTable_out.close();
+
+        std::cerr << "Serializing Hash Table:" << std::endl;
+        for (const auto& [key, value] : hashTable) {
+            std::cerr << "Key: " << key << " -> Values: ";
+            for (const int v : value) {
+                std::cerr << v << " ";
+            }
+            std::cerr << std::endl;
+        }
     }
 
-    std::unordered_map<std::string, std::unordered_set<int>> load_HashTable(const std::string& hashTableName) {
+/*     std::unordered_map<std::string, std::unordered_set<int>> load_HashTable(const std::string& hashTableName) {
     std::unordered_map<std::string, std::unordered_set<int>> hashTable;
 
     std::ifstream inFile(hashTableName, std::ios::binary);
@@ -219,8 +226,67 @@ public:
     inFile.close();
     return hashTable;
 }
+ */
+    
+    std::unordered_map<std::string, std::unordered_set<int>> load_HashTable(const std::string& hashTableName) {
+    //std::unordered_map<std::string, std::unordered_set<int>> hashTable;
+    hashTable = this->hashTable;
 
-    // TODO: add hash table
+    std::ifstream inFile(hashTableName, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Error: Could not open file for reading!" << std::endl;
+        return hashTable;
+    }
+
+    // Read the number of elements in the hash table
+    size_t hashTableSize;
+    if (!inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize))) {
+        std::cerr << "Error: Failed to read hash table size!" << std::endl;
+        return hashTable;
+    }
+
+    for (size_t i = 0; i < hashTableSize; ++i) {
+        // Read the key
+        size_t keySize;
+
+        if (!inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize))) {
+            std::cerr << "Error: Failed to read key size!" << std::endl;
+            return hashTable;
+        }
+
+        std::string key(keySize, '\0');
+        if (!inFile.read(&key[0], keySize)) {
+            std::cerr << "Error: Failed to read key!" << std::endl;
+            return hashTable;
+        }
+
+        // Read the value set
+        size_t valueSize;
+
+        if (!inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize))) {
+            std::cerr << "Error: Failed to read value size!" << std::endl;
+            return hashTable;
+        }
+
+        std::unordered_set<int> value;
+        for (size_t j = 0; j < valueSize; ++j) {
+            int elem;
+            if (!inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem))) {
+                std::cerr << "Error: Failed to read value element!" << std::endl;
+                return hashTable;
+            }
+            value.insert(elem);
+        }
+
+        // Insert the key-value pair into the hash table
+        hashTable[key] = value;
+
+    }
+
+    inFile.close();
+    return hashTable;
+}
+
     void serialize(const string& index_prefix) const {
         std::ofstream global_offsets_out(index_prefix + ".O.sdsl");
         sdsl::serialize(global_offsets, global_offsets_out);
@@ -280,6 +346,7 @@ public:
 
         load_HashTable(index_prefix + ".ht.BIN");
         std::cerr << "hashTable loaded" << std::endl;
+        //printHashTable(hashTable);
     }
 
     // TODO: add hash table (later. not relevant now)
@@ -373,7 +440,6 @@ public:
             }
             std::cerr << "DONE"<< std::endl;
         }
-        printHashTable(hashTable);
 
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
