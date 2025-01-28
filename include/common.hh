@@ -74,7 +74,7 @@ int64_t lookup_from_finimizer_dictionary(int64_t finimizer_colex, const sdsl::ra
 
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? NO
-// unordered_set ?
+// set ?
 vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, const sdsl::int_vector<>& LCS, const string& input){ 
     const int64_t n_nodes = sbwt.number_of_subsets();
     const int64_t k = sbwt.get_k();
@@ -183,34 +183,48 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     return Fmin;
 }
 
-    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::unordered_set<int>>& hashTable, vector<pair<int,float>>& results){
+    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,float>>& results, set<int>& intersection){
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         
         // count the number of colors found
         set<int> found_colors = {};
-        vector<unordered_set<int>> found_colors_single = {};
+        vector<set<int>> found_colors_single = {};
         found_colors_single.reserve(found_fmin);
         for(const string& fmin : Fmin){
-            unordered_set<int> colors = hashTable.at(fmin);
+            //std::cerr << fmin << ", ";
+            set<int> colors = hashTable.at(fmin);
             found_colors_single.push_back(colors);
             for(const int& c : colors){found_colors.insert(c); }
         }
+        //std::cerr << std::endl;
         //std::cerr << found_fmin << " found Finimizers" << std::endl;
         //std::cerr << found_colors.size() << " found colors" << std::endl;
 
         // for every color found, (#finimizers with that color)/(#tot finimizers)
         for (const int& c : found_colors){
             int64_t c_found_fmin = 0;
-            for (const unordered_set<int>& f : found_colors_single){
+            for (const set<int>& f : found_colors_single){
                 if (f.count(c)){ c_found_fmin++;}
             }
-            results.push_back({c,static_cast<float>(c_found_fmin/static_cast<float>(found_fmin))});
+            float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin));
+            if (fraction > 0.8){results.push_back({c,fraction});}
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
-            //answers.push_back(c,c_found_fmin/found_fmin})
         }
-            for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
+            //for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
+        // intersection
+        intersection = found_colors_single[0];
+
+        // Iterate through the remaining sets
+        for (size_t i = 1; i < found_colors_single.size(); ++i) {
+            set<int> temp;
+            set_intersection(intersection.begin(), intersection.end(),
+                                found_colors_single[i].begin(), found_colors_single[i].end(),
+                                std::inserter(temp, temp.begin()));
+            intersection = std::move(temp);
+        }
+        
         return;
     }
 
@@ -236,7 +250,7 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     return result;
 }
 
-    std::ostream& operator<<(std::ostream& os, const std::unordered_set<int>& set) {
+    std::ostream& operator<<(std::ostream& os, const std::set<int>& set) {
     os << "{";
     for (auto it = set.begin(); it != set.end(); ++it) {
         os << *it;
@@ -248,7 +262,7 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     return os;
 }
 
-    void printHashTable(const std::unordered_map<std::string, std::unordered_set<int>>& hashTable) {
+    void printHashTable(const std::unordered_map<std::string, std::set<int>>& hashTable) {
         std::cerr << "HASH TABLE" << std::endl;
         for (const auto& pair : hashTable) {
             std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
@@ -256,3 +270,60 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
         std::cerr << "HASH TABLE done" << std::endl;
 
     }
+
+
+//old
+//used in build-verify
+vector<string> remove_ns(const string& unitig, const int64_t k){
+    vector<string> new_unitigs;
+    const int64_t str_len = unitig.size();
+    int64_t start = 0;
+    char c;
+    char char_idx;
+    for (int64_t i = 0; i < str_len;i++){
+        c = static_cast<char>(unitig[i] &~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
+        char_idx = get_char_idx(c);
+        if (char_idx == -1) [[unlikely]] {
+            if ((i - start + 1) >= k ){
+                string new_seq = unitig.substr(start,(i - start + 1));
+                new_unitigs.push_back(new_seq);
+            }
+            start = i + 1;
+        }
+    }
+    if ((str_len - start) >= k ){
+        string new_seq = unitig.substr(start,(str_len - start));
+        new_unitigs.push_back(new_seq);
+    }
+    return new_unitigs;
+}
+
+//not used
+/* void remove_N_from_string(std::string &s) {
+    s.erase(std::remove(s.begin(), s.end(), 'N'), s.end());
+} */
+const std::string remove_N_from_string(const std::string &input) {
+    std::string result = input;
+    result.erase(std::remove(result.begin(), result.end(), 'N'), result.end());
+    return result; // Return the resulting string as const
+}
+
+vector< std::string> split_by_N(const std::string &input, const int64_t k) {
+    std::vector<std::string> result;
+    size_t start = 0;
+    size_t end = 0;
+
+    while ((end = input.find('N', start)) != std::string::npos) {
+        if (end > start+k-2) { // Exclude strings shorter than k
+            result.emplace_back(input.substr(start, end - start));
+        }
+        start = end + 1;
+    }
+
+    // Add the last part if it's at least k characters long
+    if (start+k-2< input.size()) {
+        result.emplace_back(input.substr(start));
+    }
+
+    return result;
+}

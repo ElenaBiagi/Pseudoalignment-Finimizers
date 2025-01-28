@@ -213,30 +213,6 @@ string print_shortest_finimizer_stats(const plain_matrix_sbwt_t& sbwt, const sds
     return print_finimizer_stats(count_all_w_fmin, sbwt.number_of_kmers(), sbwt.number_of_subsets(), t);
 }
 
-vector<string> remove_ns(const string& unitig, const int64_t k){
-    vector<string> new_unitigs;
-    const int64_t str_len = unitig.size();
-    int64_t start = 0;
-    char c;
-    char char_idx;
-    for (int64_t i = 0; i < str_len;i++){
-        c = static_cast<char>(unitig[i] &~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
-        char_idx = get_char_idx(c);
-        if (char_idx == -1) [[unlikely]] {
-            if ((i - start + 1) >= k ){
-                string new_seq = unitig.substr(start,(i - start + 1));
-                new_unitigs.push_back(new_seq);
-            }
-            start = i + 1;
-        }
-    }
-    if ((str_len - start) >= k ){
-        string new_seq = unitig.substr(start,(str_len - start));
-        new_unitigs.push_back(new_seq);
-    }
-    return new_unitigs;
-}
-
 template<typename sbwt_t, typename reader_t>
 string run_fmin_streaming(reader_t& reader, const string& index_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t, const string& type, const vector<string>& incolors){
 

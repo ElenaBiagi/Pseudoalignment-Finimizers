@@ -41,21 +41,28 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     vector<int64_t> out_buffer, out_buffer_rev;
 
     vector<vector<pair<int,float>>> result = {};
+    //vector<vector<pair<int,float>>> r_result = {};
 
-    vector<vector<pair<int,float>>> r_result = {};
+    vector<set<int>> intersection = {};
+    //vector<set<int>> r_intersection = {};
+
+
+    
     int i=0;
     while(true){
         result.push_back({});
+        intersection.push_back({});
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
-        
-        index.search(reader.read_buf, result[i]);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
+        string seq = remove_N_from_string(reader.read_buf);
+        index.search(seq, result[i], intersection[i]);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
 
-        //reverse compl
+        /* //reverse compl is already in the BUILD PHASE 
         r_result.push_back({});
-        const string reverse = sbwt::get_rc(reader.read_buf);
-        index.search(reverse, r_result[i]);
+        r_intersection.push_back({});
+        const string reverse = sbwt::get_rc(seq);
+        index.search(reverse, r_result[i], r_intersection[i]); */
         //int64_t tot_kmers = result.local_offsets.size();
         //int64_t str_len = reverse.length(); // the string and its reverse complement have the same length
         i++;
@@ -79,13 +86,35 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
         std::cerr << "Failed to open file: " << stats_filename << std::endl;
         return 1;
     }
-    for (int j = 0; j<i; j++ ){
+    // correct
+/*     for (int j = 0; j<i; j++ ){
         for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
         statsfile << std::endl;
         for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
         statsfile << std::endl;
         statsfile << std::endl;
+    } */
+    // Compare with Themisto
+    for (int j = 0; j<i; j++ ){
+        statsfile << j << ": ";
+        //for (const std::pair<int, float>& p : result[j]) { statsfile << p.first << " " ; }
+        for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+
+        /* statsfile << std::endl;
+        statsfile << j << ": ";
+        //for (const std::pair<int, float>& p : r_result[j]) {statsfile << p.first << " "; }
+        for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+ */
+        statsfile << std::endl;
+        statsfile << "Intersection = { ";
+        for (const int& c : intersection[j]) {statsfile << c << ", "; }
+        statsfile << "}" << std::endl;
+        /* statsfile << "Intersection = { ";
+        for (const int& c : r_intersection[j]) {statsfile << c << ", "; }
+        statsfile << "}" << std::endl; */
+        statsfile << std::endl;
     }
+    // Intersection
     
     statsfile.close();
 
