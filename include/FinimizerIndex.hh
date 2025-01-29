@@ -263,7 +263,7 @@ public:
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
         typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
         for (int i=0; i< incolors.size(); i++){ // colors are likely not a huge number
-            std::cerr << "scanning color " << i << std::endl;
+            //std::cerr << "scanning color " << i << std::endl;
 
             bool gzip_colors = SeqIO::figure_out_file_format(incolors[i]).gzipped;
 
@@ -407,7 +407,7 @@ public:
         int64_t freq;
         BoundedDeque<tuple<int64_t, int64_t, int64_t, int64_t>> all_fmin(seq.size());
         const int64_t str_len = seq.size();
-        tuple<int64_t, int64_t, int64_t, int64_t> w_fmin = {n_nodes,k+1,n_nodes,str_len}; // {freq, len, I start, start}
+        tuple<int64_t, int64_t, int64_t, int64_t> w_fmin = {n_nodes,k+1,n_nodes,str_len}; // {freq, len, I start, end}
 
         int64_t kmer = 0;
         int64_t start = 0;
@@ -419,12 +419,12 @@ public:
         
         for (end = 0; end < str_len; end++) {
             c = static_cast<char>(seq[end] & ~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
-            /* int64_t char_idx = get_char_idx(c);
+/*             int64_t char_idx = get_char_idx(c);
             if (char_idx == -1) [[unlikely]]{
                 cerr << "Error: unknown character: " << c << endl;
                 cerr << "This works with the DNA alphabet = {A,C,G,T}" << endl;
                 return {};
-            }else{ */
+            } */
             //update the sbwt INTERVAL
             I = this->sbwt->update_sbwt_interval(&c, 1, I);
                 freq = (I.second - I.first + 1);
@@ -459,7 +459,7 @@ public:
                     kmer++;
                     // Check if the current minimizer is still in this window
                     while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
-                        all_fmin.pop_front();
+                         all_fmin.pop_front();
                         w_fmin = (all_fmin.size()==0) ? tuple<int64_t, int64_t, int64_t, int64_t> {n_nodes,k+1,kmer+1,kmer+k} : all_fmin.front();
                     }
                 }

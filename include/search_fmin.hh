@@ -96,19 +96,23 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     } */
     // Compare with Themisto
     for (int j = 0; j<i; j++ ){
-        statsfile << j << ": ";
-        //for (const std::pair<int, float>& p : result[j]) { statsfile << p.first << " " ; }
-        for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
+        statsfile << j << " ";
+        for (const std::pair<int, float>& p : result[j]) { statsfile << p.first << " " ; }
+        //for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
 
         /* statsfile << std::endl;
         statsfile << j << ": ";
         //for (const std::pair<int, float>& p : r_result[j]) {statsfile << p.first << " "; }
         for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
  */
+        
+
+        /* 
         statsfile << std::endl;
         statsfile << "Intersection = { ";
         for (const int& c : intersection[j]) {statsfile << c << ", "; }
-        statsfile << "}" << std::endl;
+        statsfile << "}" << std::endl; */
+        // reverse
         /* statsfile << "Intersection = { ";
         for (const int& c : r_intersection[j]) {statsfile << c << ", "; }
         statsfile << "}" << std::endl; */
