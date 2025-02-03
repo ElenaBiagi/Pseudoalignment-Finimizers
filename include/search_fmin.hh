@@ -97,7 +97,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     // Compare with Themisto
     for (int j = 0; j<i; j++ ){
         statsfile << j << " ";
-        for (const std::pair<int, float>& p : result[j]) { statsfile << p.first << " " ; }
+        for (const std::pair<int, float>& p : result[j]) { {statsfile << p.first << " " ; }}
         //for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
 
         /* statsfile << std::endl;

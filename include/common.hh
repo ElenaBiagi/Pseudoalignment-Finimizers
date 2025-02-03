@@ -186,7 +186,7 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,float>>& results, set<int>& intersection){
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
-        
+        size_t rm_fmin = 0; // finimizers not found in the index
         // count the number of colors found
         set<int> found_colors = {};
         vector<set<int>> found_colors_single = {};
@@ -194,36 +194,48 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
         for(const string& fmin : Fmin){
             //std::cerr << fmin << ", ";
             set<int> colors = hashTable.at(fmin);
-            found_colors_single.push_back(colors);
-            for(const int& c : colors){found_colors.insert(c); }
+            try {
+                std::set<int> colors = hashTable.at(fmin);
+                found_colors_single.push_back(colors);
+                for(const int& c : colors){found_colors.insert(c); }
+            } catch (const std::out_of_range& e) {
+                rm_fmin++;
+            }
         }
-        //std::cerr << std::endl;
-        //std::cerr << found_fmin << " found Finimizers" << std::endl;
+        if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
+        //std::cerr << found_fmin - rm_fmin << " found Finimizers" << std::endl;
         //std::cerr << found_colors.size() << " found colors" << std::endl;
 
-        // for every color found, (#finimizers with that color)/(#tot finimizers)
+        // for every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
         for (const int& c : found_colors){
             int64_t c_found_fmin = 0;
             for (const set<int>& f : found_colors_single){
                 if (f.count(c)){ c_found_fmin++;}
             }
-            float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin));
+            float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin-rm_fmin));
             if (fraction > 0.8){results.push_back({c,fraction});}
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
         }
             //for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
+        
         // intersection
-        intersection = found_colors_single[0];
+        /* 
+        if (found_colors_single.empty()){
+            intersection = {};
+        } else {
+        
+            intersection = found_colors_single[0];
 
-        // Iterate through the remaining sets
-        for (size_t i = 1; i < found_colors_single.size(); ++i) {
-            set<int> temp;
-            set_intersection(intersection.begin(), intersection.end(),
-                                found_colors_single[i].begin(), found_colors_single[i].end(),
-                                std::inserter(temp, temp.begin()));
-            intersection = std::move(temp);
-        }
+            // Iterate through the remaining sets
+            for (size_t i = 1; i < found_colors_single.size(); ++i) {
+                set<int> temp;
+                set_intersection(intersection.begin(), intersection.end(),
+                                    found_colors_single[i].begin(), found_colors_single[i].end(),
+                                    std::inserter(temp, temp.begin()));
+                intersection = std::move(temp);
+            } 
+        }*/
         
         return;
     }
@@ -313,15 +325,15 @@ vector< std::string> split_by_N(const std::string &input, const int64_t k) {
     size_t start = 0;
     size_t end = 0;
 
-    while ((end = input.find('N', start)) != std::string::npos) {
-        if (end > start+k-2) { // Exclude strings shorter than k
+    while ((end = input.find_first_of("BDEFHIJKLMNOPQRSUVWXYZbdefhijklmnopqrstuvwxyz", start)) != std::string::npos) {
+        if (end - start +1 >= k) { // Exclude strings shorter than k
             result.emplace_back(input.substr(start, end - start));
         }
         start = end + 1;
     }
 
     // Add the last part if it's at least k characters long
-    if (start+k-2< input.size()) {
+    if (input.size()-start >=k) {
         result.emplace_back(input.substr(start));
     }
 
