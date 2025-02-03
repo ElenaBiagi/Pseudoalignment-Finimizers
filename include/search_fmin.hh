@@ -230,7 +230,7 @@ int search_fmin(int argc, char** argv){
     cerr << "k = "<< to_string(k);
     cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
 
-    number_of_queries += run_fmin_queries(query_files, output_files, index_prefix + ".stats", index);
+    number_of_queries += run_fmin_queries(query_files, output_files, opts["out-file"].as<string>() + ".stats", index);
     int64_t new_total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);
