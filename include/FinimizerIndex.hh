@@ -379,18 +379,16 @@ public:
 
             //const std::string& seq = remove_N_from_string(reader.read_buf);
             vector<string> seq_vector = split_by_N(reader.read_buf, k);
-
             for (const string &seq : seq_vector){
                 scan_color(seq, hashTable, i);
             }
             std::cerr << "done seq"<< std::endl;
             
             for (const string &seq : seq_vector){
-                string reverse = sbwt::get_rc(seq);
+                const string reverse = sbwt::get_rc(seq);
                 scan_color(reverse, hashTable, i);
             }
             std::cerr << "done rev"<< std::endl;
-
 
         }
         return 1;
@@ -398,8 +396,18 @@ public:
     // TODO fix return type
     int scan_color(const std::string& seq, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
         // this is the same as add_sequence but with genomes(colors) instead of unitigs
-        std::cerr << "i= " << i << endl;
+        //std::cerr << "i= " << i << endl;
         //std::cerr << seq<< std::endl;
+
+        /* std::unordered_set<char> distinct_chars;
+        // Insert each character into the set
+        for (char c : seq) { distinct_chars.insert(c);}
+        // Output the count of distinct characters
+        if (distinct_chars.size() > 4){
+            std::cerr << "Number of distinct characters: " << distinct_chars.size() << std::endl;
+            return 0;
+        } */
+
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
         const vector<int64_t>& C = sbwt->get_C_array();
@@ -427,6 +435,11 @@ public:
             } */
             //update the sbwt INTERVAL
             I = this->sbwt->update_sbwt_interval(&c, 1, I);
+            // TODO REMOVE CHECK
+            if (I.first ==-1){
+                std::cerr << "This should be impossible!, pos " << end << ", char " << c << ", len " << end - start + 1 << " " << seq.substr(start, end - start + 1 ) << std::endl;
+                return 0;
+            }
                 freq = (I.second - I.first + 1);
                 I_start = I.first;
                 if (freq == 1){ // 1. rarest 
@@ -457,6 +470,7 @@ public:
                     }
                     
                     kmer++;
+
                     // Check if the current minimizer is still in this window
                     while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
                          all_fmin.pop_front();
