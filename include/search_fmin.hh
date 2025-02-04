@@ -31,8 +31,8 @@ using namespace std;
 using namespace sbwt;
 
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const string& stats_filename){
-    std::cerr << "Inside run_fmin_queries_streaming" << endl;
+int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const string& stats_filename, const float& t){
+
     const int64_t k = index.sbwt->get_k();
     int64_t total_micros = 0;
     int64_t number_of_queries = 1; // TODO remove or fix
@@ -43,6 +43,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     vector<vector<pair<int,float>>> result = {};
     //vector<vector<pair<int,float>>> r_result = {};
 
+    // TODO REMOVE INTERSECTION
     vector<set<int>> intersection = {};
     //vector<set<int>> r_intersection = {};
 
@@ -56,7 +57,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
         string seq = remove_N_from_string(reader.read_buf);
-        index.search(seq, result[i], intersection[i]);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
+        index.search(seq, result[i], intersection[i], t);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
 
         /* //reverse compl is already in the BUILD PHASE 
         r_result.push_back({});
@@ -126,14 +127,14 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
 }
 
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_file(const string& infile, out_stream_t& out, const string& stats_filename, const FinimizerIndex& index){
+int64_t run_fmin_file(const string& infile, out_stream_t& out, const string& stats_filename, const FinimizerIndex& index, const float& t){
     reader_t reader(infile);
     write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
-    return run_fmin_queries_streaming(reader, out, index, stats_filename);
+    return run_fmin_queries_streaming(reader, out, index, stats_filename, t);
 }
 
 // Returns number of queries executed
-int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const string& stats_filename, const FinimizerIndex& index){
+int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const string& stats_filename, const FinimizerIndex& index, const float& t){
 
     if(outfiles.has_value()){
         if(infiles.size() != outfiles.value().size()){
@@ -152,17 +153,17 @@ int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<st
         if(gzip_input){
             if(outfiles.has_value()){
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, stats_filename, index);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, stats_filename, index, t);
             } else { // To stdout
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, stats_filename, index);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, stats_filename, index, t);
             }
         }
         else {
             if(outfiles.has_value()){
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, stats_filename, index);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, stats_filename, index, t);
             } else{ // To stdout
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, stats_filename, index);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, stats_filename, index, t);
             }
         }
     }
@@ -181,6 +182,8 @@ int search_fmin(int argc, char** argv){
         ("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
         ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
         ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
+        ("t", "Threshold", cxxopts::value<int64_t>()->default_value(std::to_string(0.8)))
+
         ("h,help", "Print usage")
     ;
 
@@ -220,6 +223,7 @@ int search_fmin(int argc, char** argv){
     string index_prefix = opts["index-file"].as<string>();
 
     int64_t number_of_queries = 0;
+    float t = opts["t"].as<float>();
 
     cerr << "Loading index..." << endl;
     FinimizerIndex index;
@@ -230,7 +234,7 @@ int search_fmin(int argc, char** argv){
     cerr << "k = "<< to_string(k);
     cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
 
-    number_of_queries += run_fmin_queries(query_files, output_files, opts["out-file"].as<string>() + ".stats", index);
+    number_of_queries += run_fmin_queries(query_files, output_files, opts["out-file"].as<string>() + ".stats", index, t);
     int64_t new_total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);

@@ -183,7 +183,7 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     return Fmin;
 }
 
-    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,float>>& results, set<int>& intersection){
+    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,float>>& results, set<int>& intersection, const float& t){
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
@@ -213,7 +213,14 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 if (f.count(c)){ c_found_fmin++;}
             }
             float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin-rm_fmin));
-            if (fraction > 0.8){results.push_back({c,fraction});}
+            // TODO FIX INTERSECTION
+            if (t==1){ 
+                if (fraction == t ){results.push_back({c,fraction});}
+            } else{
+                    if (fraction > t){results.push_back({c,fraction});}
+            }
+            //if (fraction > 0.8){results.push_back({c,fraction});}
+
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
         }
