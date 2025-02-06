@@ -31,7 +31,7 @@ using namespace std;
 using namespace sbwt;
 
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const string& stats_filename, const float& t){
+int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const float& t){
 
     const int64_t k = index.sbwt->get_k();
     int64_t total_micros = 0;
@@ -75,66 +75,35 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     //write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
     //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
 
-    /* std::ofstream statsfile;
-    statsfile.open(stats_filename, std::ios_base::app); // append instead of overwrite
-    statsfile << to_string(k) + "," + to_string(kmers_count+kmers_count_rev) + "," + to_string(number_of_queries);
-    statsfile.close(); */
-
-
-    std::ofstream statsfile;
-    statsfile.open(stats_filename);//, std::ios_base::app); // append instead of overwrite
-    if (!statsfile.is_open()) {
-        std::cerr << "Failed to open file: " << stats_filename << std::endl;
-        return 1;
-    }
-    // correct
-/*     for (int j = 0; j<i; j++ ){
-        for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
-        statsfile << std::endl;
-        for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
-        statsfile << std::endl;
-        statsfile << std::endl;
-    } */
     // Compare with Themisto
-    for (int j = 0; j<i; j++ ){
-        statsfile << j << " ";
-        for (const std::pair<int, float>& p : result[j]) { {statsfile << p.first << " " ; }}
-        //for (const std::pair<int, float>& p : result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
-
-        /* statsfile << std::endl;
-        statsfile << j << ": ";
-        //for (const std::pair<int, float>& p : r_result[j]) {statsfile << p.first << " "; }
-        for (const std::pair<int, float>& p : r_result[j]) { statsfile << "{ " << p.first << ", " << p.second << " } "; }
- */
-        
-
-        /* 
-        statsfile << std::endl;
-        statsfile << "Intersection = { ";
-        for (const int& c : intersection[j]) {statsfile << c << ", "; }
-        statsfile << "}" << std::endl; */
-        // reverse
-        /* statsfile << "Intersection = { ";
-        for (const int& c : r_intersection[j]) {statsfile << c << ", "; }
-        statsfile << "}" << std::endl; */
-        statsfile << std::endl;
-    }
-    // Intersection
     
-    statsfile.close();
+    for (int j = 0; j < i; j++) {
+        out << j << " ";
+        for (const std::pair<int, float>& p : result[j]) {
+            out << p.first << " ";
+        }
+        out << std::endl;
+    }
+    //for (const std::pair<int, float>& p : result[j]) { out << "{ " << p.first << ", " << p.second << " } "; }
+
+            // reverse
+        /* out << "Intersection = { ";
+        for (const int& c : r_intersection[j]) {out << c << ", "; }
+        out << "}" << std::endl; 
+        out << std::endl;*/
 
     return number_of_queries;
 }
 
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_file(const string& infile, out_stream_t& out, const string& stats_filename, const FinimizerIndex& index, const float& t){
+int64_t run_fmin_file(const string& infile, out_stream_t& out, const FinimizerIndex& index, const float& t){
     reader_t reader(infile);
     write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
-    return run_fmin_queries_streaming(reader, out, index, stats_filename, t);
+    return run_fmin_queries_streaming(reader, out, index, t);
 }
 
 // Returns number of queries executed
-int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const string& stats_filename, const FinimizerIndex& index, const float& t){
+int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const FinimizerIndex& index, const float& t){
 
     if(outfiles.has_value()){
         if(infiles.size() != outfiles.value().size()){
@@ -153,17 +122,17 @@ int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<st
         if(gzip_input){
             if(outfiles.has_value()){
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, stats_filename, index, t);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, index, t);
             } else { // To stdout
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, stats_filename, index, t);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, index, t);
             }
         }
         else {
             if(outfiles.has_value()){
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, stats_filename, index, t);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, index, t);
             } else{ // To stdout
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, stats_filename, index, t);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, index, t);
             }
         }
     }
@@ -182,7 +151,7 @@ int search_fmin(int argc, char** argv){
         ("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
         ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
         ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
-        ("t", "Threshold", cxxopts::value<int64_t>()->default_value(std::to_string(0.8)))
+        ("t", "Threshold", cxxopts::value<float>()->default_value("0.8"))
 
         ("h,help", "Print usage")
     ;
@@ -234,23 +203,12 @@ int search_fmin(int argc, char** argv){
     cerr << "k = "<< to_string(k);
     cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
 
-    number_of_queries += run_fmin_queries(query_files, output_files, opts["out-file"].as<string>() + ".stats", index, t);
+    number_of_queries += run_fmin_queries(query_files, output_files, index, t);
     int64_t new_total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);
     
-    /* std::ofstream statsfile2;
-    statsfile2.open(index_prefix + ".stats.txt", std::ios_base::app); // append instead of overwrite
-    string results = to_string(number_of_queries);
-    statsfile2 << "," + to_string((double)new_total_micros / number_of_queries); */
-    
-    /* int64_t bytes = index.size_in_bytes();
-    write_log("bytes: " + to_string(bytes), LogLevel::MAJOR);
-    statsfile2 <<  "," + to_string(bytes);
-    statsfile2 << "," + to_string(static_cast<double>(bytes*8)/index.sbwt->number_of_kmers()) + "\n";
-    statsfile2 << "," + to_string(index.sbwt->number_of_kmers()) + "\n";
-    statsfile2.close();
-
+    /* 
     int64_t total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)total_micros / number_of_queries), LogLevel::MAJOR);
     */
