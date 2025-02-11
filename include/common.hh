@@ -219,8 +219,6 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
             } else{
                     if (fraction > t){results.push_back({c,fraction});}
             }
-            //if (fraction > 0.8){results.push_back({c,fraction});}
-
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
         }
@@ -345,4 +343,39 @@ vector< std::string> split_by_N(const std::string &input, const int64_t k) {
     }
 
     return result;
+}
+
+//TODO we might want to print the stats of finimizers found in all the genomes
+void get_stats(std::unordered_map<std::string, std::set<int>>& hashTable){  
+    //std::unordered_map<std::string, int> genomes;
+    std::map<int, int> fminFreqCount;      
+    std::map<int, int> fminFreq;
+
+    std::map<int, int> freq;  // number of finimizers for each genome
+    std::cout << hashTable.size()<< std::endl;
+    for (const auto& [fmin, colors] : hashTable) {
+        //genomes[fmin] = colors.size();
+        size_t cs = colors.size();
+        fminFreqCount[cs]++;
+        //std::cout << fmin << ": " << cs << std::endl;
+        for (int c : colors) { // add +1 to every color/genome observed 
+            freq[c]++;
+        }
+    }
+    
+    for (const auto& [c, f] : freq) {
+        fminFreq[f]++; // number of genomes with f finimizers
+        std::cout << c << ": " << f << std::endl;
+    }
+
+    for (const auto& [cs, count] : fminFreqCount) {
+        //std::cout << cs << " " << count << std::endl; // number of finimizers that appear in x(count) genomes
+    }
+
+    for (const auto& [f, count] : fminFreq) {
+        //std::cout << f << " " << count << std::endl; // number of genomes with count finimmizers
+    }
+
+    
+    return;
 }

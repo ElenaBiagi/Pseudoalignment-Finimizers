@@ -226,6 +226,7 @@ public:
     unique_ptr<FinimizerIndex> index;
 
 
+
     // Takes ownership of sbwt and LCS
     template<typename reader_t>
     FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, reader_t& reader, const vector<string>& incolors) {
@@ -257,8 +258,6 @@ public:
         print_finimizer_stats(finimizers, this->sbwt->number_of_kmers(), this->sbwt->number_of_subsets(), 1);
 */
 
-        //TODO we might want to print the stats of finimizers found in all the genomes
-
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
         typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
@@ -276,11 +275,13 @@ public:
             std::cerr << "DONE"<< std::endl;
         }
 
+        // TODO extact statistics
+        get_stats(hashTable);
+        
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
         /* index->unitigs = std::move(unitigs); // Transfer ownership */
         index->hashTable = std::move(hashTable);
-
     }
 
     // TODO fix return type
