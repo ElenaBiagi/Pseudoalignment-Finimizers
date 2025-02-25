@@ -91,5 +91,6 @@ def main():
     #print(f'{avg_tot['Recall']:.2f}')
     #print(f'{avg_tot['F1 Score']:.2f}')
     
+
 if __name__ == "__main__":
     main()

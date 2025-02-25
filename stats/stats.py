@@ -35,7 +35,6 @@ def compare_files(file1_data, file2_data, genomes):
     }
     
     num_rows = len(file1_data)
-
     
     for row_num in file1_data:
         set1 = file1_data.get(row_num, set())
