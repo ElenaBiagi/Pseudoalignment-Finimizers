@@ -34,6 +34,9 @@ def compare_files(file1_data, file2_data, genomes):
         'Specificity': 0
     }
     
+    num_rows = len(file1_data)
+
+    
     for row_num in file1_data:
         set1 = file1_data.get(row_num, set())
         set2 = file2_data.get(row_num, set())
@@ -65,8 +68,8 @@ def compare_files(file1_data, file2_data, genomes):
         tot['Accuracy'] += accuracy
         tot['Specificity'] += specificity
     
-    avg_tot = {key: value / 100 for key, value in tot.items()}
-    
+    avg_tot = {key: value / num_rows for key, value in tot.items()}
+
     return results, avg_tot
 
 def main():
