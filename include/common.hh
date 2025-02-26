@@ -88,8 +88,8 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     int64_t start = 0;
     int64_t end;
     int64_t kmer_start = 0;
-    pair<int64_t, int64_t> I = {0, n_nodes - 1}, I_kmer = {0, n_nodes - 1};
-    pair<int64_t, int64_t> I_new, I_kmer_new;
+    pair<int64_t, int64_t> I = {0, n_nodes - 1};
+    pair<int64_t, int64_t> I_new;
     int64_t I_start;
     tuple<int64_t, int64_t, int64_t, int64_t> curr_substr;
 
@@ -113,33 +113,20 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
             I_new = sbwt.update_sbwt_interval(&c, 1, I);
             // (1) Finimizer(subseq) NOT found
             while(I_new.first == -1){
-                kmer_start = ++start;
+                //kmer_start = ++start;
+                start++;
                 if (start>end)[[unlikely]]{
                     I_new = {0, n_nodes - 1};
-                    I_kmer = I_new;
                     break;
                 }
                 I = drop_first_char(end - start, I, LCS, n_nodes); // The result (substr(start++,end)) cannot have freq == 1 as substring(start,end) has freq >1
                 I_new = sbwt.update_sbwt_interval(&c, 1, I);
-                I_kmer = I_new;
             }
             I = I_new;
             freq = (I.second - I.first + 1);
             I_start = I.first;
             // (2) Finimizer(subseq) freq > 0
-            // Check if the Kmer interval has to be updated
-            if ( start != kmer_start){
-                I_kmer_new = sbwt.update_sbwt_interval(&c, 1, I_kmer);
-                while(I_kmer_new.first == -1){
-                    // kmer NOT found
-                    kmer_start++;
-                    I_kmer = drop_first_char(end - kmer_start, I_kmer, LCS, n_nodes);
-                    I_kmer_new = sbwt.update_sbwt_interval(&c, 1, I_kmer);
-                } 
-                I_kmer = I_kmer_new;
-            } else { 
-                I_kmer = I;
-            }
+            
             // (2b) Finimizer found
             if (freq ==1){ // 1. rarest
                 while (freq == 1) { // 2. shortest
@@ -161,22 +148,24 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 }
                 all_fmin.push_back(curr_substr);
             }
-            
-            //TODO do we want to keep this check??
-            // Check if the kmer is found
+
+            // Check if we are in a kmer
             if (end - kmer_start + 1 == k){
             
                 count++; // counts the number of kmers?? not used now
-                while ((get<3>(w_fmin)-get<1>(w_fmin) +1) < kmer_start) {
+                while (((get<3>(w_fmin)-get<1>(w_fmin)) +1) < kmer_start) {// {freq, len, I start, end}
                     all_fmin.pop_front();
-                    w_fmin = all_fmin.front();
+                    w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<int64_t, int64_t, int64_t, int64_t>{n_nodes,k+1,n_nodes,kmer_start+k};
                 }
                 
-                if (last_pos != get<3>(w_fmin) ) Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
-                last_pos = get<3>(w_fmin);
+                if (all_fmin.size()>0){
+                    if (last_pos != get<3>(w_fmin) ) Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
+                    last_pos = get<3>(w_fmin);
+                }
+                
 
                 kmer_start++;
-                I_kmer = drop_first_char(end - kmer_start + 1, I_kmer, LCS, n_nodes);
+                //I_kmer = drop_first_char(end - kmer_start + 1, I_kmer, LCS, n_nodes);
             }
         }
     }
@@ -193,7 +182,6 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
         found_colors_single.reserve(found_fmin);
         for(const string& fmin : Fmin){
             //std::cerr << fmin << ", ";
-            set<int> colors = hashTable.at(fmin);
             try {
                 std::set<int> colors = hashTable.at(fmin);
                 found_colors_single.push_back(colors);
@@ -217,7 +205,7 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
             if (t==1){ 
                 if (fraction == t ){results.push_back({c,fraction});}
             } else{
-                    if (fraction > t){results.push_back({c,fraction});}
+                if (fraction > t){results.push_back({c,fraction});}
             }
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
