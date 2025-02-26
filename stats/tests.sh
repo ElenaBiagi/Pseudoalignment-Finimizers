@@ -20,9 +20,12 @@ do
     /Users/biagiele/try/Pseudoalignment-Finimizers/sample_random /Users/biagiele/try/Salmonella/Salmonella_concat.fa 100 200 > /Users/biagiele/try/queries/queries_Salmonella_100_200_${i}.fa 
 
     echo "2. Pseudoalignment with Finimizers"
+    for t in 0.6 0.65 0.7 0.75;
+    do
+        echo "t=$t"
 
-    /usr/bin/time -l /Users/biagiele/try/Pseudoalignment-Finimizers/benchmark search-fmin -i /Users/biagiele/try/Pseudoalignment-Finimizers/results/Salmonella_concat_31 -q /Users/biagiele/try/queries/queries_Salmonella_100_200_${i}.fa -o /Users/biagiele/try/Pseudoalignment-Finimizers/stats/out_fi_100_200_${i} 1> /Users/biagiele/try/Pseudoalignment-Finimizers/results/search_Salmonella-unitigs-k31.stdout 2> /Users/biagiele/try/Pseudoalignment-Finimizers/results/search_Salmonella-unitigs-k31.stderr
-
+        /usr/bin/time -l /Users/biagiele/try/Pseudoalignment-Finimizers/benchmark search-fmin -i /Users/biagiele/try/Pseudoalignment-Finimizers/results/Salmonella_concat_31 -q /Users/biagiele/try/queries/queries_Salmonella_100_200_${i}.fa -o /Users/biagiele/try/Pseudoalignment-Finimizers/stats/out_fi_100_200_${i} 1> /Users/biagiele/try/Pseudoalignment-Finimizers/results/search_Salmonella-unitigs-k31.stdout 2> /Users/biagiele/try/Pseudoalignment-Finimizers/results/search_Salmonella-unitigs-k31.stderr
+    done
     #rm /Users/biagiele/try/Pseudoalignment-Finimizers/stats/out_fi_100_200_${i}
     # Run Themisto
     #bash /Users/biagiele/try/themisto/run_themisto.sh
