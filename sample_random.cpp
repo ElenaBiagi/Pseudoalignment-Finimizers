@@ -28,7 +28,8 @@ vector<string> split_at_non_ACGT(const char* S, int64_t S_size) {
 }
 
 int main(int argc, char** argv) {
-    srand(time(0));
+    //srand(time(0));
+    srand(24); // reproducible
 
     if (argc < 4) {
         cerr << "Usage: " << argv[0] << " <sequence_file> <number_of_samples> <sample_read_length>" << endl;

@@ -106,8 +106,9 @@ int main(int argc, char** argv) {
     double percent = std::stod(argv[3]);
     int numCopies = std::stoi(argv[4]);
 
-    std::random_device rd;
-    std::mt19937 engine(rd());
+    //std::random_device rd;
+    //std::mt19937 engine(rd());
+    std::mt19937 engine(24); // reproducible
 
     // Read sequences from input file
     std::vector<std::string> sequences = ReadSequencesFromFile(inputFile);
