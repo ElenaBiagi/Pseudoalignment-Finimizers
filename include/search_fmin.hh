@@ -40,7 +40,8 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     int64_t total_positive = 0;
     vector<int64_t> out_buffer, out_buffer_rev;
 
-    vector<vector<pair<int,float>>> result = {};
+    //vector<vector<pair<int,float>>> result = {};
+    vector<vector<std::pair<int,uint64_t>>> result;
     //vector<vector<pair<int,float>>> r_result = {};
 
     // TODO REMOVE INTERSECTION
@@ -77,13 +78,26 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
 
     // Compare with Themisto
     
-    for (int j = 0; j < i; j++) {
+/*     for (int j = 0; j < i; j++) {
         out << j << " ";
         for (const std::pair<int, float>& p : result[j]) {
             out << p.first << " ";
         }
         out << std::endl;
+    } */
+
+    // Compare (genome id, # k-mer matched)
+    for (int j = 0; j < i; j++) {
+        out << j << " ";
+        std::sort(result[j].begin(), result[j].end(), [](const auto &f, const auto &s) {
+            return f.second > s.second;
+        });
+        for (const std::pair<int, float>& p : result[j]) {
+            out << p.first << ":" << p.second << " ";
+        }
+        out << std::endl;
     }
+
     //for (const std::pair<int, float>& p : result[j]) { out << "{ " << p.first << ", " << p.second << " } "; }
 
             // reverse

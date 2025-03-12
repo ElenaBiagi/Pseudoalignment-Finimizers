@@ -159,23 +159,31 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 }
                 
                 if (all_fmin.size()>0){
-                    if (last_pos != get<3>(w_fmin) ) Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
-                    last_pos = get<3>(w_fmin);
+                    // This avoids storing the same finimizer (same) multiple times for distinct kmers
+                    //if (last_pos != get<3>(w_fmin) ) {Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)))};
+                    //last_pos = get<3>(w_fmin);
+                    // TODO improve this: e.g. store a counter for every finimizer
+                    Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
                 }
                 
 
                 kmer_start++;
+
                 //I_kmer = drop_first_char(end - kmer_start + 1, I_kmer, LCS, n_nodes);
             }
         }
     }
+    if (count != Fmin.size()){
+        std::cerr << "total k-mers = " << count << ", total finimizers = " << Fmin.size()<< std::endl;
+    }
     return Fmin;
 }
 
-    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,float>>& results, set<int>& intersection, const float& t){
+    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,uint64_t>>& results, set<int>& intersection, const float& t){ // vector<pair<int,float>>& results
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
+
         // count the number of colors found
         set<int> found_colors = {};
         vector<set<int>> found_colors_single = {};
@@ -190,24 +198,39 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 rm_fmin++;
             }
         }
-        if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
+
+        //if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
+        
         //std::cerr << found_fmin - rm_fmin << " found Finimizers" << std::endl;
         //std::cerr << found_colors.size() << " found colors" << std::endl;
 
-        // for every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
+        // TODO all colors and not only the found ones (input?)
+        // it exists already vector<std::pair<int,uint64_t>> results;
+        results.reserve(found_colors.size());
+
         for (const int& c : found_colors){
             int64_t c_found_fmin = 0;
             for (const set<int>& f : found_colors_single){
                 if (f.count(c)){ c_found_fmin++;}
             }
+            std::pair<int,uint64_t>  p = {c,c_found_fmin};
+            results.emplace_back(p);
+            //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
+
+        /*    
+            // for every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
+
+
             float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin-rm_fmin));
+        
+        
             // TODO FIX INTERSECTION
             if (t==1){ 
                 if (fraction == t ){results.push_back({c,fraction});}
             } else{
                 if (fraction > t){results.push_back({c,fraction});}
-            }
-            //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
+            } */
+        
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
         }
             //for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }

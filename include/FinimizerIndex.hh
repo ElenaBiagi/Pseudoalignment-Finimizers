@@ -49,9 +49,9 @@ public:
     FinimizerIndex() {}
 
     //QueryResult 
-    void search(const std::string& query, vector<pair<int,float>>& results, set<int>& intersection, const float& t) const {
+    void search(const std::string& query, vector<pair<int,uint64_t>>& results, set<int>& intersection, const float& t) const {
   
-        std::cerr << "Searching " << query << std::endl;
+        //std::cerr << "Searching " << query << std::endl;
 
         const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
         const int64_t n_nodes = sbwt.number_of_subsets();
