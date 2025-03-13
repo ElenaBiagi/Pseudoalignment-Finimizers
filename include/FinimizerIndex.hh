@@ -49,7 +49,7 @@ public:
     FinimizerIndex() {}
 
     //QueryResult 
-    void search(const std::string& query, vector<pair<int,uint64_t>>& results, set<int>& intersection, const float& t) const {
+    void search(const std::string& query, unordered_map<int, uint64_t>& results, set<int>& intersection, const float& t) const {
   
         //std::cerr << "Searching " << query << std::endl;
 
@@ -62,8 +62,7 @@ public:
 
         if (query.size() < k) return; 
 
-        //TODO this is still excluding some kmers if a subtring is not found
-        vector<string> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
+        unordered_map<string, uint64_t> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
         // Check the colors for every finimizer found
         pseudoalignemnt_stats(Finimizers, this->hashTable, results, intersection, t);
 

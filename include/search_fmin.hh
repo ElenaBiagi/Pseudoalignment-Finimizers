@@ -41,7 +41,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     vector<int64_t> out_buffer, out_buffer_rev;
 
     //vector<vector<pair<int,float>>> result = {};
-    vector<vector<std::pair<int,uint64_t>>> result;
+    vector<unordered_map<int, uint64_t>> result;
     //vector<vector<pair<int,float>>> r_result = {};
 
     // TODO REMOVE INTERSECTION
@@ -88,24 +88,16 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
 
     // Compare (genome id, # k-mer matched)
     for (int j = 0; j < i; j++) {
+        vector<pair<int, uint64_t>> new_vec(result[j].begin(), result[j].end());
         out << j << " ";
-        std::sort(result[j].begin(), result[j].end(), [](const auto &f, const auto &s) {
+        std::sort(new_vec.begin(), new_vec.end(), [](const auto &f, const auto &s) {
             return f.second > s.second;
         });
-        for (const std::pair<int, float>& p : result[j]) {
+        for (const std::pair<int, float>& p : new_vec) {
             out << p.first << ":" << p.second << " ";
         }
         out << std::endl;
     }
-
-    //for (const std::pair<int, float>& p : result[j]) { out << "{ " << p.first << ", " << p.second << " } "; }
-
-            // reverse
-        /* out << "Intersection = { ";
-        for (const int& c : r_intersection[j]) {out << c << ", "; }
-        out << "}" << std::endl; 
-        out << std::endl;*/
-
     return number_of_queries;
 }
 

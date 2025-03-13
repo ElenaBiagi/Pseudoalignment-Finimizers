@@ -2,6 +2,8 @@
 
 #include <string>
 #include <cstring>
+#include <unordered_map>
+
 #include "sbwt/cxxopts.hpp"
 #include "sbwt/globals.hh"
 #include "sbwt/SBWT.hh"
@@ -57,6 +59,8 @@ char get_char_idx(char c){
     }
 }
 
+/* 
+TODO REMOVE
 // Returns the end point (inclusice) of the first k-mer in the concatenation of the unitigs
 int64_t lookup_from_branch_dictionary(int64_t kmer_colex, int64_t k, const sdsl::rank_support_v5<>& Ustart_rs, const PackedStrings& unitigs){
     int64_t unitig_rank = Ustart_rs.rank(kmer_colex);
@@ -70,12 +74,12 @@ int64_t lookup_from_finimizer_dictionary(int64_t finimizer_colex, const sdsl::ra
     int64_t finimizer_id = fmin_rs.rank(finimizer_colex);
     return global_offsets[finimizer_id];
 }
-
+ */
 
 // TODO simplify this removing what is not necessary
-// Do we want to count the number of found kmers? NO
+// Do we want to count the number of found kmers? YES
 // set ?
-vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, const sdsl::int_vector<>& LCS, const string& input){ 
+unordered_map<string, uint64_t> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, const sdsl::int_vector<>& LCS, const string& input){ 
     const int64_t n_nodes = sbwt.number_of_subsets();
     const int64_t k = sbwt.get_k();
     const vector<int64_t>& C = sbwt.get_C_array();
@@ -93,7 +97,8 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
     int64_t I_start;
     tuple<int64_t, int64_t, int64_t, int64_t> curr_substr;
 
-    vector<string> Fmin;
+    unordered_map<string, uint64_t> Fmin;
+
     Fmin.reserve(str_len-k+1);
     int64_t last_pos = 0;
     
@@ -159,11 +164,12 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
                 }
                 
                 if (all_fmin.size()>0){
-                    // This avoids storing the same finimizer (same) multiple times for distinct kmers
+                    // NO, we want to store them all -> This avoids storing the same finimizer (same) multiple times for distinct kmers
                     //if (last_pos != get<3>(w_fmin) ) {Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)))};
                     //last_pos = get<3>(w_fmin);
                     // TODO improve this: e.g. store a counter for every finimizer
-                    Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)));
+                    string finimizer = input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin));
+                    Fmin[finimizer]++;
                 }
                 
 
@@ -173,13 +179,13 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
             }
         }
     }
-    if (count != Fmin.size()){
-        std::cerr << "total k-mers = " << count << ", total finimizers = " << Fmin.size()<< std::endl;
-    }
+    //if (count != Fmin.size()){
+    std::cerr << "total k-mers = " << count << ", total finimizers = " << Fmin.size()<< std::endl;
+    //}
     return Fmin;
 }
 
-    void pseudoalignemnt_stats(vector<string>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int,uint64_t>>& results, set<int>& intersection, const float& t){ // vector<pair<int,float>>& results
+    void pseudoalignemnt_stats(unordered_map<string, uint64_t>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, unordered_map<int, uint64_t>& results, set<int>& intersection, const float& t){ // vector<pair<int,float>>& results
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
@@ -188,14 +194,18 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
         set<int> found_colors = {};
         vector<set<int>> found_colors_single = {};
         found_colors_single.reserve(found_fmin);
-        for(const string& fmin : Fmin){
+        
+        for(const auto& pair : Fmin){
             //std::cerr << fmin << ", ";
             try {
-                std::set<int> colors = hashTable.at(fmin);
+                std::set<int> colors = hashTable.at(pair.first);
                 found_colors_single.push_back(colors);
-                for(const int& c : colors){found_colors.insert(c); }
+                for(const int& c : colors){
+                    found_colors.insert(c);
+                    results[c]+=pair.second;
+                }
             } catch (const std::out_of_range& e) {
-                rm_fmin++;
+                rm_fmin+=pair.second;
             }
         }
 
@@ -208,16 +218,16 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
         // it exists already vector<std::pair<int,uint64_t>> results;
         results.reserve(found_colors.size());
 
-        for (const int& c : found_colors){
+        /* for (const int& c : found_colors){
             int64_t c_found_fmin = 0;
             for (const set<int>& f : found_colors_single){
-                if (f.count(c)){ c_found_fmin++;}
+                if (f.count(c)){c_found_fmin++;}
             }
             std::pair<int,uint64_t>  p = {c,c_found_fmin};
             results.emplace_back(p);
             //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
 
-        /*    
+ */        /*    
             // for every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
 
 
@@ -232,7 +242,7 @@ vector<string> rarest_fmin_streaming_search(const plain_matrix_sbwt_t& sbwt, con
             } */
         
             //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
-        }
+        //}
             //for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
         
         // intersection
