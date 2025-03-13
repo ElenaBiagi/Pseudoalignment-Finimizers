@@ -91,7 +91,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
         vector<pair<int, uint64_t>> new_vec(result[j].begin(), result[j].end());
         out << j << " ";
         std::sort(new_vec.begin(), new_vec.end(), [](const auto &f, const auto &s) {
-            return f.second > s.second;
+            return (f.second > s.second) || (f.second == s.second && f.first < s.first);
         });
         for (const std::pair<int, float>& p : new_vec) {
             out << p.first << ":" << p.second << " ";
