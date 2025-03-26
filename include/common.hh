@@ -185,7 +185,7 @@ unordered_map<string, uint64_t> rarest_fmin_streaming_search(const plain_matrix_
     return Fmin;
 }
 
-    void pseudoalignemnt_stats(unordered_map<string, uint64_t>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, unordered_map<int, uint64_t>& results, set<int>& intersection, const float& t){ // vector<pair<int,float>>& results
+    void pseudoalignemnt_stats(unordered_map<string, uint64_t>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, unordered_map<int, uint64_t>& results){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
@@ -196,7 +196,6 @@ unordered_map<string, uint64_t> rarest_fmin_streaming_search(const plain_matrix_
         found_colors_single.reserve(found_fmin);
         
         for(const auto& pair : Fmin){
-            //std::cerr << fmin << ", ";
             try {
                 std::set<int> colors = hashTable.at(pair.first);
                 found_colors_single.push_back(colors);
@@ -205,64 +204,56 @@ unordered_map<string, uint64_t> rarest_fmin_streaming_search(const plain_matrix_
                     results[c]+=pair.second;
                 }
             } catch (const std::out_of_range& e) {
-                rm_fmin+=pair.second;
+                rm_fmin+=pair.second; // this is not used
             }
         }
-
         //if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
         
-        //std::cerr << found_fmin - rm_fmin << " found Finimizers" << std::endl;
         //std::cerr << found_colors.size() << " found colors" << std::endl;
+        return;
+    }
 
+    void pseudoalignemnt_stats(unordered_map<string, uint64_t>& Fmin, const std::unordered_map<std::string,std::set<int>>& hashTable, vector<pair<int, float>>& results, const float& t){ 
+        // count the number of finimizers found
+        size_t found_fmin = Fmin.size(); // # distinct finimizers
+        size_t ok_fmin = 0; // total finimizers found
+        size_t rm_fmin = 0; // finimizers not found in the index
+
+        // count the number of colors found
+        set<int> found_colors = {};
+        std::unordered_map<int,uint64_t> fmin_per_color;
+        
+        for(const auto& pair : Fmin){
+            try {
+                std::set<int> colors = hashTable.at(pair.first);
+                ok_fmin += pair.second;
+                for(const int& c : colors){ 
+                    found_colors.insert(c);
+                    fmin_per_color[c] += pair.second;
+                 }
+            } catch (const std::out_of_range& e) {
+                rm_fmin+=pair.second; // not used now
+            }
+        }
+        //if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
+        
         // TODO all colors and not only the found ones (input?)
-        // it exists already vector<std::pair<int,uint64_t>> results;
         results.reserve(found_colors.size());
 
-        /* for (const int& c : found_colors){
-            int64_t c_found_fmin = 0;
-            for (const set<int>& f : found_colors_single){
-                if (f.count(c)){c_found_fmin++;}
-            }
-            std::pair<int,uint64_t>  p = {c,c_found_fmin};
-            results.emplace_back(p);
-            //std::cerr<< "color " << c << ": " << c_found_fmin << " finimizers" << std::endl;
-
- */        /*    
-            // for every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
-
-
-            float fraction = static_cast<float>(c_found_fmin/static_cast<float>(found_fmin-rm_fmin));
+        for (const int& c : found_colors){
+            
+            //std::cerr<< "color " << c << ": " << fmin_per_color[c] << " finimizers" << std::endl;
+           
+            // For every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
+            float fraction = static_cast<float>(fmin_per_color[c]/static_cast<float>(ok_fmin));
         
-        
-            // TODO FIX INTERSECTION
             if (t==1){ 
                 if (fraction == t ){results.push_back({c,fraction});}
             } else{
                 if (fraction > t){results.push_back({c,fraction});}
-            } */
+            }
         
-            //std::cerr << c << "; " << static_cast<float>(c_found_fmin/static_cast<float>(found_fmin)) << std::endl;
-        //}
-            //for (const std::pair<int, float>& p : results) { std::cerr << "{ " << p.first << ", " << p.second << " } " << std::endl; }
-        
-        // intersection
-        /* 
-        if (found_colors_single.empty()){
-            intersection = {};
-        } else {
-        
-            intersection = found_colors_single[0];
-
-            // Iterate through the remaining sets
-            for (size_t i = 1; i < found_colors_single.size(); ++i) {
-                set<int> temp;
-                set_intersection(intersection.begin(), intersection.end(),
-                                    found_colors_single[i].begin(), found_colors_single[i].end(),
-                                    std::inserter(temp, temp.begin()));
-                intersection = std::move(temp);
-            } 
-        }*/
-        
+        }
         return;
     }
 
@@ -308,7 +299,6 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
         std::cerr << "HASH TABLE done" << std::endl;
 
     }
-
 
 //old
 //used in build-verify

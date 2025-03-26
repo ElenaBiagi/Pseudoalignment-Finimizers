@@ -174,7 +174,7 @@ def cc_a_(f, omega, max_d):
     m[row, cols] = np.arange(1, f['b'][i]-f['t'][i]+1) / (f['b'][i]-f['t'][i]+1)
   return m
 
-def rbo(x, y, p, ties = 'a', score = ('ext', 'min', 'max', 'res')):
+def rbo_s(x, y, p, ties = 'a', score = ('ext', 'min', 'max', 'res')):
   """
   Compute RBO between `x` and `y`, with persistence parameter `p`, and handling ties when present.
   

@@ -41,24 +41,32 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     vector<int64_t> out_buffer, out_buffer_rev;
 
     //vector<vector<pair<int,float>>> result = {};
-    vector<unordered_map<int, uint64_t>> result;
-    //vector<vector<pair<int,float>>> r_result = {};
+    using ResultType = variant<vector<vector<pair<int, float>>>, vector<unordered_map<int, uint64_t>>>;
+    
+    ResultType result;
 
-    // TODO REMOVE INTERSECTION
-    vector<set<int>> intersection = {};
-    //vector<set<int>> r_intersection = {};
-
-
+    if (t > 0) {
+        result = vector<vector<pair<int, float>>>{};
+    } else {
+        result = vector<unordered_map<int, uint64_t>>{};
+    }
     
     int i=0;
     while(true){
-        result.push_back({});
-        intersection.push_back({});
+        
+
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
         string seq = remove_N_from_string(reader.read_buf);
-        index.search(seq, result[i], intersection[i], t);// FinimizerIndex::QueryResult result = index.search(reader.read_buf);
+
+        if (auto* res = get_if<vector<vector<pair<int, float>>>>(&result)) {
+            res->push_back({});
+            index.search(seq, (*res)[i], t);
+        } else if (auto* res = get_if<vector<unordered_map<int, uint64_t>>>(&result)) {
+            res->push_back({});
+            index.search(seq, (*res)[i]);
+        }
 
         /* //reverse compl is already in the BUILD PHASE 
         r_result.push_back({});
@@ -87,17 +95,33 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     } */
 
     // Compare (genome id, # k-mer matched)
-    for (int j = 0; j < i; j++) {
-        vector<pair<int, uint64_t>> new_vec(result[j].begin(), result[j].end());
-        out << j << " ";
-        std::sort(new_vec.begin(), new_vec.end(), [](const auto &f, const auto &s) {
-            return (f.second > s.second) || (f.second == s.second && f.first < s.first);
-        });
-        for (const std::pair<int, float>& p : new_vec) {
-            out << p.first << ":" << p.second << " ";
+    if (auto* res = std::get_if<std::vector<std::unordered_map<int, uint64_t>>>(&result)) {
+        // Handling case: vector<unordered_map<int, uint64_t>>
+        for (int j = 0; j < i; j++) {
+            vector<pair<int, uint64_t>> new_vec((*res)[j].begin(), (*res)[j].end());
+            out << j << " ";
+            std::sort(new_vec.begin(), new_vec.end(), [](const auto &f, const auto &s) {
+                return (f.second > s.second) || (f.second == s.second && f.first < s.first);
+            });
+            for (const std::pair<int, uint64_t>& p : new_vec) {
+                out << p.first << ":" << p.second << " ";
+            }
+            out << std::endl;
         }
-        out << std::endl;
+    // Compare (genome id, (% k-mer matched) > t)
+    } else if (auto* res = std::get_if<std::vector<std::vector<std::pair<int, float>>>>(&result)) {
+        for (int j = 0; j < i; j++) {
+            out << j << " ";
+            std::sort((*res)[j].begin(), (*res)[j].end(), [](const auto &f, const auto &s) {
+                return (f.second > s.second) || (f.second == s.second && f.first < s.first);
+            });
+            for (const std::pair<int, float>& p : (*res)[j]) {
+                out << p.first << ":" << p.second << " ";
+            }
+            out << std::endl;
+        }
     }
+
     return number_of_queries;
 }
 
@@ -157,8 +181,8 @@ int search_fmin(int argc, char** argv){
         ("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
         ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
         ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
-        ("t", "Threshold", cxxopts::value<float>()->default_value("0.8"))
-
+        //TODO t is useless now, default 0 and check
+        ("t", "Threshold", cxxopts::value<float>()->default_value("0"))
         ("h,help", "Print usage")
     ;
 

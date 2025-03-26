@@ -58,7 +58,7 @@ void WriteSequencesToFile(const std::string& outputFile, const std::vector<std::
     }
 
     for (size_t i = 0; i < sequences.size(); ++i) {
-        outFile << "> Sequence_" << i + 1 << "\n";
+        outFile << "> " << i << "\n";
         outFile << sequences[i] << "\n";
     }
 

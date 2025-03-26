@@ -49,7 +49,7 @@ public:
     FinimizerIndex() {}
 
     //QueryResult 
-    void search(const std::string& query, unordered_map<int, uint64_t>& results, set<int>& intersection, const float& t) const {
+    void search(const std::string& query, unordered_map<int, uint64_t>& results) const {
   
         //std::cerr << "Searching " << query << std::endl;
 
@@ -64,7 +64,25 @@ public:
 
         unordered_map<string, uint64_t> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
         // Check the colors for every finimizer found
-        pseudoalignemnt_stats(Finimizers, this->hashTable, results, intersection, t);
+        pseudoalignemnt_stats(Finimizers, this->hashTable, results);
+
+        return;
+    }
+
+    void search(const std::string& query, vector<pair<int, float>>& results, const float& t) const {
+  
+        const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
+        const int64_t n_nodes = sbwt.number_of_subsets();
+        const int64_t k = sbwt.get_k();
+        const vector<int64_t>& C = sbwt.get_C_array();
+        const int64_t query_len = query.length();
+
+
+        if (query.size() < k) return; 
+
+        unordered_map<string, uint64_t> Finimizers = rarest_fmin_streaming_search(sbwt, *LCS, query);
+        // Check the colors for every finimizer found
+        pseudoalignemnt_stats(Finimizers, this->hashTable, results, t);
 
         return;
     }
