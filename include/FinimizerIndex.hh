@@ -42,7 +42,6 @@ public:
     // Note: if you add members, update size_in_bytes(), serialize(), and load()
     unique_ptr<plain_matrix_sbwt_t> sbwt; // These are smart pointers because they are passed in to the constructor
     unique_ptr<sdsl::int_vector<>> LCS; // These are smart pointers because they are passed in to the constructor
-    // PackedStrings unitigs;
     std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
 
 
@@ -175,13 +174,6 @@ public:
 }
 
     void serialize(const string& index_prefix) const {
-        /* 
-        std::ofstream packed_unitigs_out(index_prefix + ".packed_unitigs.sdsl");
-        sdsl::serialize(unitigs.concat, packed_unitigs_out);
-        
-        std::ofstream unitig_endpoints_out(index_prefix + ".unitig_endpoints.sdsl");
-        sdsl::serialize(unitigs.ends, unitig_endpoints_out);
-        */
 
         std::ofstream LCS_out(index_prefix + ".LCS.sdsl");
         sdsl::serialize(*LCS, LCS_out);
@@ -198,16 +190,6 @@ public:
         sdsl::load(*LCS, LCS_in);
         std::cerr<< "LCS_file loaded"<<std::endl;
 
-        /*
-        std::ifstream packed_unitigs_in(index_prefix + ".packed_unitigs.sdsl");
-        sdsl::load(unitigs.concat, packed_unitigs_in);
-        std::cerr << "unitigs loaded" << std::endl;
-
-        std::ifstream unitig_endpoints_in(index_prefix + ".unitig_endpoints.sdsl");
-        sdsl::load(unitigs.ends, unitig_endpoints_in);
-        std::cerr << "unitig endpoints loaded" << std::endl;
-        */
-
         sbwt = make_unique<plain_matrix_sbwt_t>();
         sbwt->load(index_prefix + ".sbwt");
         std::cerr << "SBWT matrix loaded" << std::endl;
@@ -222,10 +204,6 @@ public:
     int64_t size_in_bytes() const{
         int64_t total = 0;
         total += sdsl::size_in_bytes(*LCS);
-        /* 
-        total += sdsl::size_in_bytes(unitigs.concat);
-        total += sdsl::size_in_bytes(unitigs.ends);
-        */
 
         sbwt::SeqIO::NullStream ns;
         total += sbwt->serialize(ns);
@@ -245,8 +223,7 @@ public:
 
 
     // Takes ownership of sbwt and LCS
-    template<typename reader_t>
-    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, reader_t& reader, const vector<string>& incolors) {
+    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const vector<string>& incolors) {
         index = make_unique<FinimizerIndex>();
         this->sbwt = move(sbwt); // Take ownership
         this->LCS = move(LCS); // Take ownership
@@ -255,26 +232,6 @@ public:
 
         std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
 
-        
-        /* 
-        //TODO if we want to keep this we must delete everything that is not necessary 
-        pair<PackedStrings, sdsl::bit_vector> unitig_data = permute_unitigs(*(this->sbwt), reader);
-        PackedStrings& unitigs = unitig_data.first;
-
-        set<tuple<int64_t, int64_t, int64_t>>  finimizers;
-        int64_t total_len = 0;
-        vector<char> unitig_buf;
-        for(int64_t i = 0; i < unitigs.number_of_strings(); i++){
-            int64_t len = unitigs.get(i, unitig_buf);
-            // we cannot iterate here and get finimizers colors as these are unitigs and not genomes
-            set<tuple<int64_t, int64_t, int64_t>> new_search = add_sequence(unitig_buf.data(), fmin_bv, fmin_found, global_offsets, total_len, hashTable);
-            total_len += len; 
-            finimizers.insert(new_search.begin(), new_search.end());
-        }
-     
-        print_finimizer_stats(finimizers, this->sbwt->number_of_kmers(), this->sbwt->number_of_subsets(), 1);
-*/
-
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
         typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
@@ -282,7 +239,7 @@ public:
             //std::cerr << "scanning color " << i << std::endl;
 
             bool gzip_colors = SeqIO::figure_out_file_format(incolors[i]).gzipped;
-
+    
             if (gzip_colors){
                 run_colors_file<in_colors_gzip>(incolors[i], hashTable, i);
             }
@@ -291,14 +248,12 @@ public:
             }
             std::cerr << "DONE"<< std::endl;
         }
-
-        // TODO extact statistics
+        // TODO extract statistics
         get_stats(hashTable);
         
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
-        /* index->unitigs = std::move(unitigs); // Transfer ownership */
-        index->hashTable = std::move(hashTable);
+        index->hashTable = std::move(hashTable); // Transfer ownership
     }
 
     // TODO fix return type
@@ -309,83 +264,6 @@ public:
         return from_reader_to_seq(reader, hashTable, i);
     }
 
-    /* set<tuple<int64_t, int64_t, int64_t>> add_sequence(const std::string& seq, sdsl::bit_vector& fmin_bv, sdsl::int_vector<>& fmin_found, vector<uint64_t>& global_offsets, const int64_t unitig_start, unordered_map<std::string, std::set<int>>& hashTable) {
-        const int64_t n_nodes = sbwt->number_of_subsets();
-        const int64_t k = sbwt->get_k();
-        const vector<int64_t>& C = sbwt->get_C_array();
-        int64_t freq;
-        BoundedDeque<tuple<int64_t, int64_t, int64_t, int64_t>> all_fmin(seq.size());
-        const int64_t str_len = seq.size();
-        tuple<int64_t, int64_t, int64_t, int64_t> w_fmin = {n_nodes,k+1,n_nodes,str_len}; // {freq, len, I start, start}
-        set<tuple<int64_t,int64_t, int64_t>> count_all_w_fmin;
-
-        int64_t kmer = 0;
-        int64_t start = 0;
-        int64_t end;
-        pair<int64_t, int64_t> I = {0, n_nodes - 1};
-        int64_t I_start;
-        tuple<int64_t, int64_t, int64_t, int64_t> curr_substr;
-        char c;
-        char char_idx;
-        // the idea is to start from the first pos which is i and move until finding something of ok freq
-        // then drop the first char keeping track of which char you are starting from
-        // Start is always < k as start <= end and end <k
-        // if start == end than the frequency higher than t
-        for (end = 0; end < str_len; end++) {
-            c = static_cast<char>(seq[end] & ~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
-            //update the sbwt INTERVAL
-            I = this->sbwt->update_sbwt_interval(&c, 1, I);
-            freq = (I.second - I.first + 1);
-            I_start = I.first;
-            if (freq == 1){ // 1. rarest 
-                while (freq == 1) {  //2. shortest
-                    curr_substr = {freq, end - start + 1, I_start, end};
-                    // (2) drop the first char
-                    // When you drop the first char you are sure to find x_2..m since you found x_1..m before
-                    start++;
-                    I = drop_first_char(end - start + 1, I, *(this->LCS), n_nodes);
-                    freq = (I.second - I.first + 1);
-                    I_start = I.first;
-                }
-                if (w_fmin > curr_substr) {
-                    all_fmin.clear();
-                    w_fmin = curr_substr;
-                } else{
-                    while (all_fmin.back() > curr_substr) {all_fmin.pop_back();}
-                }
-                all_fmin.push_back(curr_substr);
-            }
-            if (end >= k -1 ){
-                count_all_w_fmin.insert({get<1>(w_fmin),get<0>(w_fmin), get<2>(w_fmin) });// (length,freq,colex) freq = 1 thus == (freq, length,colex)
-                // TODO need to insert input string back!!
-                //Finimizer = input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))
-
-                // Save the finimizer in the hash table if it's the first time you encounter it
-                if (fmin_found[get<2>(w_fmin)] == 0){
-                    hashTable[seq.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))] = {};
-                }
-
-                if (fmin_found[get<2>(w_fmin)] == 0 or fmin_found[get<2>(w_fmin)]< get<3>(w_fmin)){ // if the finimizer has been found before in a full kmer
-                    fmin_bv[get<2>(w_fmin)]=1;
-                    fmin_found[get<2>(w_fmin)] = get<3>(w_fmin);
-
-                    if ((unitig_start + get<3>(w_fmin))> UINT64_MAX){
-                        std::cerr<< "ISSUE: global offset exceedes the allowed bit range." << std::endl;
-                    }
-                    global_offsets[get<2>(w_fmin)]= unitig_start + get<3>(w_fmin);
-                }
-                // write_fasta({input.substr(kmer,k) + ' ' + to_string(get<0>(w_fmin)),input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin))},writer);
-                kmer++;
-                // Check if the current minimizer is still in this window
-                while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
-                    all_fmin.pop_front();
-                    w_fmin = (all_fmin.size()==0) ? tuple<int64_t, int64_t, int64_t, int64_t> {n_nodes,k+1,kmer+1,kmer+k} : all_fmin.front();
-                }
-            }
-        }
-        return count_all_w_fmin;
-    }
- */
     // TODO fix return type
     template<typename reader_t>
     int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
@@ -413,19 +291,7 @@ public:
     }
     // TODO fix return type
     int scan_color(const std::string& seq, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
-        // this is the same as add_sequence but with genomes(colors) instead of unitigs
-        //std::cerr << "i= " << i << endl;
-        //std::cerr << seq<< std::endl;
-
-        /* std::unordered_set<char> distinct_chars;
-        // Insert each character into the set
-        for (char c : seq) { distinct_chars.insert(c);}
-        // Output the count of distinct characters
-        if (distinct_chars.size() > 4){
-            std::cerr << "Number of distinct characters: " << distinct_chars.size() << std::endl;
-            return 0;
-        } */
-
+        //std::cerr << seq << std::endl;
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
         const vector<int64_t>& C = sbwt->get_C_array();
@@ -445,56 +311,50 @@ public:
         
         for (end = 0; end < str_len; end++) {
             c = static_cast<char>(seq[end] & ~32); // convert to uppercase using a bitwise operation //char c = toupper(input[i]);
-/*             int64_t char_idx = get_char_idx(c);
-            if (char_idx == -1) [[unlikely]]{
-                cerr << "Error: unknown character: " << c << endl;
-                cerr << "This works with the DNA alphabet = {A,C,G,T}" << endl;
-                return {};
-            } */
             //update the sbwt INTERVAL
             I = this->sbwt->update_sbwt_interval(&c, 1, I);
             // TODO REMOVE CHECK
-            if (I.first ==-1){
+             if (I.first ==-1){
                 std::cerr << "This should be impossible!, pos " << end << ", char " << c << ", len " << end - start + 1 << " " << seq.substr(start, end - start + 1 ) << std::endl;
                 return 0;
             }
-                freq = (I.second - I.first + 1);
-                I_start = I.first;
-                if (freq == 1){ // 1. rarest 
-                    while (freq == 1) {  //2. shortest
-                        curr_substr = {freq, end - start + 1, I_start, end};
-                        // (2) drop the first char
-                        // When you drop the first char you are sure to find x_2..m since you found x_1..m before
-                        start++;
-                        I = drop_first_char(end - start + 1, I, *(this->LCS), n_nodes);
-                        freq = (I.second - I.first + 1);
-                        I_start = I.first;
-                    }
-                    if (w_fmin > curr_substr) {
-                        all_fmin.clear();
-                        w_fmin = curr_substr;
-                    } else{
-                        while (all_fmin.back() > curr_substr) {all_fmin.pop_back();}
-                    }
-                    all_fmin.push_back(curr_substr);
+            freq = (I.second - I.first + 1);
+            I_start = I.first;
+            if (freq == 1){ // 1. rarest 
+                while (freq == 1) {  //2. shortest
+                    curr_substr = {freq, end - start + 1, I_start, end};
+                    // (2) drop the first char
+                    // When you drop the first char you are sure to find x_2..m since you found x_1..m before
+                    start++;
+                    I = drop_first_char(end - start + 1, I, *(this->LCS), n_nodes);
+                    freq = (I.second - I.first + 1);
+                    I_start = I.first;
                 }
-                if (end >= k -1 ){
-                    // Add the color to the finimizer
-                    string F = seq.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin));
-                    if (hashTable.find(F) != hashTable.end()) {
-                        hashTable[F].insert(i);
-                    } else {
-                        hashTable[F]={i};
-                    }
-                    
-                    kmer++;
+                if (w_fmin > curr_substr) {
+                    all_fmin.clear();
+                    w_fmin = curr_substr;
+                } else{
+                    while (all_fmin.back() > curr_substr) {all_fmin.pop_back();}
+                }
+                all_fmin.push_back(curr_substr);
+            }
+            if (end >= k -1 ){
+                // Add the color to the finimizer
+                string F = seq.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin));
+                if (hashTable.find(F) != hashTable.end()) {
+                    hashTable[F].insert(i);
+                } else {
+                    hashTable[F]={i};
+                }
+                
+                kmer++;
 
-                    // Check if the current minimizer is still in this window
-                    while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
-                         all_fmin.pop_front();
-                        w_fmin = (all_fmin.size()==0) ? tuple<int64_t, int64_t, int64_t, int64_t> {n_nodes,k+1,kmer+1,kmer+k} : all_fmin.front();
-                    }
+                // Check if the current finimizer is still in this window
+                while (get<3>(w_fmin)- get<1>(w_fmin)+1 < kmer) { // start
+                    all_fmin.pop_front();
+                    w_fmin = (all_fmin.size()==0) ? tuple<int64_t, int64_t, int64_t, int64_t> {n_nodes,k+1,kmer+1,kmer+k} : all_fmin.front();
                 }
+            }
         } 
         return 1;
     }

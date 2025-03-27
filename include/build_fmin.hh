@@ -213,8 +213,8 @@ string print_shortest_finimizer_stats(const plain_matrix_sbwt_t& sbwt, const sds
     return print_finimizer_stats(count_all_w_fmin, sbwt.number_of_kmers(), sbwt.number_of_subsets(), t);
 }
 
-template<typename sbwt_t, typename reader_t>
-string run_fmin_streaming(reader_t& reader, const string& index_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t, const string& type, const vector<string>& incolors){
+template<typename sbwt_t>
+string run_fmin_streaming(const string& index_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t, const string& type, const vector<string>& incolors){
 
     string result;
     if(type == "rarest"){
@@ -222,10 +222,10 @@ string run_fmin_streaming(reader_t& reader, const string& index_prefix, unique_p
             throw std::runtime_error("t != 1 does not make sense with rarest type");
         }
 
-        FinimizerIndexBuilder builder(move(sbwt), move(LCS), reader, incolors);
+        FinimizerIndexBuilder builder(move(sbwt), move(LCS), incolors);
         unique_ptr<FinimizerIndex> index = builder.get_index();
         index->serialize(index_prefix);
-    } else if(type == "shortest"){
+    } /* else if(type == "shortest"){
         // Just print stats because we don't have an index for this yet
         result = print_shortest_finimizer_stats(*sbwt, *LCS, reader, t);
     } else if(type == "verify"){
@@ -241,58 +241,19 @@ string run_fmin_streaming(reader_t& reader, const string& index_prefix, unique_p
             }
         }
         result = print_finimizer_stats(finimizers, sbwt->number_of_kmers(), sbwt->number_of_subsets(), t);    
-    }
-    return result;
-}
-
-template<typename sbwt_t, typename reader_t>
-string run_file_fmin(const string& infile, const string& index_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t, const string& type, const vector<string>& incolors){ 
-    reader_t reader(infile);
-    //reader_t reader_colors(incolors);
-    //Assume sbwt has streaming support
-    write_log("Searching Finimizers from input file " + infile + " to index prefix " + index_prefix, LogLevel::MAJOR);
-    string result = run_fmin_streaming<sbwt_t, reader_t>(reader, index_prefix, move(sbwt), move(LCS), t, type, incolors);
+    } */
     return result;
 }
 
 template<typename sbwt_t>
-string fmin_search(const vector<string>& infiles, const string& out_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t,const string& type, const vector<string>& incolors){
-
-    typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_gzip;
-    typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_no_gzip;
-
-    //typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
-    //typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
-
-    string result;
-    int64_t n_fmin = 0;
-    for(int64_t i = 0; i < infiles.size(); i++){
-        bool gzip_input = SeqIO::figure_out_file_format(infiles[i]).gzipped;
-        //bool gzip_colors = SeqIO::figure_out_file_format(incolors[i]).gzipped;
-
-        if(gzip_input){
-            /* if (gzip_colors){
-                //we want all colors
-                result = run_file_fmin<sbwt_t, in_gzip, in_colors_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors); 
-            }
-            else{ 
-                result = run_file_fmin<sbwt_t, in_gzip, in_colors_no_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors); 
-            } */
-            result = run_file_fmin<sbwt_t, in_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors); 
-        }
-        else {
-            /* if (gzip_colors){
-                result = run_file_fmin<sbwt_t, in_no_gzip, in_colors_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors);
-            }
-            else{
-                result = run_file_fmin<sbwt_t, in_no_gzip, in_colors_no_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors);
-            } */
-            result = run_file_fmin<sbwt_t, in_no_gzip>(infiles[i], out_prefix, move(sbwt), move(LCS),t, type, incolors);
-        }
-    }
-
+string run_file_fmin( const string& index_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t, const string& type, const vector<string>& incolors){ 
+    string result = run_fmin_streaming<sbwt_t>(index_prefix, move(sbwt), move(LCS), t, type, incolors);
     return result;
+}
 
+template<typename sbwt_t>
+string fmin_search(const string& out_prefix, unique_ptr<sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const char t,const string& type, const vector<string>& incolors){
+    return run_file_fmin<sbwt_t>(out_prefix, move(sbwt), move(LCS),t, type, incolors); 
 }
 
 int build_fmin(int argc, char** argv) {
@@ -310,11 +271,11 @@ int build_fmin(int argc, char** argv) {
     options.add_options()
         ("o,out-file", "Output index filename prefix.", cxxopts::value<string>())
         ("i,index-file", "SBWT file. This has to be a binary matrix.", cxxopts::value<string>())
-        ("u,in-file",
-            "The SPSS in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.",
-            cxxopts::value<string>())
+        /* ("u,in-file",
+            "The SPSS in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of input files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.",
+            cxxopts::value<string>()) */
         ("c,in-colors",
-            "Genomes in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line.",
+            "Genomes in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of input files, one per line.",
             cxxopts::value<string>())
         ("type", "Decide which streaming search type you prefer. Available types: " + all_types_string  + ". The latter two only provide some stats."
                 , cxxopts::value<string>()->default_value("rarest") )
@@ -331,7 +292,7 @@ int build_fmin(int argc, char** argv) {
     }
     char t = opts["t"].as<int64_t>();
 
-    // input files
+    /* // input files
     string in_file = opts["in-file"].as<string>();
     vector<string> input_files;
     bool multi_file = in_file.size() >= 4 && in_file.substr(in_file.size() - 4) == ".txt";
@@ -340,7 +301,7 @@ int build_fmin(int argc, char** argv) {
     } else{
         input_files = {in_file};
     }
-    for(string file : input_files) check_readable(file);
+    for(string file : input_files) check_readable(file); */
 
     // input colors
     string in_colors = opts["in-colors"].as<string>();
@@ -391,7 +352,7 @@ int build_fmin(int argc, char** argv) {
         unique_ptr<sdsl::int_vector<>> LCS = make_unique<sdsl::int_vector<>>();
         load_v(LCS_file, *LCS);
         std::cerr<< "LCS_file loaded" << std::endl;
-        string result = fmin_search(input_files, out_prefix, move(sbwt), move(LCS), t, type, input_colors);//DNA_bitvectors,
+        string result = fmin_search(out_prefix, move(sbwt), move(LCS), t, type, input_colors);//DNA_bitvectors,
         
         std::string filename = out_prefix + "_stats.txt";
 
