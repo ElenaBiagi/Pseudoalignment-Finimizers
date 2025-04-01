@@ -29,16 +29,19 @@ vector<string> split_at_non_ACGT(const char* S, int64_t S_size) {
 
 int main(int argc, char** argv) {
     //srand(time(0));
-    srand(24); // reproducible
 
-    if (argc < 4) {
-        cerr << "Usage: " << argv[0] << " <sequence_file> <number_of_samples> <sample_read_length>" << endl;
+    if (argc < 5) {
+        cerr << "Usage: " << argv[0] << " <sequence_file> <number_of_samples> <sample_read_length> <engine_number>" << endl;
         return 1;
     }
 
     string seqfile = argv[1];
     int64_t howmany = stoll(argv[2]);
     int64_t sample_read_length = stoll(argv[3]);
+    int i = std::stoi(argv[4]);
+
+    srand(24+i); // reproducible
+
 
     vector<string> seqs;
     sbwt::SeqIO::Reader<> in(seqfile);

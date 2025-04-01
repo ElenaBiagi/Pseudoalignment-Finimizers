@@ -95,8 +95,8 @@ string InsertDNAMutation(const string &seq, double mutation_rate, mt19937 &engin
 }
 
 int main(int argc, char** argv) {
-    if (argc != 5) {
-        std::cerr << "Usage: " << argv[0] << " {inputFile} {outputFile} {percentModifications} {numCopies}\n";
+    if (argc != 6) {
+        std::cerr << "Usage: " << argv[0] << " {inputFile} {outputFile} {percentModifications} {numCopies} {engineNumber}\n";
         return 1;
     }
 
@@ -105,10 +105,11 @@ int main(int argc, char** argv) {
 
     double percent = std::stod(argv[3]);
     int numCopies = std::stoi(argv[4]);
+    int i = std::stoi(argv[5]);
 
     //std::random_device rd;
     //std::mt19937 engine(rd());
-    std::mt19937 engine(24); // reproducible
+    std::mt19937 engine(24+i); // reproducible
 
     // Read sequences from input file
     std::vector<std::string> sequences = ReadSequencesFromFile(inputFile);
