@@ -38,12 +38,12 @@ void printBinary(uint64_t v){ // prints in the reverse order
 (haszero((x) ^ (mask)))
 //(hasless((x) ^ (mask),1))
 
-#define haszero2(v, W, mask2, mask3) (((v) - mask2) & ~(v) & mask3)
+#define haszero2(v, W, mask2, mask3, Wmask) ((((v) - mask2) & ~(v) & mask3)&(~Wmask))
    //   (((v) - 0x1111111111111111ULL) & ~(v) & 0x8888888888888888ULL)
 
 
-#define hasvaluesupply2(x,W,mask, mask2, mask3) \
-(haszero2((x ^ mask), W, mask2, mask3))
+#define hasvaluesupply2(x,W,mask, mask2, mask3, Wmask) \
+(haszero2((x ^ mask), W, mask2, mask3, Wmask))
 //(hasless((x) ^ (mask),1))
 
 
@@ -85,7 +85,12 @@ constexpr uint64_t rmasks[10][3] = {
    {0b100000000100000000100000000100000000100000000100000000100000000,0,0}, //9 (7)
 };
 
-vector<int> count_itemsPerWord(uint64_t info){
+
+pair<vector<int>, vector<uint64_t>> count_itemsPerWord(uint64_t info, int W){
+   vector<uint64_t> Wmasks;
+
+   // for every width != W, create a mask and combine & all the masks
+   // not 1*width*bucketsize but it has to be at the right pos
    uint64_t *infop = &info;
    vector<int> itemsPerWord;
    vector<uint64_t> bucketSize; // could be uint32_t
@@ -107,28 +112,69 @@ vector<int> count_itemsPerWord(uint64_t info){
    // Check if there is more than one word
    //Not necessary now
    uint64_t i = 0; // How many buckets do we have? 
-   int items = 0; 
+   int diffWitems=0;
    while (i < bucketSize.size()){
       uint64_t totl = 0;
       uint64_t new_totl = totl;
       uint64_t number = bucketSize[i];
+      int items = 0; 
+      int diffWItems=0; 
+      int pos = 0; // pos at which the wrong width items start
+      uint64_t mask = 0;
       while(i < bucketSize.size() and (new_totl + (lengths[i] * number)) <= 64){
-         new_totl + (lengths[i] * number);
+         totl + (lengths[i] * number);
+         if (lengths[i] != W){
+            diffWItems += (int)number;
+            // create a mask NOW!
+            cerr << "pos = "<< pos << endl;
+            cerr << "diffWItems = "<< diffWItems * lengths[i] << endl;
+
+            uint64_t mask_ = ((1ULL << (diffWItems* lengths[i])) - 1) << pos;
+            mask = mask | mask_;
+            // reset for a new mask
+            pos += diffWItems;
+            diffWItems = 0;
+         }else{
+            pos += lengths[i] * number; // the values before this pos contain ok items
+         }
+
+         
+      
+         new_totl = totl;
          items += (int)number;
          i++;
+         number = bucketSize[i];
       }
       new_totl = totl;
-      while( i < bucketSize.size() and (new_totl + lengths[i]) <=64){ 
+      while( i < bucketSize.size() and (new_totl + lengths[i]) <= 64){ 
          totl += lengths[i];
-         number --;
+         new_totl = totl;
          items ++;
+         if (lengths[i] != W){
+            diffWItems ++;
+         } else{
+            pos += lengths[i]; // the values before this pos contain ok items
+         }
+         number --;
          if (number = 0){
+
+            // create a mask NOW!
+            // mask of 1*lenght[i]*diffWItems
+            uint64_t mask_ = ((1ULL << (diffWItems* lengths[i])) - 1) << pos;
+            mask = mask | mask_;
+            // reset for a new mask
+            pos += diffWItems;
+            diffWItems = 0;
+
             i++;
+            number = bucketSize[i];
          }
       }
       itemsPerWord.push_back(items);
+      Wmasks.push_back(mask);
+      //Now we knwon how many of 
    }
-   return itemsPerWord;
+   return {itemsPerWord,Wmasks};
 }
 
 inline int64_t bitMagicSearch2_old(uint64_t X, uint64_t key){
@@ -193,20 +239,12 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    // We should knwo the number of tails with a given length
     
    cerr << W <<  " query width" << endl;
-   
-   uint64_t *infop = &info;
-
-   for(int i=0;i<8;i++){
-      uint8_t x = *(((uint8_t*)(infop))+i);
-      if (i%2) {cerr << "length = ";}
-      else {cerr << "number = ";}
-      cerr << (uint64_t)x << endl;
-   }
-
-   uint64_t mask = masks[W][0]*key; //~0ULL/255 * key;
    cerr << key << " key" << endl;
    printBinary(key); cerr << " key" << endl;
+
+   uint64_t mask = masks[W][0]*key; //~0ULL/255 * key; 
    printBinary(mask); cerr << " mask" << endl;
+
    uint64_t mask2 = masks[W][0]*1; // this works for different widths
    uint64_t mask3 = rmasks[W][0]*1;
 
@@ -215,8 +253,15 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    //uint64_t itemsPerWord = 64/W; 
    //uint64_t maxBitsPerWord = itemsPerWord*W; // this is not used
 
-   vector<int> itemsPerWord = count_itemsPerWord(info); // one value for every word
-      
+   pair<vector<int>, vector<uint64_t>> results = count_itemsPerWord(info, W); // one value for every word
+   vector<int> itemsPerWord = results.first;
+   vector<uint64_t> Wmasks =results.second;
+   //uint64_t maskwW = maskWrongW(info);
+   // TODO use another mask to mask the values of a different width !!!
+   // based on info for each word
+   // if lenght != width
+
+
    //uint64_t nbits = X.size()*W;
    //cerr << nbits << endl;
    //uint64_t fullWords = X.size()*W/64;
@@ -225,22 +270,29 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    uint64_t dataSize = 1;
    for(uint64_t i=0;i<dataSize;i++){
 
+
       uint64_t w = X; //uint64_t w = X.data()[i];
       printBinary(w); cerr << " w " << endl;
-      printBinary(w ^ mask); cerr << " w ^ mask" << endl;
+      printBinary(~Wmasks[i]); cerr << " mask wrong width" << endl;
+      /* //printBinary(w & (~Wmasks[i])); cerr << " w & (~Wmasks[i]) " << endl;
+      printBinary(mask); cerr << " mask" << endl;
+
+      printBinary((w) ^ mask); cerr << " (w) ^ mask" << endl;
       printBinary(mask2); cerr << " mask2" << endl;
       //printBinary(0x1111111111111111ULL); cerr << " 0x1111111111111111ULL" << endl;
 
-      printBinary((w ^ mask) - mask2); cerr << " (w ^ mask)- (mask2)" << endl;
+      printBinary(((w ) ^ mask) - mask2); cerr << " (w ^ mask)- (mask2)" << endl;
       printBinary(~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
 
-      printBinary(((w ^ mask) - mask2) & ~(w ^ mask)); cerr << "((w ^ mask) - (mask2) & ~(w ^ mask)" << endl;
+      printBinary(((w ^ mask) - mask2) & ~(w  ^ mask)); cerr << "((w  ^ mask) - (mask2) & ~(w ^ mask)" << endl;
       printBinary(mask3); cerr << " mask3" << endl;
 
-      printBinary(((w ^ mask) - mask2 & ~(w ^ mask) & mask3)); cerr << " ((w ^ mask)- mask2) & ~(w ^ mask) & mask3)" << endl;
+      printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmasks[i])); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (~Wmasks[i])" << endl;
 
       //uint64_t found = hasValueSupplyDebug(w,mask);//hasvaluesupply(w,mask);
-      uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3);
+      */ 
+      uint64_t Wmask = Wmasks[i];
+      uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
       printBinary(found); cerr << " found" <<  endl;
 
       if(found){
@@ -260,13 +312,15 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
          //   exit(1);
          //}
          //cerr << itemsPerWord<< endl;
-         cerr << "pos " << pos << endl;
+         cerr << "pos " << pos << endl; // TODO FIX: pos is based on W as it depedens on mask 3 and this should be flipped 
+         //if (pos>)
          cerr << needsCorrection << endl;
-         cerr << "items per word = "<< 64/W << endl;
+         cerr << "old items per word = "<< 64/W << endl;
+         cerr << "new items per word = "<< itemsPerWord[0]<< endl;
          cerr << "old result " << i*(64/W)+((64/W)-pos-1-needsCorrection)<< endl;
 
-         cerr << "result " << i*(itemsPerWord[0])+((itemsPerWord[0])-pos-1-needsCorrection)<< endl;
-         return i*(itemsPerWord[0])+((itemsPerWord[0])-pos-1-needsCorrection);
+         cerr << "result " << i*(itemsPerWord[i])+((itemsPerWord[i])-pos-1-needsCorrection)<< endl;
+         return i*(itemsPerWord[i])+((itemsPerWord[i])-pos-1-needsCorrection);
       }
    }
    return -1;
@@ -279,6 +333,8 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
 //most tests pass, but there still seems to be some weird behaviour
 //--- probably another oddity I'm not understanding.
 // correction needed also with x odd and x-1 (even)
+
+// TODO this is now wrong but BitMagicSearch2 is correct
 inline int64_t bitMagicSearch(sdsl::int_vector<> &X, int W, uint64_t key){ // we know the width of the query
    //int W = int(X.width());
    cerr << W <<  " width" << endl;
@@ -315,7 +371,7 @@ inline int64_t bitMagicSearch(sdsl::int_vector<> &X, int W, uint64_t key){ // we
 
 
       //uint64_t found = hasValueSupplyDebug(w,mask);//hasvaluesupply(w,mask);
-      uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3);
+      uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, mask); // TODO this is now wrong
       printBinary(found); cerr << " found" <<  endl;
 
       if(found){
@@ -525,26 +581,26 @@ for (int i = 0; i < 4; ++i) {
 cerr << '\n';
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,4,13, infoX4);
-   cerr << "correct output = 5"<< endl;
+   cerr << "correct output = 6"<< endl;
    cerr << endl;
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,4,15, infoX4);
-   cerr << "correct output = 7"<< endl;
+   cerr << "correct output = 4"<< endl;
    cerr << endl;
-   /* bitMagicSearch2(X4,4,14, infoX4);
+   bitMagicSearch2(X4,4,14, infoX4);
    cerr << "correct output = 5"<< endl;
    cerr << endl;
    bitMagicSearch2(X4,8,18, infoX4);
-   cerr << "correct output = 4"<< endl;
-   cerr << endl;*/
+   cerr << "correct output = 0"<< endl;
+   cerr << endl;
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,8,19, infoX4);
-   cerr << "correct output = 10" << endl;
+   cerr << "correct output = 1" << endl;
    cerr << endl; 
 
    cerr << "X3 "<< endl;
 
-   for(int i=0;i<8;i++){
+   /* for(int i=0;i<8;i++){
       uint8_t x = *(((uint8_t*)(X3p))+i);
       cerr << (uint64_t)x << ' '; 
    }
@@ -565,7 +621,7 @@ cerr << '\n';
    cerr << '\n';
    bitMagicSearch2(X3,8,15,infoX3);
    cerr << "correct output = 2"<<endl;
-   cerr << endl;
+   cerr << endl; */
    
 
     uint64_t X5 = 0;
@@ -591,7 +647,7 @@ cerr << '\n';
 
     X5 |= (0ULL<<0); 
 
-   cerr << "reverse" << endl;
+   /* cerr << "reverse" << endl;
     for (int i = 0; i < 16; i++) {
       uint64_t val4 = (X5 >> (60 - i * 4)) & 0xF;
       cerr << val4 << ' ';
@@ -612,7 +668,7 @@ cerr << '\n';
     bitMagicSearch2(X5,4,14, infoX5);
     cerr << "correct output = 9"<< endl;
     cerr << endl;
-
+ */
 
     sdsl::int_vector<> Y(8,0,8);
        Y[0] = 14;
