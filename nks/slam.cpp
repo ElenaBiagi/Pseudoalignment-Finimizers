@@ -247,6 +247,7 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
          //printBinary(found); cerr << endl;
 
          uint64_t lz = __builtin_clzll(found);
+         cerr << "lz = "<< lz<< endl;
          bool needsCorrection = (found>>(63-lz-W))&1;
          cerr << "needsCorrection: " << needsCorrection << '\n';
          uint64_t pos =  lz/W; //__builtin_clzll(found)/W;
@@ -548,7 +549,11 @@ cerr << '\n';
       cerr << (uint64_t)x << ' '; 
    }
    cerr << '\n';
-   bitMagicSearch2(X3,8,16,infoX4);
+   uint64_t infoX3 = 0; // 8 bits will not be enough for some number of tails (max tails per bucket)
+   uint64_t *infoX3p = &infoX3;
+   infoX3 |= (8ULL<<56);
+   infoX3 |= (8ULL<<48);  
+   bitMagicSearch2(X3,8,16,infoX3);
    cerr << "correct output = 3"<<endl;
    cerr << endl;
    
@@ -558,44 +563,54 @@ cerr << '\n';
       cerr << (uint64_t)x << ' '; 
    }
    cerr << '\n';
-   bitMagicSearch2(X3,8,15,infoX4);
+   bitMagicSearch2(X3,8,15,infoX3);
    cerr << "correct output = 2"<<endl;
    cerr << endl;
    
 
-
-    X4 = 0;
-    X4p = &X4;
+    uint64_t X5 = 0;
+    uint64_t *X5p = &X5;
    // width = 4 for the first 3, then 
-    X4 |= (8ULL<<60); 
-    X4 |= (9ULL<<56);
-    X4 |= (10ULL<<52); 
-    X4 |= (11ULL<<48);
-    X4 |= (12ULL<<44);
-    X4 |= (13ULL<<40); 
-    X4 |= (14ULL<<36);
-    X4 |= (15ULL<<32);
-    X4 |= (7ULL<<28);
+    X5 |= (8ULL<<60); 
+    X5 |= (9ULL<<56);
+    X5 |= (10ULL<<52); 
+    X5 |= (11ULL<<48);
+    X5 |= (12ULL<<44);
+    X5 |= (13ULL<<40); 
+    X5 |= (14ULL<<36);
+    X5 |= (15ULL<<32);
+    X5 |= (7ULL<<28);
 
-    X4 |= (6ULL<<24); 
-    X4 |= (5ULL<<20);
-    X4 |= (4ULL<<16);
+    X5 |= (6ULL<<24); 
+    X5 |= (5ULL<<20);
+    X5 |= (4ULL<<16);
 
-    X4 |= (3ULL<<12);  
-    X4 |= (2ULL<<8); 
-    X4 |= (1ULL<<4);
+    X5 |= (3ULL<<12);  
+    X5 |= (2ULL<<8); 
+    X5 |= (1ULL<<4);
 
-    X4 |= (0ULL<<0); 
+    X5 |= (0ULL<<0); 
 
+   cerr << "reverse" << endl;
     for (int i = 0; i < 16; i++) {
-      uint64_t val4 = (X4 >> (60 - i * 4)) & 0xF;
+      uint64_t val4 = (X5 >> (60 - i * 4)) & 0xF;
       cerr << val4 << ' ';
   }
   cerr << '\n';
-  cerr << "new X4 "<< endl;
 
-    bitMagicSearch2(X4,4,13, infoX4);
-    cerr << "correct output = 5"<< endl;
+  uint64_t infoX5 = 0; // 8 bits will not be enough for some number of tails (max tails per bucket)
+   uint64_t *infoX5p = &infoX5;
+   infoX5 |= (4ULL<<56);
+   infoX5 |= (16ULL<<48);  
+   cerr << endl;
+  cerr << "new X5 "<< endl;
+
+    bitMagicSearch2(X5,4,13, infoX5);
+    cerr << "correct output = 10"<< endl;
+    cerr << endl;
+
+    bitMagicSearch2(X5,4,14, infoX5);
+    cerr << "correct output = 9"<< endl;
     cerr << endl;
 
 
