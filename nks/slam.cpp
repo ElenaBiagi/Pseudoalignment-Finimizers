@@ -59,38 +59,33 @@ inline uint64_t hasValueSupplyDebug(uint64_t x, uint64_t mask){
    return (((x - 0x0101010101010101ULL)&~x)&0x8080808080808080ULL);
 }
 
-constexpr uint64_t masks[10][3] = {
-   {0,0,0}, //0th entry is not to be used!
-   {0,0,0},
-   {0,0,0},
-   {0,0,0},
-   {0b0001000100010001000100010001000100010001000100010001000100010001,0,0}, //4-bit patterns (16 of them)
-   {0b000010000100001000010000100001000010000100001000010000100001,0,0}, //5-bit (12 of them)
-   {0b000001000001000001000001000001000001000001000001000001000001,0,0}, //6 (10)
-   {0b000000100000010000001000000100000010000001000000100000010000001,0,0}, //7 (9)
-   {0b0000000100000001000000010000000100000001000000010000000100000001,0,0}, //8 (8)
-   {0b000000001000000001000000001000000001000000001000000001000000001,0,0}, //9 (7)
-};
+void repeatKey(uint64_t key, int keyLen, int startPos, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3) {
+   kmask = 0;
+   mask2 = 0;
+   mask3 = 0;
+   // all the patterns have the same length
+   uint64_t pattern2 = 1ULL;                  // 1 preceded by KeyLen -1 0s
+   uint64_t pattern3 = (1ULL << (keyLen - 1)); // 1 followed by KeyLen -1 0s
 
-constexpr uint64_t rmasks[10][3] = {
-   {0,0,0}, //0th entry is not to be used!
-   {0,0,0},
-   {0,0,0},
-   {0,0,0},
-   {0b1000100010001000100010001000100010001000100010001000100010001000,0,0}, //4-bit patterns (16 of them)
-   {0b100001000010000100001000010000100001000010000100001000010000,0,0}, //5-bit (12 of them)
-   {0b100000100000100000100000100000100000100000100000100000100000,0,0}, //6 (10)
-   {0b100000010000001000000100000010000001000000100000010000001000000,0,0}, //7 (9)
-   {0b1000000010000000100000001000000010000000100000001000000010000000,0,0}, //8 (8)
-   {0b100000000100000000100000000100000000100000000100000000100000000,0,0}, //9 (7)
-};
+   int pos = startPos;
 
+   while (pos + keyLen <= 64) {
+       kmask |= (key << pos);
+       mask2 |= (pattern2 << pos);
+       mask3 |= (pattern3 << pos);
+       pos += keyLen;
+   }
 
-pair<vector<int>, vector<uint64_t>> count_itemsPerWord(uint64_t info, int W){
+   return;
+}
+
+pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint64_t info, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3){
    vector<uint64_t> Wmasks;
 
    // for every width != W, create a mask and combine & all the masks
    // not 1*width*bucketsize but it has to be at the right pos
+   //uint64_t kmask, mask2, mask3;
+   bool kmask_created = false;
    uint64_t *infop = &info;
    vector<int> itemsPerWord;
    vector<uint64_t> bucketSize; // could be uint32_t
@@ -125,16 +120,18 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(uint64_t info, int W){
          totl + (lengths[i] * number);
          if (lengths[i] != W){
             diffWItems += (int)number;
-            // create a mask NOW!
-            cerr << "pos = "<< pos << endl;
-            cerr << "diffWItems = "<< diffWItems * lengths[i] << endl;
-
+            //cerr << "pos = "<< pos << endl;
+            //cerr << "diffWItems = "<< diffWItems * lengths[i] << endl;
             uint64_t mask_ = ((1ULL << (diffWItems* lengths[i])) - 1) << pos;
+            //printBinary(mask_); cerr << " mask W = " << lengths[i] << endl;
             mask = mask | mask_;
             // reset for a new mask
-            pos += diffWItems;
+            pos += diffWItems * lengths[i];
             diffWItems = 0;
          }else{
+            // create the repated mask
+            repeatKey(key, W, pos, kmask, mask2, mask3);
+            printBinary(kmask); cerr << "repeated mask" << endl;
             pos += lengths[i] * number; // the values before this pos contain ok items
          }
 
@@ -153,14 +150,16 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(uint64_t info, int W){
          if (lengths[i] != W){
             diffWItems ++;
          } else{
+            // create the repated mask if it has not been already created
+            if (!kmask_created){ 
+               repeatKey(key, W, pos, kmask, mask2, mask3);
+               kmask_created = true;}
             pos += lengths[i]; // the values before this pos contain ok items
          }
          number --;
          if (number = 0){
-
-            // create a mask NOW!
-            // mask of 1*lenght[i]*diffWItems
             uint64_t mask_ = ((1ULL << (diffWItems* lengths[i])) - 1) << pos;
+            //printBinary(mask_); cerr << " mask W = " << lengths[i] << endl;
             mask = mask | mask_;
             // reset for a new mask
             pos += diffWItems;
@@ -242,20 +241,27 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    cerr << key << " key" << endl;
    printBinary(key); cerr << " key" << endl;
 
-   uint64_t mask = masks[W][0]*key; //~0ULL/255 * key; 
-   printBinary(mask); cerr << " mask" << endl;
+   //uint64_t mask = masks[W][0]*key; //~0ULL/255 * key; 
+   //printBinary(mask); cerr << " mask" << endl;
 
-   uint64_t mask2 = masks[W][0]*1; // this works for different widths
-   uint64_t mask3 = rmasks[W][0]*1;
+   //uint64_t mask2 = masks[W][0]*1; // this works for different widths
+   //uint64_t mask3 = rmasks[W][0]*1;
+
+   uint64_t mask, mask2, mask3;
 
    // These cannot be set here as different words might have different number of items
    // Make sure that every work contains WHOLE items
    //uint64_t itemsPerWord = 64/W; 
    //uint64_t maxBitsPerWord = itemsPerWord*W; // this is not used
 
-   pair<vector<int>, vector<uint64_t>> results = count_itemsPerWord(info, W); // one value for every word
+   pair<vector<int>, vector<uint64_t>> results = count_itemsPerWord(W, key, info, mask, mask2, mask3); // one value for every word
    vector<int> itemsPerWord = results.first;
-   vector<uint64_t> Wmasks =results.second;
+   vector<uint64_t> Wmasks = results.second;
+   printBinary(mask); cerr << " mask" << endl;
+
+   //uint64_t mask2 = get<3>(results);
+   //uint64_t mask3 = get<4>(results);
+   
    //uint64_t maskwW = maskWrongW(info);
    // TODO use another mask to mask the values of a different width !!!
    // based on info for each word
@@ -274,7 +280,6 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
       uint64_t w = X; //uint64_t w = X.data()[i];
       printBinary(w); cerr << " w " << endl;
       printBinary(~Wmasks[i]); cerr << " mask wrong width" << endl;
-      /* //printBinary(w & (~Wmasks[i])); cerr << " w & (~Wmasks[i]) " << endl;
       printBinary(mask); cerr << " mask" << endl;
 
       printBinary((w) ^ mask); cerr << " (w) ^ mask" << endl;
@@ -289,8 +294,7 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
 
       printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmasks[i])); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (~Wmasks[i])" << endl;
 
-      //uint64_t found = hasValueSupplyDebug(w,mask);//hasvaluesupply(w,mask);
-      */ 
+      //uint64_t found = hasValueSupplyDebug(w,mask);//hasvaluesupply(w,mask); 
       uint64_t Wmask = Wmasks[i];
       uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
       printBinary(found); cerr << " found" <<  endl;
@@ -545,9 +549,10 @@ int main(int argc, char **argv) {
 
      X4 |= (141ULL<<24); // 10001101
      X4 |= (221ULL<<16);  // 11011101
-     X4 |= (19ULL<<8); 
-     X4 |= (18ULL<<0); 
+     //X4 |= (19ULL<<8); 
+     //X4 |= (18ULL<<0); 
 
+     X4 |= (3549ULL<<1); //110111011101
      
     cerr << "X4: " << X4 << '\n';
 
@@ -556,7 +561,13 @@ int main(int argc, char **argv) {
    infoX4 |= (4ULL<<56);
    infoX4 |= (8ULL<<48); 
    infoX4 |= (8ULL<<40); 
-   infoX4 |= (4ULL<<32); 
+   infoX4 |= (2ULL<<32);
+   infoX4 |= (15ULL<<24);
+   infoX4 |= (1ULL<<16);
+   infoX4 |= (1ULL<<8);
+   infoX4 |= (1ULL<<0);
+
+
 
    /* for(int i=0;i<8;i++){
       uint8_t x = *(((uint8_t*)(infoX4p))+i);
@@ -574,33 +585,47 @@ for (int i = 0; i < 8; ++i) {
 }
 
 // 8-bit values 
-for (int i = 0; i < 4; ++i) {
+for (int i = 0; i < 2; ++i) {
    uint8_t byte = (val >> (24 - i * 8)) & 0xFF;
    cerr << (uint64_t)byte << ' ';
 }
+// 16-bit values 
+for (int i = 0; i < 1; ++i) {
+   uint16_t chunk = (val >> (16 * (0 - i))) & 0xFFFF;
+   cerr << (uint64_t)chunk << ' ';
+}
+
 cerr << '\n';
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,4,13, infoX4);
-   cerr << "correct output = 6"<< endl;
+   cerr << "correct output = 5"<< endl;
    cerr << endl;
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,4,15, infoX4);
-   cerr << "correct output = 4"<< endl;
+   cerr << "correct output = 3"<< endl;
    cerr << endl;
    bitMagicSearch2(X4,4,14, infoX4);
-   cerr << "correct output = 5"<< endl;
+   cerr << "correct output = 4"<< endl;
    cerr << endl;
    bitMagicSearch2(X4,8,18, infoX4);
-   cerr << "correct output = 0"<< endl;
+   cerr << "correct output = x"<< endl;
    cerr << endl;
-   cerr << "X4 "<< endl;
+   /* cerr << "X4 "<< endl;
    bitMagicSearch2(X4,8,19, infoX4);
+   cerr << "correct output = 1" << endl; // ok
+   cerr << endl;  */
+  /*  cerr << "X4 "<< endl;
+   bitMagicSearch2(X4,8,221, infoX4);
    cerr << "correct output = 1" << endl;
+   cerr << endl;  */
+   cerr << "X4 "<< endl;
+   bitMagicSearch2(X4,15,3549, infoX4);
+   cerr << "correct output = 0" << endl;
    cerr << endl; 
 
-   cerr << "X3 "<< endl;
+   /*cerr << "X3 "<< endl;
 
-   /* for(int i=0;i<8;i++){
+   for(int i=0;i<8;i++){
       uint8_t x = *(((uint8_t*)(X3p))+i);
       cerr << (uint64_t)x << ' '; 
    }
