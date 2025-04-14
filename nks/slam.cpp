@@ -1,5 +1,6 @@
 // To compile: (in Pseudoaligment-Finimizers) srun g++ nks/slam.cpp SBWT/build/libsbwt_static.a SBWT/build/external/sdsl-lite/build/lib/libsdsl.a -std=c++20 -I ./SBWT/sdsl-lite/include/ -O3 -I include -I ./SBWT/include -I ./SBWT/include/sbwt -I SBWT/build/external/sdsl-lite/build/external/libdivsufsort/include/ -g -o slam -lz -Wno-deprecated-declarations
 
+// GENERAL IDEA: create distinct int vectors of diff widths and combine them together into a 64bit int keeping track of number and width 
 
 #include <iostream>
 #include <fstream>
@@ -59,7 +60,33 @@ inline uint64_t hasValueSupplyDebug(uint64_t x, uint64_t mask){
    return (((x - 0x0101010101010101ULL)&~x)&0x8080808080808080ULL);
 }
 
-void repeatKey(uint64_t key, int keyLen, int startPos, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3) {
+constexpr uint64_t masks[10][3] = {
+   {0,0,0}, //0th entry is not to be used!
+   {0,0,0},
+   {0,0,0},
+   {0,0,0},
+   {0b0001000100010001000100010001000100010001000100010001000100010001,0,0}, //4-bit patterns (16 of them)
+   {0b000010000100001000010000100001000010000100001000010000100001,0,0}, //5-bit (12 of them)
+   {0b000001000001000001000001000001000001000001000001000001000001,0,0}, //6 (10)
+   {0b000000100000010000001000000100000010000001000000100000010000001,0,0}, //7 (9)
+   {0b0000000100000001000000010000000100000001000000010000000100000001,0,0}, //8 (8)
+   {0b000000001000000001000000001000000001000000001000000001000000001,0,0}, //9 (7)
+};
+
+constexpr uint64_t rmasks[10][3] = {
+   {0,0,0}, //0th entry is not to be used!
+   {0,0,0},
+   {0,0,0},
+   {0,0,0},
+   {0b1000100010001000100010001000100010001000100010001000100010001000,0,0}, //4-bit patterns (16 of them)
+   {0b100001000010000100001000010000100001000010000100001000010000,0,0}, //5-bit (12 of them)
+   {0b100000100000100000100000100000100000100000100000100000100000,0,0}, //6 (10)
+   {0b100000010000001000000100000010000001000000100000010000001000000,0,0}, //7 (9)
+   {0b1000000010000000100000001000000010000000100000001000000010000000,0,0}, //8 (8)
+   {0b100000000100000000100000000100000000100000000100000000100000000,0,0}, //9 (7)
+};
+
+void createMask(uint64_t key, int keyLen, int startPos, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3) {
    kmask = 0;
    mask2 = 0;
    mask3 = 0;
@@ -79,26 +106,30 @@ void repeatKey(uint64_t key, int keyLen, int startPos, uint64_t &kmask, uint64_t
    return;
 }
 
-pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint64_t info, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3){
+tuple<vector<int>, vector<pair<int,int>>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint64_t info, uint64_t &kmask, uint64_t &mask2, uint64_t &mask3){
    vector<uint64_t> Wmasks;
 
    // for every width != W, create a mask and combine & all the masks
    // not 1*width*bucketsize but it has to be at the right pos
    //uint64_t kmask, mask2, mask3;
+   int smaller = 0;
+   int larger = 0;
+   int S = 0; // smaller items
    bool kmask_created = false;
    uint64_t *infop = &info;
    vector<int> itemsPerWord;
+   vector<pair<int,int>> SLitems;
    vector<uint64_t> bucketSize; // could be uint32_t
    vector<uint64_t> lengths; 
    for(int i=0;i<8;i++){
       uint8_t x = *(((uint8_t*)(infop))+i);
       if ((uint64_t)x >0){
          if (i%2) {
-            cerr << "length = ";
+            //cerr << "length = ";
             lengths.push_back((uint64_t)x);
             }
          else {
-            cerr << "number = ";
+            //cerr << "number = ";
             bucketSize.push_back((uint64_t)x);
          }            
          cerr << (uint64_t)x << endl;
@@ -120,6 +151,14 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint
          totl + (lengths[i] * number);
          if (lengths[i] != W){
             diffWItems += (int)number;
+            if (lengths[i] < W){
+               smaller+= diffWItems * lengths[i];
+               S += diffWItems;
+
+            }
+            else {//if (lengths[i] > W){
+               larger+= diffWItems * lengths[i];
+            }
             //cerr << "pos = "<< pos << endl;
             //cerr << "diffWItems = "<< diffWItems * lengths[i] << endl;
             uint64_t mask_ = ((1ULL << (diffWItems* lengths[i])) - 1) << pos;
@@ -127,15 +166,14 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint
             mask = mask | mask_;
             // reset for a new mask
             pos += diffWItems * lengths[i];
+            
             diffWItems = 0;
          }else{
             // create the repated mask
-            repeatKey(key, W, pos, kmask, mask2, mask3);
-            printBinary(kmask); cerr << "repeated mask" << endl;
+            createMask(key, W, pos, kmask, mask2, mask3);
+            //printBinary(kmask); cerr << "repeated mask" << endl;
             pos += lengths[i] * number; // the values before this pos contain ok items
-         }
-
-         
+         }         
       
          new_totl = totl;
          items += (int)number;
@@ -149,10 +187,17 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint
          items ++;
          if (lengths[i] != W){
             diffWItems ++;
+            if (lengths[i] < W){
+               smaller++;
+               S++;
+            } 
+            else {//(lengths[i] > W){
+               larger++;
+            }
          } else{
             // create the repated mask if it has not been already created
             if (!kmask_created){ 
-               repeatKey(key, W, pos, kmask, mask2, mask3);
+               createMask(key, W, pos, kmask, mask2, mask3);
                kmask_created = true;}
             pos += lengths[i]; // the values before this pos contain ok items
          }
@@ -170,10 +215,13 @@ pair<vector<int>, vector<uint64_t>> count_itemsPerWord(int W, uint64_t key, uint
          }
       }
       itemsPerWord.push_back(items);
+      SLitems.push_back({smaller,S});
+      //cerr << "larger = " << larger << endl;
+      //cerr << "smaller = " << smaller << endl;
+      //cerr << "smaller items " << S<< endl;
       Wmasks.push_back(mask);
-      //Now we knwon how many of 
    }
-   return {itemsPerWord,Wmasks};
+   return {itemsPerWord,SLitems, Wmasks};
 }
 
 inline int64_t bitMagicSearch2_old(uint64_t X, uint64_t key){
@@ -200,14 +248,14 @@ inline int64_t bitMagicSearch2_old(uint64_t X, uint64_t key){
          printBinary(w ^ mask); cerr << " w ^ mask" << endl;
          printBinary(0x0101010101010101ULL); cerr << " 0x0101010101010101ULL" << endl;
          printBinary((w ^ mask)-0x0101010101010101ULL); cerr << " (w ^ mask)-0x0101010101010101ULL" << endl;
-	 //printBinary((w ^ mask)-0X8080808080808080ULL); cerr << " (w ^ mask)-0x8080808080808080ULL" << endl;
+	      //printBinary((w ^ mask)-0X8080808080808080ULL); cerr << " (w ^ mask)-0x8080808080808080ULL" << endl;
          //printBinary( ~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
-	 //printBinary(((w ^ mask)-0x8080808080808080ULL) & ~(w ^ mask)); cerr << "((w ^ mask)-8080808080808080ULL) & ~(w ^ mask)"<< endl;
+	      //printBinary(((w ^ mask)-0x8080808080808080ULL) & ~(w ^ mask)); cerr << "((w ^ mask)-8080808080808080ULL) & ~(w ^ mask)"<< endl;
          printBinary(((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask)); cerr << "((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask)" << endl;
-	 //printBinary(((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask) & 0x0101010101010101ULL); cerr << endl;
+	      //printBinary(((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask) & 0x0101010101010101ULL); cerr << endl;
          //printBinary(0x0101010101010101ULL); cerr << " 0x0101010101010101ULL" << endl;
-	 printBinary(0x8080808080808080ULL); cerr << " 0x8080808080808080ULL" << endl;
-	 //printBinary(((w ^ mask)-0x8080808080808080ULL) & ~(w ^ mask) & 0x0101010101010101ULL);
+         printBinary(0x8080808080808080ULL); cerr << " 0x8080808080808080ULL" << endl;
+         //printBinary(((w ^ mask)-0x8080808080808080ULL) & ~(w ^ mask) & 0x0101010101010101ULL);
          printBinary(((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask) & 0x8080808080808080ULL); cerr << " ((w ^ mask)-0x0101010101010101ULL) & ~(w ^ mask) & 0x8080808080808080ULL)" << endl;
 
          uint64_t lz = __builtin_clzll(found);
@@ -239,7 +287,7 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
     
    cerr << W <<  " query width" << endl;
    cerr << key << " key" << endl;
-   printBinary(key); cerr << " key" << endl;
+   //printBinary(key); cerr << " key" << endl;
 
    //uint64_t mask = masks[W][0]*key; //~0ULL/255 * key; 
    //printBinary(mask); cerr << " mask" << endl;
@@ -254,10 +302,12 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    //uint64_t itemsPerWord = 64/W; 
    //uint64_t maxBitsPerWord = itemsPerWord*W; // this is not used
 
-   pair<vector<int>, vector<uint64_t>> results = count_itemsPerWord(W, key, info, mask, mask2, mask3); // one value for every word
-   vector<int> itemsPerWord = results.first;
-   vector<uint64_t> Wmasks = results.second;
-   printBinary(mask); cerr << " mask" << endl;
+   tuple<vector<int>,vector<pair<int,int>>, vector<uint64_t>> results = count_itemsPerWord(W, key, info, mask, mask2, mask3); // one value for every word
+   vector<int> itemsPerWord = get<0>(results);
+   vector<pair<int,int>> SLitems = get<1>(results);
+   
+   vector<uint64_t> Wmasks = get<2>(results);
+   //printBinary(mask); cerr << " mask" << endl;
 
    //uint64_t mask2 = get<3>(results);
    //uint64_t mask3 = get<4>(results);
@@ -276,9 +326,16 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
    uint64_t dataSize = 1;
    for(uint64_t i=0;i<dataSize;i++){
 
+      int smaller = SLitems[i].first;
+      int S = SLitems[i].second;
+
+      //cerr << "smaller = " << smaller << endl;
+      //cerr << "smaller items " << S<< endl;
+
 
       uint64_t w = X; //uint64_t w = X.data()[i];
       printBinary(w); cerr << " w " << endl;
+      /* 
       printBinary(~Wmasks[i]); cerr << " mask wrong width" << endl;
       printBinary(mask); cerr << " mask" << endl;
 
@@ -293,7 +350,7 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
       printBinary(mask3); cerr << " mask3" << endl;
 
       printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmasks[i])); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (~Wmasks[i])" << endl;
-
+ */
       //uint64_t found = hasValueSupplyDebug(w,mask);//hasvaluesupply(w,mask); 
       uint64_t Wmask = Wmasks[i];
       uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
@@ -317,14 +374,22 @@ inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ 
          //}
          //cerr << itemsPerWord<< endl;
          cerr << "pos " << pos << endl; // TODO FIX: pos is based on W as it depedens on mask 3 and this should be flipped 
-         //if (pos>)
-         cerr << needsCorrection << endl;
-         cerr << "old items per word = "<< 64/W << endl;
-         cerr << "new items per word = "<< itemsPerWord[0]<< endl;
-         cerr << "old result " << i*(64/W)+((64/W)-pos-1-needsCorrection)<< endl;
-
-         cerr << "result " << i*(itemsPerWord[i])+((itemsPerWord[i])-pos-1-needsCorrection)<< endl;
-         return i*(itemsPerWord[i])+((itemsPerWord[i])-pos-1-needsCorrection);
+     
+         // items in previous words
+         uint64_t result = 0;
+         for (int j=0;j<i; j++){
+            result += (itemsPerWord[j]);
+         }
+         // 64 - pos - C[W]=smaller values]
+         /* cerr << "flip " << 64-lz<< endl;
+         cerr << "remove smaller all " << (64-lz)- smaller << endl;
+         cerr << "Divide by W " << ((64-lz)- smaller)/W << endl;
+         cerr << "correct if needed " << (((64-lz)- smaller)/W) - needsCorrection << endl;
+         cerr << "Add smaller items " << ((((64-lz)- smaller)/W) - needsCorrection) + S << endl;
+         cerr << "Correct for 0 " << (((((64-lz)- smaller)/W) - needsCorrection) + S ) - 1 << endl; */
+         cerr << "result = " << (((((64-lz)- smaller)/W) - needsCorrection) + S ) - 1 << endl;
+         
+         return result + (((((64-lz)- smaller)/W) - needsCorrection) + S ) - 1;
       }
    }
    return -1;
@@ -538,35 +603,44 @@ int main(int argc, char **argv) {
     uint64_t X4 = 0;
     uint64_t *X4p = &X4;
     // width = 4 for the first 3, then 
-     X4 |= (8ULL<<60); 
-     X4 |= (9ULL<<56);
-     X4 |= (10ULL<<52); 
-     X4 |= (11ULL<<48);
-     X4 |= (12ULL<<44);
-     X4 |= (13ULL<<40); // 1101
-     X4 |= (14ULL<<36);
-     X4 |= (15ULL<<32);
+    X4 |= (1ULL<<63); 
+     X4 |= (8ULL<<59); 
+     X4 |= (9ULL<<55);
+     X4 |= (10ULL<<51); 
+     X4 |= (11ULL<<47);
+     X4 |= (12ULL<<43);
+     X4 |= (13ULL<<39); // 1101
+     X4 |= (14ULL<<35);
+     X4 |= (15ULL<<31);
 
-     X4 |= (141ULL<<24); // 10001101
-     X4 |= (221ULL<<16);  // 11011101
+     X4 |= (141ULL<<23); // 10001101
+     X4 |= (221ULL<<15);  // 11011101
      //X4 |= (19ULL<<8); 
      //X4 |= (18ULL<<0); 
 
-     X4 |= (3549ULL<<1); //110111011101
+     X4 |= (3549ULL<<0); //110111011101
      
     cerr << "X4: " << X4 << '\n';
 
    uint64_t infoX4 = 0; // 8 bits will not be enough for some number of tails (max tails per bucket)
    uint64_t *infoX4p = &infoX4;
-   infoX4 |= (4ULL<<56);
+/*    infoX4 |= (4ULL<<56);
    infoX4 |= (8ULL<<48); 
    infoX4 |= (8ULL<<40); 
    infoX4 |= (2ULL<<32);
    infoX4 |= (15ULL<<24);
    infoX4 |= (1ULL<<16);
    infoX4 |= (1ULL<<8);
-   infoX4 |= (1ULL<<0);
+   infoX4 |= (1ULL<<0); */
 
+   infoX4 |= (1ULL<<56);
+   infoX4 |= (1ULL<<48); 
+   infoX4 |= (4ULL<<40); //lenght
+   infoX4 |= (8ULL<<32);
+   infoX4 |= (8ULL<<24);
+   infoX4 |= (2ULL<<16);
+   infoX4 |= (15ULL<<8);
+   infoX4 |= (1ULL<<0);
 
 
    /* for(int i=0;i<8;i++){
@@ -576,22 +650,22 @@ int main(int argc, char **argv) {
       cerr << (uint64_t)x << endl;
    } */
 
-   uint64_t val = *X4p;
+uint64_t val = *X4p;
 
-// 4-bit values
+ // 4-bit values
 for (int i = 0; i < 8; ++i) {
-   uint8_t nibble = (val >> (60 - i * 4)) & 0xF;
+   uint8_t nibble = (val >> (59 - i * 4)) & 0xF;
    cerr << (uint64_t)nibble << ' ';
 }
 
 // 8-bit values 
 for (int i = 0; i < 2; ++i) {
-   uint8_t byte = (val >> (24 - i * 8)) & 0xFF;
+   uint8_t byte = (val >> (15 + i * 8)) & 0xFF;
    cerr << (uint64_t)byte << ' ';
 }
-// 16-bit values 
+// 15-bit values 
 for (int i = 0; i < 1; ++i) {
-   uint16_t chunk = (val >> (16 * (0 - i))) & 0xFFFF;
+   uint16_t chunk = (val >> (15 * (0 - i))) & 0x7FFF;
    cerr << (uint64_t)chunk << ' ';
 }
 
@@ -614,16 +688,112 @@ cerr << '\n';
    bitMagicSearch2(X4,8,19, infoX4);
    cerr << "correct output = 1" << endl; // ok
    cerr << endl;  */
-  /*  cerr << "X4 "<< endl;
+/*    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,8,221, infoX4);
    cerr << "correct output = 1" << endl;
-   cerr << endl;  */
+   cerr << endl;
    cerr << "X4 "<< endl;
    bitMagicSearch2(X4,15,3549, infoX4);
    cerr << "correct output = 0" << endl;
-   cerr << endl; 
+   cerr << endl;  */
 
-   /*cerr << "X3 "<< endl;
+
+   uint64_t X6 = 0;
+   uint64_t *X6p = &X6;
+   // width = 4 for the first 3, then 
+   X6 |= (3549ULL<<49); //110111011101
+   
+   X6 |= (141ULL<<41); // 10001101
+   X6 |= (221ULL<<33);  // 11011101
+
+    X6 |= (15ULL<<29); 
+    X6 |= (14ULL<<25); 
+    X6 |= (13ULL<<21); // 1101
+    X6 |= (12ULL<<17); 
+    X6 |= (11ULL<<13);
+    X6 |= (10ULL<<9);
+    X6 |= (9ULL<<5); 
+    X6 |= (8ULL<<1);
+    
+    X6 |= (1ULL<<0);
+
+    
+    //X6 |= (19ULL<<8); 
+    //X6 |= (18ULL<<0); 
+
+    
+   cerr << "X6: " << X6 << '\n';
+
+  uint64_t infoX6 = 0; // 8 bits will not be enough for some number of tails (max tails per bucket)
+  uint64_t *infoX6p = &infoX6;
+  /* infoX6 |= (4ULL<<56);
+  infoX6 |= (8ULL<<48); 
+  infoX6 |= (8ULL<<40); 
+  infoX6 |= (2ULL<<32);
+  infoX6 |= (15ULL<<24);
+  infoX6 |= (1ULL<<16);
+  infoX6 |= (1ULL<<8);
+  infoX6 |= (1ULL<<0); */
+
+  infoX6 |= (15ULL<<56);
+  infoX6 |= (1ULL<<48); 
+  infoX6 |= (8ULL<<40); //lenght
+  infoX6 |= (2ULL<<32);
+  infoX6 |= (4ULL<<24);
+  infoX6 |= (8ULL<<16);
+  infoX6 |= (1ULL<<8);
+  infoX6 |= (1ULL<<0);
+
+
+cerr << 1 << " ";
+  // 4-bit values
+ for (int i = 0; i < 8; ++i) {
+    uint8_t nibble = (*X6p >> (29 - i * 4)) & 0xF;
+    cerr << (uint64_t)nibble << ' ';
+ }
+ 
+ // 8-bit values 
+ for (int i = 0; i < 2; ++i) {
+    uint8_t byte = (*X6p >> (41 + i * 8)) & 0xFF;
+    cerr << (uint64_t)byte << ' ';
+ }
+ // 15-bit values 
+ for (int i = 0; i < 1; ++i) {
+   uint16_t chunk = (*X6p >> 49) & 0x7FFF;
+   cerr << (uint64_t)chunk << ' ';
+}
+ cerr << endl;
+
+ cerr << "X6 "<< endl;
+ bitMagicSearch2(X6,4,13, infoX6);
+ cerr << "correct output = 6"<< endl;
+ cerr << endl;
+ cerr << "X4 "<< endl;
+ bitMagicSearch2(X6,4,15, infoX6);
+ cerr << "correct output = 8"<< endl;
+ cerr << endl;
+ bitMagicSearch2(X6,4,14, infoX6);
+ cerr << "correct output = 7"<< endl;
+ cerr << endl;
+ bitMagicSearch2(X6,8,18, infoX6);
+ cerr << "correct output = x"<< endl;
+ cerr << endl;
+ /* cerr << "X6 "<< endl;
+ bitMagicSearch2(X6,8,19, infoX6);
+ cerr << "correct output = 1" << endl; // ok
+ cerr << endl;  */
+ cerr << "X6 "<< endl;
+ bitMagicSearch2(X6,8,221, infoX6);
+ cerr << "correct output = 10" << endl;
+ cerr << endl;
+ cerr << "X6 "<< endl;
+ bitMagicSearch2(X6,15,3549, infoX6);
+ cerr << "correct output = 11" << endl;
+ cerr << endl; 
+
+
+/* 
+   cerr << "X3 "<< endl;
 
    for(int i=0;i<8;i++){
       uint8_t x = *(((uint8_t*)(X3p))+i);
