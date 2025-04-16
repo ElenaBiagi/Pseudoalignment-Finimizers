@@ -230,7 +230,16 @@ public:
 
         int64_t n_nodes = this->sbwt->number_of_subsets();
 
+        //TODO REPLACE hashTable
         std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+        
+        //helper
+        std::unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >> B;
+
+        // REAL DATA STR
+        //std::unordered_map<uint32_t, uint32_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+        std::unordered_map<uint32_t, std::set<int> > sB; // Create a hash table to store the finimizers shorter than the prefix lenght
+        int_vector<0> T; // I can decide the width and modify every entry
 
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
@@ -254,6 +263,8 @@ public:
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
         index->hashTable = std::move(hashTable); // Transfer ownership
+        index->B = std::move(B); // Transfer ownership
+
     }
 
     // TODO fix return type
@@ -358,6 +369,134 @@ public:
         } 
         return 1;
     }
+
+
+    uint64_t prefix2int(const string& s, uint64_t offset, char plen){
+        uint64_t h = 0;
+        for(uint64_t i=0; i<(uint64_t)plen; i++){
+           uint64_t b = get_char_idx(s[i+offset]);
+           h |= (b << (i<<1));
+        }
+        //cerr << h << '\n';
+        return h;
+    }
+
+    uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) {
+        uint64_t h = 0;
+        for (uint64_t i = 0; i < (uint64_t)slen; i++) {
+            uint64_t b = get_char_idx(s[offset + slen - 1 - i]);
+            h |= (b << (i << 1)); 
+        }
+        return h;
+    }
+
+    // TODO
+    // DIVIDE INTO BUCKETS
+    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& B, unordered_map<uint32_t, std::set<int> >& sB, char plen){
+        // create a hash table with all the possible strings of length plen
+
+        // B={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
+        uint32_t nbuckets = 1<<(plen<<1);
+        for (uint32_t p=0; p<nbuckets; p++){
+            B[p]={};
+        }
+        for (auto &f : hashTable){
+            string fmin = f.first;
+            char flen = fmin.length();
+            if (flen < plen){ 
+                uint32_t sfmin = prefix2int(fmin,0,flen);
+                sB[sfmin]= f.second; // TODO this points you directly to the colors
+            }
+            else{
+                uint32_t pfmin = prefix2int(fmin,0,plen);
+                char tlen = flen - plen;
+                // TODO extract tails
+                uint32_t tail = 0; //TODO SUFFIX2int(fmin,0,plen);
+                if (B.find(pfmin) != B.end()) {
+                    //B[pfmin]=1; // TODO this should contain a pointer to the right place in the intvector of all the tails
+                    if (B[pfmin].find(tlen) != B[pfmin].end()){
+                        B[pfmin][tlen].insert({tail, f.second}); 
+                    }
+                    else{
+                        B[pfmin][tlen]={{tail, f.second}}; 
+                    }
+                } else {
+                    cerr << pfmin << " not found in B!";
+                }
+            }
+        }
+    }
+
+    void write_bits(int_vector<0>& vec, uint64_t value, size_t offset, size_t bit_width) {
+        for (size_t i = 0; i < bit_width; ++i) {
+            vec[offset + i] = (value >> (bit_width - 1 - i)) & 1;
+        }
+    }
+
+    vector<uint8_t> vbyte_encode(uint64_t x) {
+        vector<uint8_t> bytes;
+        do {
+            uint8_t byte = x & 0x7F;
+            x >>= 7;
+            if (x != 0) byte |= 0x80;
+            bytes.push_back(byte);
+        } while (x != 0);
+        return bytes;
+    }
+
+    void storeTails(unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& B, int_vector<0>& T){
+        size_t total_bits = 0;
+
+        for (auto &prefix : B){
+            for (auto &tails: prefix.second){
+                // this should in tails order
+                char tlen = tails.first; // 5 bits
+                int32_t tnumber = tails.second.size(); // vbyte
+                total_bits += 5; // tlen: 5 bits
+                auto vb = vbyte_encode(tnumber);
+                total_bits += vb.size() * 8; // vbyte: 8 bits per byte
+            }
+
+        }
+        T = int_vector<0>(total_bits, 0);
+
+    }
+
+    void pack_all(const vector<pair<uint8_t, vector<uint64_t>>>& groups, int_vector<0>& out) {
+        size_t total_bits = 0;
+    
+        // First, calculate total bits needed
+        for (const auto& [tlen, numbers] : groups) {
+            total_bits += 5; // tlen: fixed 5 bits
+            auto vb = vbyte_encode(numbers.size());
+            total_bits += vb.size() * 8; // vbyte: 8 bits per byte
+            total_bits += numbers.size() * (2 * tlen); // data // !!!!!!!!!!!!!!!!!!!What is this???
+        }
+    
+        out = int_vector<0>(total_bits, 0);
+    
+        // Now, write the data
+        size_t offset = 0;
+        for (const auto& [tlen, numbers] : groups) {
+            // Write tlen (5 bits)
+            write_bits(out, tlen, offset, 5);
+            offset += 5;
+    
+            // Write tnumber (vbyte)
+            auto vb = vbyte_encode(numbers.size());
+            for (uint8_t b : vb) {
+                write_bits(out, b, offset, 8);
+                offset += 8;
+            }
+    
+            // Write the tnumber integers using 2*tlen bits each
+            for (uint64_t val : numbers) {
+                write_bits(out, val, offset, 2 * tlen);
+                offset += 2 * tlen;
+            }
+        }
+    }
+    
 
     // Transfer ownership of the index out of the builder
     unique_ptr<FinimizerIndex> get_index(){
