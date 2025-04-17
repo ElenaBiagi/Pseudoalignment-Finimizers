@@ -92,7 +92,7 @@ public:
     }
 
 
-    void serialize_HashTable(const std::unordered_map<std::string, std::set<int>>& hashTable, const std::string& hashTableName) const{
+    /* void serialize_HashTable(const std::unordered_map<std::string, std::set<int>>& hashTable, const std::string& hashTableName) const{
         std::ofstream hashTable_out(hashTableName, std::ios::binary);
         if (!hashTable_out) {
             std::cerr << "Error: Could not open file for writing!" << std::endl;
@@ -117,7 +117,7 @@ public:
             }
         }
         hashTable_out.close();
-    }
+    } */
 
     void serialize_sB(const std::unordered_map<uint32_t, std::set<int>>& sB, const std::string& sBName) const {
         std::ofstream sB_out(sBName, std::ios::binary);
@@ -189,7 +189,7 @@ public:
         outFile.close();
     }
  
-    std::unordered_map<std::string, std::set<int>> load_HashTable(const std::string& hashTableName) {
+    /* std::unordered_map<std::string, std::set<int>> load_HashTable(const std::string& hashTableName) {
         hashTable = this->hashTable;
 
         std::ifstream inFile(hashTableName, std::ios::binary);
@@ -246,7 +246,7 @@ public:
         inFile.close();
         return hashTable;
     }
-
+ */
     std::unordered_map<uint32_t, std::set<int>> load_sB(const std::string& sBName) {
         std::unordered_map<uint32_t, std::set<int>> sB;
     
@@ -385,7 +385,7 @@ public:
 
         sbwt->serialize(index_prefix + ".sbwt");
 
-        serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
+        //serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
 
         serialize_sB(sB, index_prefix + ".sB.BIN");
 
@@ -408,10 +408,10 @@ public:
         sbwt->load(index_prefix + ".sbwt");
         std::cerr << "SBWT matrix loaded" << std::endl;
 
-        hashTable=load_HashTable(index_prefix + ".ht.BIN");
+        /* hashTable=load_HashTable(index_prefix + ".ht.BIN");
         std::cerr << "hashTable loaded" << std::endl;
         //printHashTable(hashTable);
-
+ */
         sB = load_sB(index_prefix + ".sB.BIN");
         std::cerr << "sB loaded" << std::endl;
 
@@ -470,11 +470,10 @@ public:
         std::unordered_map<uint32_t, uint32_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
         std::unordered_map<uint32_t, std::set<int> > sB; // Create a hash table to store the finimizers shorter than the prefix length
         int_vector<0> T; // width 0 so that I can decide the width and modify every entry
+        vector<set<int>> colors;
 
         //TODO REPLACE hashTable
-        std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
-
-        vector<set<int>> colors;
+        /* std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
         
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
@@ -493,11 +492,11 @@ public:
             std::cerr << "DONE"<< std::endl;
         }
         // TODO extract statistics
-        get_stats(hashTable);
+        get_stats(hashTable); */
         
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
-        index->hashTable = std::move(hashTable); // Transfer ownership
+        //index->hashTable = std::move(hashTable); // Transfer ownership
         index->B = std::move(B); // Transfer ownership
         index->sB = std::move(sB); // Transfer ownership
         //index->T = std::move(T); // Transfer ownership
@@ -506,7 +505,7 @@ public:
         // TODO add sB and T
     }
 
-    // TODO fix return type
+    /* // TODO fix return type
     template<typename reader_t>
     int64_t run_colors_file(const string& infile, unordered_map<std::string, std::set<int>>& hashTable, int& i){
         reader_t reader(infile);
@@ -539,6 +538,7 @@ public:
         }
         return 1;
     }
+
     // TODO fix return type
     int scan_color(const std::string& seq, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
         //std::cerr << seq << std::endl;
@@ -608,8 +608,8 @@ public:
         } 
         return 1;
     }
-
-
+    */
+    
     uint64_t prefix2int(const string& s, uint64_t offset, char plen){
         uint64_t h = 0;
         for(uint64_t i=0; i<(uint64_t)plen; i++){
