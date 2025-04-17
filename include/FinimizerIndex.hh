@@ -42,8 +42,13 @@ public:
     // Note: if you add members, update size_in_bytes(), serialize(), and load()
     unique_ptr<plain_matrix_sbwt_t> sbwt; // These are smart pointers because they are passed in to the constructor
     unique_ptr<sdsl::int_vector<>> LCS; // These are smart pointers because they are passed in to the constructor
+    //TODO REPLACE hashTable
     std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
-
+    
+    std::unordered_map<uint32_t, uint32_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+    std::unordered_map<uint32_t, std::set<int> > sB; // Create a hash table to store the finimizers shorter than the prefix length
+    unique_ptr<int_vector<0>> T; // tails
+    vector<set<int>> colors;
 
     FinimizerIndex() {}
 
@@ -113,65 +118,265 @@ public:
         }
         hashTable_out.close();
     }
+
+    void serialize_sB(const std::unordered_map<uint32_t, std::set<int>>& sB, const std::string& sBName) const {
+        std::ofstream sB_out(sBName, std::ios::binary);
+        if (!sB_out) {
+            std::cerr << "Error: Could not open file for writing!" << std::endl;
+            return;
+        }
+    
+        // Write the number of elements in the hash table
+        size_t sBSize = sB.size();
+        sB_out.write(reinterpret_cast<const char*>(&sBSize), sizeof(sBSize));
+    
+        for (const auto& [key, value] : sB) {
+            // Write the key (a uint32_t)
+            sB_out.write(reinterpret_cast<const char*>(&key), sizeof(key));
+    
+            // Write the size of the value set and the set itself
+            size_t valueSize = value.size();
+            sB_out.write(reinterpret_cast<const char*>(&valueSize), sizeof(valueSize));
+            for (const int elem : value) {
+                sB_out.write(reinterpret_cast<const char*>(&elem), sizeof(elem));
+            }
+        }
+    
+        sB_out.close();
+    }
+
+    void serialize_B(const std::unordered_map<uint32_t, uint32_t>& B, const std::string& BName) const {
+        std::ofstream B_out(BName, std::ios::binary);
+        if (!B_out) {
+            std::cerr << "Error: Could not open file for writing!" << std::endl;
+            return;
+        }
+    
+        // Write the number of elements in the hash table
+        size_t BSize = B.size();
+        B_out.write(reinterpret_cast<const char*>(&BSize), sizeof(BSize));
+    
+        // Write each key-value pair
+        for (const auto& [key, value] : B) {
+            B_out.write(reinterpret_cast<const char*>(&key), sizeof(key));
+            B_out.write(reinterpret_cast<const char*>(&value), sizeof(value));
+        }
+    
+        B_out.close();
+    }
+
+    void serialize_Colors(const std::vector<std::set<int>>& colors, const std::string& filename) const {
+        std::ofstream outFile(filename, std::ios::binary);
+        if (!outFile) {
+            std::cerr << "Error: Could not open colors file for writing!" << std::endl;
+            return;
+        }
+    
+        // Write the number of sets
+        size_t numColors = colors.size();
+        outFile.write(reinterpret_cast<const char*>(&numColors), sizeof(numColors));
+    
+        // Write each set
+        for (const auto& colorSet : colors) {
+            size_t setSize = colorSet.size();
+            outFile.write(reinterpret_cast<const char*>(&setSize), sizeof(setSize));
+    
+            for (int val : colorSet) {
+                outFile.write(reinterpret_cast<const char*>(&val), sizeof(val));
+            }
+        }
+    
+        outFile.close();
+    }
  
     std::unordered_map<std::string, std::set<int>> load_HashTable(const std::string& hashTableName) {
-    //std::unordered_map<std::string, std::set<int>> hashTable;
-    hashTable = this->hashTable;
+        hashTable = this->hashTable;
 
-    std::ifstream inFile(hashTableName, std::ios::binary);
-    if (!inFile) {
-        std::cerr << "Error: Could not open file for reading!" << std::endl;
-        return hashTable;
-    }
-
-    // Read the number of elements in the hash table
-    size_t hashTableSize;
-    if (!inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize))) {
-        std::cerr << "Error: Failed to read hash table size!" << std::endl;
-        return hashTable;
-    }
-
-    for (size_t i = 0; i < hashTableSize; ++i) {
-        // Read the key
-        size_t keySize;
-
-        if (!inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize))) {
-            std::cerr << "Error: Failed to read key size!" << std::endl;
+        std::ifstream inFile(hashTableName, std::ios::binary);
+        if (!inFile) {
+            std::cerr << "Error: Could not open file for reading!" << std::endl;
             return hashTable;
         }
 
-        std::string key(keySize, '\0');
-        if (!inFile.read(&key[0], keySize)) {
-            std::cerr << "Error: Failed to read key!" << std::endl;
+        // Read the number of elements in the hash table
+        size_t hashTableSize;
+        if (!inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize))) {
+            std::cerr << "Error: Failed to read hash table size!" << std::endl;
             return hashTable;
         }
 
-        // Read the value set
-        size_t valueSize;
+        for (size_t i = 0; i < hashTableSize; ++i) {
+            // Read the key
+            size_t keySize;
 
-        if (!inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize))) {
-            std::cerr << "Error: Failed to read value size!" << std::endl;
-            return hashTable;
-        }
-
-        std::set<int> value;
-        for (size_t j = 0; j < valueSize; ++j) {
-            int elem;
-            if (!inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem))) {
-                std::cerr << "Error: Failed to read value element!" << std::endl;
+            if (!inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize))) {
+                std::cerr << "Error: Failed to read key size!" << std::endl;
                 return hashTable;
             }
-            value.insert(elem);
+
+            std::string key(keySize, '\0');
+            if (!inFile.read(&key[0], keySize)) {
+                std::cerr << "Error: Failed to read key!" << std::endl;
+                return hashTable;
+            }
+
+            // Read the value set
+            size_t valueSize;
+
+            if (!inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize))) {
+                std::cerr << "Error: Failed to read value size!" << std::endl;
+                return hashTable;
+            }
+
+            std::set<int> value;
+            for (size_t j = 0; j < valueSize; ++j) {
+                int elem;
+                if (!inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem))) {
+                    std::cerr << "Error: Failed to read value element!" << std::endl;
+                    return hashTable;
+                }
+                value.insert(elem);
+            }
+
+            // Insert the key-value pair into the hash table
+            hashTable[key] = value;
+
         }
 
-        // Insert the key-value pair into the hash table
-        hashTable[key] = value;
-
+        inFile.close();
+        return hashTable;
     }
 
-    inFile.close();
-    return hashTable;
-}
+    std::unordered_map<uint32_t, std::set<int>> load_sB(const std::string& sBName) {
+        std::unordered_map<uint32_t, std::set<int>> sB;
+    
+        std::ifstream inFile(sBName, std::ios::binary);
+        if (!inFile) {
+            std::cerr << "Error: Could not open file for reading!" << std::endl;
+            return sB;
+        }
+    
+        // Read number of key-value pairs
+        size_t sBSize;
+        if (!inFile.read(reinterpret_cast<char*>(&sBSize), sizeof(sBSize))) {
+            std::cerr << "Error: Failed to read hash table size!" << std::endl;
+            return sB;
+        }
+    
+        for (size_t i = 0; i < sBSize; ++i) {
+            // Read key
+            uint32_t key;
+            if (!inFile.read(reinterpret_cast<char*>(&key), sizeof(key))) {
+                std::cerr << "Error: Failed to read key!" << std::endl;
+                return sB;
+            }
+    
+            // Read value set size
+            size_t valueSize;
+            if (!inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize))) {
+                std::cerr << "Error: Failed to read value set size!" << std::endl;
+                return sB;
+            }
+    
+            // Read all ints into the set
+            std::set<int> value;
+            for (size_t j = 0; j < valueSize; ++j) {
+                int elem;
+                if (!inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem))) {
+                    std::cerr << "Error: Failed to read set element!" << std::endl;
+                    return sB;
+                }
+                value.insert(elem);
+            }
+    
+            sB[key] = std::move(value);
+        }
+    
+        inFile.close();
+        return sB;
+    }
+    
+
+    std::unordered_map<uint32_t, uint32_t> load_B(const std::string& BName) {
+        std::unordered_map<uint32_t, uint32_t> B;
+    
+        std::ifstream inFile(BName, std::ios::binary);
+        if (!inFile) {
+            std::cerr << "Error: Could not open file for reading!" << std::endl;
+            return B;
+        }
+    
+        // Read the number of elements in the hash table
+        size_t BSize;
+        if (!inFile.read(reinterpret_cast<char*>(&BSize), sizeof(BSize))) {
+            std::cerr << "Error: Failed to read hash table size!" << std::endl;
+            return B;
+        }
+    
+        for (size_t i = 0; i < BSize; ++i) {
+            uint32_t key, value;
+    
+            // Read key
+            if (!inFile.read(reinterpret_cast<char*>(&key), sizeof(key))) {
+                std::cerr << "Error: Failed to read key!" << std::endl;
+                return B;
+            }
+    
+            // Read value
+            if (!inFile.read(reinterpret_cast<char*>(&value), sizeof(value))) {
+                std::cerr << "Error: Failed to read value!" << std::endl;
+                return B;
+            }
+    
+            B[key] = value;
+        }
+    
+        inFile.close();
+        return B;
+    }
+
+    std::vector<std::set<int>> load_Colors(const std::string& filename) {
+        std::vector<std::set<int>> colors;
+    
+        std::ifstream inFile(filename, std::ios::binary);
+        if (!inFile) {
+            std::cerr << "Error: Could not open colors file for reading!" << std::endl;
+            return colors;
+        }
+    
+        // Read number of sets
+        size_t numColors;
+        if (!inFile.read(reinterpret_cast<char*>(&numColors), sizeof(numColors))) {
+            std::cerr << "Error: Failed to read number of color sets!" << std::endl;
+            return colors;
+        }
+        colors.resize(numColors);
+    
+        for (size_t i = 0; i < numColors; ++i) {
+            size_t setSize;
+            if (!inFile.read(reinterpret_cast<char*>(&setSize), sizeof(setSize))) {
+                std::cerr << "Error: Failed to read set size!" << std::endl;
+                return colors;
+            }
+    
+            std::set<int> colorSet;
+            for (size_t j = 0; j < setSize; ++j) {
+                int val;
+                if (!inFile.read(reinterpret_cast<char*>(&val), sizeof(val))) {
+                    std::cerr << "Error: Failed to read color value!" << std::endl;
+                    return colors;
+                }
+                colorSet.insert(val);
+            }
+    
+            colors[i] = std::move(colorSet);
+        }
+    
+        inFile.close();
+        return colors;
+    }
+    
+
 
     void serialize(const string& index_prefix) const {
 
@@ -181,6 +386,15 @@ public:
         sbwt->serialize(index_prefix + ".sbwt");
 
         serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
+
+        serialize_sB(sB, index_prefix + ".sB.BIN");
+
+        serialize_B(B, index_prefix + ".B.BIN");
+
+        std::ofstream T_out(index_prefix + ".T.sdsl");
+        sdsl::serialize(*T.get(), T_out);
+
+        serialize_Colors(colors, index_prefix + ".colors.BIN");
     }
 
     void load(const string& index_prefix) {
@@ -194,9 +408,25 @@ public:
         sbwt->load(index_prefix + ".sbwt");
         std::cerr << "SBWT matrix loaded" << std::endl;
 
-        load_HashTable(index_prefix + ".ht.BIN");
+        hashTable=load_HashTable(index_prefix + ".ht.BIN");
         std::cerr << "hashTable loaded" << std::endl;
         //printHashTable(hashTable);
+
+        sB = load_sB(index_prefix + ".sB.BIN");
+        std::cerr << "sB loaded" << std::endl;
+
+        B = load_B(index_prefix + ".B.BIN");
+        std::cerr << "B loaded" << std::endl;
+
+        T = make_unique<sdsl::int_vector<>>();
+        ifstream T_in(index_prefix + ".T.sdsl");
+        sdsl::load(*T, T_in);
+        std::cerr<< "Tails loaded"<<std::endl;
+
+        colors = load_Colors(index_prefix + ".colors.BIN");
+        std::cerr << "Colors loaded" << std::endl;
+
+        
     }
 
     // TODO: add hash table (later. not relevant now)
@@ -204,6 +434,9 @@ public:
     int64_t size_in_bytes() const{
         int64_t total = 0;
         total += sdsl::size_in_bytes(*LCS);
+        total += sdsl::size_in_bytes(*T);
+
+        // TODO B, sB, colors
 
         sbwt::SeqIO::NullStream ns;
         total += sbwt->serialize(ns);
@@ -230,17 +463,19 @@ public:
 
         int64_t n_nodes = this->sbwt->number_of_subsets();
 
-        //TODO REPLACE hashTable
-        std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
-        
         //helper
-        std::unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >> B;
+        std::unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >> helperB;
 
         // REAL DATA STR
-        //std::unordered_map<uint32_t, uint32_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
-        std::unordered_map<uint32_t, std::set<int> > sB; // Create a hash table to store the finimizers shorter than the prefix lenght
-        int_vector<0> T; // I can decide the width and modify every entry
+        std::unordered_map<uint32_t, uint32_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+        std::unordered_map<uint32_t, std::set<int> > sB; // Create a hash table to store the finimizers shorter than the prefix length
+        int_vector<0> T; // width 0 so that I can decide the width and modify every entry
 
+        //TODO REPLACE hashTable
+        std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+
+        vector<set<int>> colors;
+        
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
         typedef SeqIO::Reader<Buffered_ifstream<std::ifstream>> in_colors_no_gzip;
@@ -264,7 +499,11 @@ public:
         index->LCS = std::move(this->LCS); // Transfer ownership 
         index->hashTable = std::move(hashTable); // Transfer ownership
         index->B = std::move(B); // Transfer ownership
-
+        index->sB = std::move(sB); // Transfer ownership
+        //index->T = std::move(T); // Transfer ownership
+        index->T = std::make_unique<sdsl::int_vector<0>>(std::move(T));
+        index->colors = std::move(colors); // Transfer ownership
+        // TODO add sB and T
     }
 
     // TODO fix return type
@@ -390,18 +629,20 @@ public:
         return h;
     }
 
-    // TODO
-    // DIVIDE INTO BUCKETS
-    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& B, unordered_map<uint32_t, std::set<int> >& sB, char plen){
+
+    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, uint32_t >& B,  unordered_map<uint32_t, std::set<int> >& sB, char plen){
         // create a hash table with all the possible strings of length plen
 
-        // B={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
+        // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
         uint32_t nbuckets = 1<<(plen<<1);
         for (uint32_t p=0; p<nbuckets; p++){
-            B[p]={};
+            B[p]=0;
+            // INSERT EVERY POSSIBLE PREFIX IN B
+            // helperB only contasins the existing prefixes
         }
         for (auto &f : hashTable){
             string fmin = f.first;
+            set<int> colors = f.second;
             char flen = fmin.length();
             if (flen < plen){ 
                 uint32_t sfmin = prefix2int(fmin,0,flen);
@@ -409,19 +650,23 @@ public:
             }
             else{
                 uint32_t pfmin = prefix2int(fmin,0,plen);
+
+                // Extract tails
                 char tlen = flen - plen;
-                // TODO extract tails
-                uint32_t tail = 0; //TODO SUFFIX2int(fmin,0,plen);
-                if (B.find(pfmin) != B.end()) {
-                    //B[pfmin]=1; // TODO this should contain a pointer to the right place in the intvector of all the tails
-                    if (B[pfmin].find(tlen) != B[pfmin].end()){
-                        B[pfmin][tlen].insert({tail, f.second}); 
+                uint32_t tail = suffix2int(fmin,0,tlen);
+                if (helperB.find(pfmin) != helperB.end()) {
+                    // The prefix is already there and also the correct length
+                    if (helperB[pfmin].find(tlen) != helperB[pfmin].end()){
+                        helperB[pfmin][tlen].insert({tail, colors}); 
                     }
                     else{
-                        B[pfmin][tlen]={{tail, f.second}}; 
+                        // The prefix is already there but not the correct length
+                        helperB[pfmin][tlen]={{tail, colors}}; 
                     }
                 } else {
-                    cerr << pfmin << " not found in B!";
+                    // the prefix is not there yet, insert it!
+                    helperB[pfmin][tlen]={{tail, colors}};                     
+                    //cerr << pfmin << " not found in helperB!";
                 }
             }
         }
@@ -444,59 +689,63 @@ public:
         return bytes;
     }
 
-    void storeTails(unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& B, int_vector<0>& T){
+    void storeTails(unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, std::unordered_map<uint32_t, uint32_t>& B, int_vector<0>& T, vector<set<int>>& colors){
+        // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
+        // 1. Count the number of bits needed
         size_t total_bits = 0;
-
-        for (auto &prefix : B){
+        for (auto &prefix : helperB){
             for (auto &tails: prefix.second){
-                // this should in tails order
-                char tlen = tails.first; // 5 bits
-                int32_t tnumber = tails.second.size(); // vbyte
+                // this should be in tails order
+                char tlen = tails.first; // 5 bits // tail length
                 total_bits += 5; // tlen: 5 bits
+
+                int32_t tnumber = tails.second.size(); // vbyte
                 auto vb = vbyte_encode(tnumber);
-                total_bits += vb.size() * 8; // vbyte: 8 bits per byte
+                total_bits += vb.size() * 8; // vbyte: 8 bits per byte // number of tails
+                total_bits += tnumber * (2 * tlen); // actual tails 2bits/char
             }
 
         }
         T = int_vector<0>(total_bits, 0);
 
-    }
-
-    void pack_all(const vector<pair<uint8_t, vector<uint64_t>>>& groups, int_vector<0>& out) {
-        size_t total_bits = 0;
-    
-        // First, calculate total bits needed
-        for (const auto& [tlen, numbers] : groups) {
-            total_bits += 5; // tlen: fixed 5 bits
-            auto vb = vbyte_encode(numbers.size());
-            total_bits += vb.size() * 8; // vbyte: 8 bits per byte
-            total_bits += numbers.size() * (2 * tlen); // data // !!!!!!!!!!!!!!!!!!!What is this???
-        }
-    
-        out = int_vector<0>(total_bits, 0);
-    
-        // Now, write the data
+        // 2. Write data
         size_t offset = 0;
-        for (const auto& [tlen, numbers] : groups) {
-            // Write tlen (5 bits)
-            write_bits(out, tlen, offset, 5);
-            offset += 5;
-    
-            // Write tnumber (vbyte)
-            auto vb = vbyte_encode(numbers.size());
-            for (uint8_t b : vb) {
-                write_bits(out, b, offset, 8);
-                offset += 8;
+        for (auto &prefix : helperB){
+            // add a pointer to the prefix in B
+            B[prefix.first]=offset;
+
+            for (auto &tails: prefix.second){    // this should be in tails order
+               // tails is std::pair<const char, std::set<std::pair<uint32_t, std::set<int>>>>
+
+                // tail length
+                char tlen = tails.first;
+                write_bits(T, tlen, offset, (size_t)5);
+                offset += 5;
+
+                // number of tails of length tlen
+                std::set<std::pair<uint32_t, std::set<int>>> tc = tails.second; //{tail1,{colors1}}
+                uint32_t tnumber = tc.size();
+                auto vb = vbyte_encode(tnumber);
+                for (uint8_t b : vb) {
+                    write_bits(T, b, offset, 8);
+                    offset += 8;
+                }
+
+                for (const auto &p : tc){ //pair<uint32_t, set<int>
+                    // tails
+                    write_bits(T, p.first, offset, tlen*2);
+                    offset += 2 * tlen;
+                    
+                    // 3. Write colors
+                    // these are in the same order in which we are writing tails
+                    // can be accessed with the offset obtained by searching tails
+                    colors.push_back(p.second);
+                }
             }
-    
-            // Write the tnumber integers using 2*tlen bits each
-            for (uint64_t val : numbers) {
-                write_bits(out, val, offset, 2 * tlen);
-                offset += 2 * tlen;
-            }
+
         }
-    }
-    
+        
+    }    
 
     // Transfer ownership of the index out of the builder
     unique_ptr<FinimizerIndex> get_index(){
