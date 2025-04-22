@@ -30,6 +30,9 @@ private:
     FinimizerIndex(const FinimizerIndex& other) = delete;
     FinimizerIndex& operator=(const FinimizerIndex& other) = delete;
 
+    int k;
+    char plen;
+
 public:
 
     // Note: if you add members, update size_in_bytes(), serialize(), and load()
@@ -44,12 +47,15 @@ public:
     unique_ptr<int_vector<0>> T; // tails
     vector<set<int>> C;
     //TODO K and PLEN must be part of a structure
-    char plen; //TODO serialize and load
-    int k; //TODO serialize and load
+    //char plen; //TODO serialize and load
+    //int k; //TODO serialize and load
 
 
     FinimizerIndex() {}
- 
+    
+    int get_k() const{return k;}
+
+
     void search(const std::string& query, unordered_map<int, uint64_t>& results) const {
   
         //std::cerr << "Searching " << query << std::endl;
@@ -60,11 +66,18 @@ public:
         //const vector<int64_t>& C = sbwt.get_C_array();
         const int64_t query_len = query.length();
         // TODO add B, sB, C, plen, T
-
-        if (query.size() < k) return; 
+        /* const unordered_map<uint32_t, int64_t >& B;
+        const unordered_map<uint32_t, int64_t >& sB;
+        const vector<set<int>>& C;
+        const char plen;
+        const int_vector<0>& T */
+        //TODO const int k = Newstructure.get_k();
+        // const int k = get_k(); // or this->get_k();
+      
+        if (query.size() < this->k) return; 
 
         //TODO K and PLEN must be part of a structure
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, B, sB, *T, this->plen, this->k);
+        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
             // as input:);
         // Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
@@ -73,7 +86,7 @@ public:
         return;
     }
 
-    // TODO FIX THIS ONCE THE ABOVE IS FIXED
+    // TODO check THIS ONCE THE ABOVE IS FIXED
     void search(const std::string& query, vector<pair<int, float>>& results, const float& t) const {
   
         /* const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
@@ -82,10 +95,18 @@ public:
         const vector<int64_t>& C = sbwt.get_C_array(); */
         const int64_t query_len = query.length();
 
+        // TODO add B, sB, C, plen, T and INITIALIZE THEM (FROM INDEX)
+        /*  
+        const unordered_map<uint32_t, int64_t >& B;
+        const unordered_map<uint32_t, int64_t >& sB;
+        const vector<set<int>>& C;
+        const char plen;
+        const int_vector<0>& T */
+        //TODO const int k = Newstructure.get_k();
 
         if (query.size() < k) return; 
 
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, B, sB, *T, this->plen, this->k);
+        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
 
         // Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results, t);
@@ -93,7 +114,7 @@ public:
         return;
     }
 
-
+    // TODO remove
     /* void serialize_HashTable(const std::unordered_map<std::string, std::set<int>>& hashTable, const std::string& hashTableName) const{
         std::ofstream hashTable_out(hashTableName, std::ios::binary);
         if (!hashTable_out) {
@@ -185,6 +206,7 @@ public:
         outFile.close();
     }
  
+    // TODO remove
     /* std::unordered_map<std::string, std::set<int>> load_HashTable(const std::string& hashTableName) {
         hashTable = this->hashTable;
 
@@ -243,6 +265,7 @@ public:
         return hashTable;
     }
  */
+
 std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
     std::unordered_map<uint32_t, int64_t> sB;
 
@@ -364,13 +387,24 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
     }
     
 
-
+    // TODO finimizerindex does not require sbwt nor LCS
+    // TODO add plen and k
     void serialize(const string& index_prefix) const {
 
-        std::ofstream LCS_out(index_prefix + ".LCS.sdsl");
+        // k and plen
+        std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);
+        if (!meta_out) {
+            std::cerr << "Error: Could not write metadata!" << std::endl;
+            return;
+        }
+        meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
+        meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
+        meta_out.close();
+
+        /* std::ofstream LCS_out(index_prefix + ".LCS.sdsl");
         sdsl::serialize(*LCS, LCS_out);
 
-        sbwt->serialize(index_prefix + ".sbwt");
+        sbwt->serialize(index_prefix + ".sbwt"); */
 
         //serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
 
@@ -384,9 +418,20 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         serialize_Colors(C, index_prefix + ".C.BIN");
     }
 
+    // TODO finimizerindex does not require sbwt nor LCS
+    // TODO add plen and k
     void load(const string& index_prefix) {
+        // k and plen
+        std::ifstream meta_in(index_prefix + ".meta", std::ios::binary);
+        if (!meta_in) {
+            std::cerr << "Error: Could not read metadata!" << std::endl;
+            return;
+        }
+        meta_in.read(reinterpret_cast<char*>(&k), sizeof(k));
+        meta_in.read(reinterpret_cast<char*>(&plen), sizeof(plen));
+        meta_in.close();
 
-        LCS = make_unique<sdsl::int_vector<>>();
+        /* LCS = make_unique<sdsl::int_vector<>>();
         ifstream LCS_in(index_prefix + ".LCS.sdsl");
         sdsl::load(*LCS, LCS_in);
         std::cerr<< "LCS_file loaded"<<std::endl;
@@ -394,19 +439,19 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         sbwt = make_unique<plain_matrix_sbwt_t>();
         sbwt->load(index_prefix + ".sbwt");
         std::cerr << "SBWT matrix loaded" << std::endl;
-
+        */
         /* hashTable=load_HashTable(index_prefix + ".ht.BIN");
         std::cerr << "hashTable loaded" << std::endl;
         //printHashTable(hashTable);
- */
+        */
         sB = load_sB(index_prefix + ".sB.BIN");
         std::cerr << "sB loaded" << std::endl;
 
         B = load_B(index_prefix + ".B.BIN");
         std::cerr << "B loaded" << std::endl;
 
-        T = make_unique<sdsl::int_vector<>>();
-        ifstream T_in(index_prefix + ".T.sdsl");
+        T = make_unique<sdsl::int_vector<0>>();
+        ifstream T_in(index_prefix + ".T.sdsl", std::ios::binary);
         sdsl::load(*T, T_in);
         std::cerr<< "Tails loaded"<<std::endl;
 
@@ -416,51 +461,94 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         
     }
 
-    // TODO: add hash table (later. not relevant now)
-    // This also includes the rank structures which are not serialized
-    int64_t size_in_bytes() const{
+    int64_t size_in_bytes() const {
         int64_t total = 0;
-        total += sdsl::size_in_bytes(*LCS);
-        total += sdsl::size_in_bytes(*T);
 
-        // TODO B, sB, C
+        total += sizeof(k);
+        total += sizeof(plen);
 
-        sbwt::SeqIO::NullStream ns;
-        total += sbwt->serialize(ns);
+        /* // LCS
+        if (LCS) {total += sdsl::size_in_bytes(*LCS);}
+
+        // SBWT 
+        if (sbwt) {
+            sbwt::SeqIO::NullStream ns;
+            total += sbwt->serialize(ns);
+        } */
+
+        // T
+        if (T) {total += sdsl::size_in_bytes(*T);}
+
+        // B
+        total += sizeof(std::pair<uint32_t, int64_t>) * B.size();
+        total += sizeof(B); // Approximation for internal structure overhead
+
+        // sB
+        total += sizeof(std::pair<uint32_t, int64_t>) * sB.size();
+        total += sizeof(sB);
+
+        // C (vector<set<int>>)
+        total += sizeof(C); // vector overhead
+        for (const auto& s : C) {
+            total += sizeof(std::set<int>);
+            total += sizeof(int) * s.size(); // actual values
+        }
         return total;
     }
+
 };
 
 
 class FinimizerIndexBuilder{
+private:
+    int k;
+    char plen; // Prefix length
+
 public:
 
     unique_ptr<plain_matrix_sbwt_t> sbwt;
     unique_ptr<sdsl::int_vector<>> LCS;
 
+
+    //  TODO should B, sB, T, C and plen be part of this?
+    /* // REAL DATA STR
+    std::unordered_map<uint32_t, int64_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+    std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
+    unique_ptr<int_vector<0>> T; // tails // width 0 so that I can decide the width and modify every entry
+    vector<set<int>> C;
+    char plen; // plen has to be given in input
+ */
+
     unique_ptr<FinimizerIndex> index;
 
+    int get_k() const{return k;}
 
 
     // Takes ownership of sbwt and LCS
     // TODO this should contain plen
     // k is now taken from the sbwt but must be linked to the new data str
-    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const vector<string>& incolors) {
+    FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const vector<string>& incolors){ 
         index = make_unique<FinimizerIndex>();
         this->sbwt = move(sbwt); // Take ownership
         this->LCS = move(LCS); // Take ownership
 
         int64_t n_nodes = this->sbwt->number_of_subsets();
 
-        //helper
-        std::unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >> helperB;
-
         // REAL DATA STR
+        /* this->B = move(B);
+        this->sB = move(sB);
+        this->T = move(T);
+        this->C = move(C);
+        this->plen = move(plen); */
+
         std::unordered_map<uint32_t, int64_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
         int_vector<0> T; // width 0 so that I can decide the width and modify every entry
         vector<set<int>> C;
-        char plen; // plen has to be given in input
+        //char plen; // plen has to be given in input
+
+        //helpers
+        std::unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >> helperB;
 
         //TODO we are still using hashTable, but we could get rid of it
         std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
@@ -481,11 +569,12 @@ public:
             }
             std::cerr << "DONE"<< std::endl;
         }
-        // TODO extract statistics
-        get_stats(hashTable);
+        // TODO remove or modify to avoid using hash table
+        // Extract statistics
+        // get_stats(hashTable);
 
         // TODO 
-        Buckets(hashTable, helperB, B, sB, C, plen);
+        Buckets(hashTable, helperB, B, sB, C, this->plen);
 
         // TODO 
         storeTails(helperB, B, T, C);
