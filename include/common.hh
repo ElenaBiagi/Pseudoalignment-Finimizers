@@ -24,7 +24,7 @@
 #include "SeqIO.hh"
 #include "BoundedDeque.hh"
 
-// These 3 methods are useless
+// These 3 methods are used in the build phase
 pair<int64_t,int64_t> update_sbwt_interval(const int64_t C_char, const pair<int64_t,int64_t>& I, const sdsl::rank_support_v5<>& Bit_rs){
     if(I.first == -1) return I;
     pair<int64_t,int64_t> new_I;
@@ -78,22 +78,7 @@ uint32_t suffix2int(const std::string& s, uint64_t offset, char slen) {
     return h;
 }
 
-/* 
-TODO REMOVE
-// Returns the end point (inclusice) of the first k-mer in the concatenation of the unitigs
-int64_t lookup_from_branch_dictionary(int64_t kmer_colex, int64_t k, const sdsl::rank_support_v5<>& Ustart_rs, const PackedStrings& unitigs){
-    int64_t unitig_rank = Ustart_rs.rank(kmer_colex);
-    assert(unitig_rank < unitigs.ends.size());
-    int64_t global_unitig_start = 0;
-    if(unitig_rank > 0) global_unitig_start = unitigs.ends[unitig_rank-1];
-    return global_unitig_start + k - 1;
-}
 
-int64_t lookup_from_finimizer_dictionary(int64_t finimizer_colex, const sdsl::rank_support_v5<>& fmin_rs, const sdsl::int_vector<>& global_offsets){
-    int64_t finimizer_id = fmin_rs.rank(finimizer_colex);
-    return global_offsets[finimizer_id];
-}
- */
 
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? YES

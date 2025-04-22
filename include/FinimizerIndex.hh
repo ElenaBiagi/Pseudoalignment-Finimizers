@@ -443,6 +443,8 @@ public:
 
 
     // Takes ownership of sbwt and LCS
+    // TODO this should contain plen
+    // k is now taken from the sbwt but must be linked to the new data str
     FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const vector<string>& incolors) {
         index = make_unique<FinimizerIndex>();
         this->sbwt = move(sbwt); // Take ownership
@@ -458,9 +460,10 @@ public:
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
         int_vector<0> T; // width 0 so that I can decide the width and modify every entry
         vector<set<int>> C;
+        char plen; // plen has to be given in input
 
-        //TODO REPLACE hashTable
-        /* std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
+        //TODO we are still using hashTable, but we could get rid of it
+        std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
         
         // Scan the genomes to get the list of colors for each finimizer using the hash table
         typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_colors_gzip;
@@ -479,20 +482,28 @@ public:
             std::cerr << "DONE"<< std::endl;
         }
         // TODO extract statistics
-        get_stats(hashTable); */
-        
+        get_stats(hashTable);
+
+        // TODO 
+        Buckets(hashTable, helperB, B, sB, C, plen);
+
+        // TODO 
+        storeTails(helperB, B, T, C);
+
+        // remove sbwt and LCS
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
         //index->hashTable = std::move(hashTable); // Transfer ownership
+
         index->B = std::move(B); // Transfer ownership
         index->sB = std::move(sB); // Transfer ownership
         //index->T = std::move(T); // Transfer ownership
         index->T = std::make_unique<sdsl::int_vector<0>>(std::move(T));
         index->C = std::move(C); // Transfer ownership
-        // TODO add sB and T
+        // TODO add k and plen
     }
 
-    /* // TODO fix return type
+    // TODO fix return type
     template<typename reader_t>
     int64_t run_colors_file(const string& infile, unordered_map<std::string, std::set<int>>& hashTable, int& i){
         reader_t reader(infile);
@@ -595,9 +606,7 @@ public:
         } 
         return 1;
     }
-    */
     
-
 
 
     void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, int64_t >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, char plen){
