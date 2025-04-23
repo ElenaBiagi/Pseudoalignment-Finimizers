@@ -33,7 +33,8 @@ using namespace sbwt;
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const float& t){
 
-    const int64_t k = index.sbwt->get_k();
+    //const int64_t k = index.sbwt->get_k();
+    int k = index.get_k();
     int64_t total_micros = 0;
     int64_t number_of_queries = 1; // TODO remove or fix
     int64_t kmers_count = 0 , kmers_count_rev = 0;
@@ -229,9 +230,9 @@ int search_fmin(int argc, char** argv){
     index.load(index_prefix);
     cerr << "Index loaded" << endl;
 
-    const int64_t k = index.sbwt->get_k();
-    cerr << "k = "<< to_string(k);
-    cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
+    //const int64_t k = index.sbwt->get_k();
+    //cerr << "k = "<< to_string(k);
+    //cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
 
     number_of_queries += run_fmin_queries(query_files, output_files, index, t);
     int64_t new_total_micros = cur_time_micros() - micros_start;

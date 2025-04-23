@@ -30,7 +30,7 @@ private:
     FinimizerIndex(const FinimizerIndex& other) = delete;
     FinimizerIndex& operator=(const FinimizerIndex& other) = delete;
 
-    int k;
+    int k = 31; // TODO FIX THIS
     char plen = 10;
 
 public:
@@ -38,9 +38,6 @@ public:
     // Note: if you add members, update size_in_bytes(), serialize(), and load()
     unique_ptr<plain_matrix_sbwt_t> sbwt; // These are smart pointers because they are passed in to the constructor
     unique_ptr<sdsl::int_vector<>> LCS; // These are smart pointers because they are passed in to the constructor
-    /* //TODO REPLACE hashTable
-    std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
-    */
 
     std::unordered_map<uint32_t, int64_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
     std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
@@ -64,21 +61,15 @@ public:
         //const int64_t n_nodes = sbwt.number_of_subsets();
         //const int64_t k = sbwt.get_k();
         //const vector<int64_t>& C = sbwt.get_C_array();
+
         const int64_t query_len = query.length();
-        // TODO add B, sB, C, plen, T
-        /* const unordered_map<uint32_t, int64_t >& B;
-        const unordered_map<uint32_t, int64_t >& sB;
-        const vector<set<int>>& C;
-        const char plen;
-        const int_vector<0>& T */
-        //TODO const int k = Newstructure.get_k();
-        // const int k = get_k(); // or this->get_k();
+        // B is not empty!
       
         if (query.size() < this->k) return; 
 
         unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
       
-        // Check the colors for every finimizer found
+        // TODO Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
         pseudoalignemnt_stats(Finimizers, this->C, results);
 
@@ -92,16 +83,8 @@ public:
         const int64_t n_nodes = sbwt.number_of_subsets();
         const int64_t k = sbwt.get_k();
         const vector<int64_t>& C = sbwt.get_C_array(); */
+        
         const int64_t query_len = query.length();
-
-        // TODO add B, sB, C, plen, T and INITIALIZE THEM (FROM INDEX)
-        /*  
-        const unordered_map<uint32_t, int64_t >& B;
-        const unordered_map<uint32_t, int64_t >& sB;
-        const vector<set<int>>& C;
-        const char plen;
-        const int_vector<0>& T */
-        //TODO const int k = Newstructure.get_k();
 
         if (query.size() < this->k) return; 
 
@@ -399,7 +382,7 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
         meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
         meta_out.close();
-
+        cerr << "k = " << k<< endl;
         /* std::ofstream LCS_out(index_prefix + ".LCS.sdsl");
         sdsl::serialize(*LCS, LCS_out);
 
@@ -410,7 +393,6 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         serialize_sB(sB, index_prefix + ".sB.BIN");
 
         serialize_B(B, index_prefix + ".B.BIN");
-        print_B(B);
 
         std::ofstream T_out(index_prefix + ".T.sdsl");
         sdsl::serialize(*T.get(), T_out);
@@ -501,7 +483,7 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
 
 class FinimizerIndexBuilder{
 private:
-    int k;
+    int k = 31;
     char plen = 10; // Prefix length
 
 public:
@@ -545,6 +527,9 @@ public:
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
         int_vector<0> T; // width 0 so that I can decide the width and modify every entry
         vector<set<int>> C;
+        this->k = 31;
+        //this->k = (int)index->sbwt->get_k(); //TODO FIX THIS
+
         //char plen; // plen has to be given in input
 
         //helpers
@@ -590,6 +575,7 @@ public:
         //index->T = std::move(T); // Transfer ownership
         index->T = std::make_unique<sdsl::int_vector<0>>(std::move(T));
         index->C = std::move(C); // Transfer ownership
+
     }
 
     // TODO fix return type
@@ -605,6 +591,7 @@ public:
     int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
         
         const int64_t k = sbwt->get_k();
+        cerr << "k= " << k << endl;
         while(true){
             int64_t len = reader.get_next_read_to_buffer();
             if(len == 0) [[unlikely]] break;
@@ -735,11 +722,6 @@ public:
                 if (tlen>0){
                     uint32_t tail = suffix2int(fmin,plen,tlen);// TODO deal with an EMPTY PREFIX
                     
-                    cerr << "fmin = " << fmin << endl;
-                    cerr << "tlen = " <<(int)tlen<< endl;
-                    cerr << "tail = " << (uint32_t)tail << endl;
-                    cerr << "prefix = " << (uint32_t)pfmin << endl;
-                    cerr << endl;
                     if (helperB.find(pfmin) != helperB.end() and helperB[pfmin].find(tlen) != helperB[pfmin].end()) {
                         // The prefix is already there and also the correct length, add {tail, colors}
                             helperB[pfmin][tlen].insert({tail, colors}); 
