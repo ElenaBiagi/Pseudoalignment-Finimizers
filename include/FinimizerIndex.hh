@@ -31,7 +31,7 @@ private:
     FinimizerIndex& operator=(const FinimizerIndex& other) = delete;
 
     int k;
-    char plen;
+    char plen = 10;
 
 public:
 
@@ -47,8 +47,8 @@ public:
     unique_ptr<int_vector<0>> T; // tails
     vector<set<int>> C;
     //TODO K and PLEN must be part of a structure
-    //char plen; //TODO serialize and load
-    //int k; //TODO serialize and load
+    //char plen; 
+    //int k;
 
 
     FinimizerIndex() {}
@@ -76,12 +76,11 @@ public:
       
         if (query.size() < this->k) return; 
 
-        //TODO K and PLEN must be part of a structure
         unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
-            // as input:);
+      
         // Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
-        pseudoalignemnt_stats(Finimizers, C, results);
+        pseudoalignemnt_stats(Finimizers, this->C, results);
 
         return;
     }
@@ -104,13 +103,13 @@ public:
         const int_vector<0>& T */
         //TODO const int k = Newstructure.get_k();
 
-        if (query.size() < k) return; 
+        if (query.size() < this->k) return; 
 
         unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
 
         // Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results, t);
-        pseudoalignemnt_stats(Finimizers, C, results, t);
+        pseudoalignemnt_stats(Finimizers, this->C, results, t);
         return;
     }
 
@@ -411,6 +410,7 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
         serialize_sB(sB, index_prefix + ".sB.BIN");
 
         serialize_B(B, index_prefix + ".B.BIN");
+        print_B(B);
 
         std::ofstream T_out(index_prefix + ".T.sdsl");
         sdsl::serialize(*T.get(), T_out);
@@ -502,7 +502,7 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
 class FinimizerIndexBuilder{
 private:
     int k;
-    char plen; // Prefix length
+    char plen = 10; // Prefix length
 
 public:
 
@@ -575,9 +575,10 @@ public:
 
         // TODO 
         Buckets(hashTable, helperB, B, sB, C, this->plen);
-
+        
         // TODO 
         storeTails(helperB, B, T, C);
+        
 
         // remove sbwt and LCS
         index->sbwt = std::move(this->sbwt); // Transfer ownership
@@ -589,7 +590,6 @@ public:
         //index->T = std::move(T); // Transfer ownership
         index->T = std::make_unique<sdsl::int_vector<0>>(std::move(T));
         index->C = std::move(C); // Transfer ownership
-        // TODO add k and plen
     }
 
     // TODO fix return type
@@ -702,6 +702,13 @@ public:
         // create a hash table with all the possible strings of length plen
 
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
+        // helperB= prefix
+        //             └─tlen
+        //                └─ {tail,{colors}}
+        
+        // TODO THIS SHOULD BE IN INPUT OR DEPENDENT ON K
+        plen = 10;
+        
         int64_t index_sp = 0;
 
         uint32_t nbuckets = 1<<(plen<<1);
@@ -721,13 +728,18 @@ public:
             }
             else{
                 uint32_t pfmin = prefix2int(fmin,0,plen);
-
+                
                 // Extract tails
                 char tlen = flen - plen;
-
+                
                 if (tlen>0){
-                    uint32_t tail = suffix2int(fmin,plen+1,tlen);// TODO deal with an EMPTY PREFIX
+                    uint32_t tail = suffix2int(fmin,plen,tlen);// TODO deal with an EMPTY PREFIX
                     
+                    cerr << "fmin = " << fmin << endl;
+                    cerr << "tlen = " <<(int)tlen<< endl;
+                    cerr << "tail = " << (uint32_t)tail << endl;
+                    cerr << "prefix = " << (uint32_t)pfmin << endl;
+                    cerr << endl;
                     if (helperB.find(pfmin) != helperB.end() and helperB[pfmin].find(tlen) != helperB[pfmin].end()) {
                         // The prefix is already there and also the correct length, add {tail, colors}
                             helperB[pfmin][tlen].insert({tail, colors}); 
@@ -831,4 +843,5 @@ public:
     unique_ptr<FinimizerIndex> get_index(){
         return std::move(this->index);
     }
+
 };

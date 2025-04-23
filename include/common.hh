@@ -24,6 +24,46 @@
 #include "SeqIO.hh"
 #include "BoundedDeque.hh"
 
+
+void print_B(const std::unordered_map<uint32_t, int64_t>& B) {
+    std::cout << "Contents of B (prefix_hash → offset):\n";
+    for (const auto& [prefix_hash, offset] : B) {
+        std::cout << prefix_hash << " → " << offset << "\n";
+    }
+}
+
+void print_helperB(const std::unordered_map<uint32_t, std::map<char, std::set<std::pair<uint32_t, std::set<int>>>>>& helperB) {
+    std::cerr << "Contents of helperB:\n";
+    for (const auto& [prefix, tail_map] : helperB) {
+        std::cerr << "Prefix: " << prefix << "\n";
+        for (const auto& [character, finimizer_set] : tail_map) {
+            std::cerr << "  └─ Tlen: '" << (int)character << "' → " << finimizer_set.size() << " finimizer(s)\n";
+            for (const auto& [tail, color_set] : finimizer_set) {
+                std::cerr << "      └─ Tail: " << tail << " → Colors: { ";
+                for (int color : color_set) {
+                    std::cerr << color << " ";
+                }
+                std::cerr << "}\n";
+            }
+        }
+    }
+}
+
+void print_sB(const std::unordered_map<uint32_t, int64_t>& sB) {
+    std::cout << "Contents of sB (prefix_hash → offset):\n";
+    for (const auto& [key, value] : sB) {
+        std::cout << key << " → " << value << "\n";
+    }
+}
+
+void printHashTable(const std::unordered_map<std::string, std::set<int>>& hashTable) {
+    std::cerr << "HASH TABLE" << std::endl;
+    for (const auto& pair : hashTable) {
+        std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
+    }
+    std::cerr << "HASH TABLE done" << std::endl;
+}
+
 // These 3 methods are used in the build phase
 pair<int64_t,int64_t> update_sbwt_interval(const int64_t C_char, const pair<int64_t,int64_t>& I, const sdsl::rank_support_v5<>& Bit_rs){
     if(I.first == -1) return I;
@@ -59,13 +99,22 @@ char get_char_idx(char c){
     }
 }
 
-uint32_t prefix2int(const string& s, uint64_t offset, char plen){
+uint32_t prefix2int_old(const string& s, uint64_t offset, char plen){
     uint64_t h = 0;
     for(uint64_t i=0; i<(uint64_t)plen; i++){
        uint64_t b = get_char_idx(s[i+offset]);
        h |= (b << (i<<1));
     }
     //cerr << h << '\n';
+    return h;
+}
+uint32_t prefix2int(const std::string& s, uint64_t offset, char plen){
+    uint32_t h = 0;
+    for (uint64_t i = 0; i < (uint64_t)plen; i++) {
+        uint32_t b = get_char_idx(s[offset + i]);
+        h <<= 2;
+        h |= b;
+    }
     return h;
 }
 
@@ -94,7 +143,6 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
     int64_t last_pos = 0;
     int64_t start = 0;
-    //int64_t end = plen; // ????
     int64_t kmer_start = 0; // start of the first k-mer
 
     bool found = false;
@@ -490,15 +538,6 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     return os;
 } */
 
-// TODO remove
-    void printHashTable(const std::unordered_map<std::string, std::set<int>>& hashTable) {
-        std::cerr << "HASH TABLE" << std::endl;
-        for (const auto& pair : hashTable) {
-            std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
-        }
-        std::cerr << "HASH TABLE done" << std::endl;
-
-    }
 
 //old
 //used in build-verify
