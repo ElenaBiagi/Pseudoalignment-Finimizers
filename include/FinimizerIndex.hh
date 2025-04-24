@@ -22,6 +22,7 @@
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
 #include "common.hh"
+#include "bitsearch.hh"
 
 class FinimizerIndex{
 
@@ -39,7 +40,7 @@ public:
     unique_ptr<plain_matrix_sbwt_t> sbwt; // These are smart pointers because they are passed in to the constructor
     unique_ptr<sdsl::int_vector<>> LCS; // These are smart pointers because they are passed in to the constructor
 
-    std::unordered_map<uint32_t, int64_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+    std::unordered_map<uint32_t, pair<int64_t,int64_t>> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
     std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
     unique_ptr<int_vector<0>> T; // tails
     vector<set<int>> C;
@@ -72,7 +73,7 @@ public:
         // TODO Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
         pseudoalignemnt_stats(Finimizers, this->C, results);
-
+        //print_results(results);
         return;
     }
 
@@ -144,23 +145,26 @@ public:
         sB_out.close();
     }
 
-    void serialize_B(const std::unordered_map<uint32_t, int64_t >& B, const std::string& BName) const {
+    void serialize_B(
+        const std::unordered_map<uint32_t, std::pair<int64_t,int64_t>>& B, const std::string& BName) const{
         std::ofstream B_out(BName, std::ios::binary);
         if (!B_out) {
-            std::cerr << "Error: Could not open file for writing!" << std::endl;
+            std::cerr << "Error: Could not open file for writing!\n";
             return;
         }
-    
-        // Write the number of elements in the hash table
+
+        // Number of entries
         size_t BSize = B.size();
         B_out.write(reinterpret_cast<const char*>(&BSize), sizeof(BSize));
-    
-        // Write each key-value pair
-        for (const auto& [key, value] : B) {
+
+        // Write each key and its pair<first, second>
+        for (const auto& [key, pr] : B) {
+            int64_t v1 = pr.first;
+            int64_t v2 = pr.second;
             B_out.write(reinterpret_cast<const char*>(&key), sizeof(key));
-            B_out.write(reinterpret_cast<const char*>(&value), sizeof(value));
+            B_out.write(reinterpret_cast<const char*>(&v1),  sizeof(v1));
+            B_out.write(reinterpret_cast<const char*>(&v2),  sizeof(v2));
         }
-    
         B_out.close();
     }
 
@@ -288,44 +292,45 @@ std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
 }
 
 
-    std::unordered_map<uint32_t, int64_t> load_B(const std::string& BName) {
-        std::unordered_map<uint32_t, int64_t> B;
-    
-        std::ifstream inFile(BName, std::ios::binary);
-        if (!inFile) {
-            std::cerr << "Error: Could not open file for reading!" << std::endl;
-            return B;
-        }
-    
-        // Read the number of elements in the hash table
-        size_t BSize;
-        if (!inFile.read(reinterpret_cast<char*>(&BSize), sizeof(BSize))) {
-            std::cerr << "Error: Failed to read hash table size!" << std::endl;
-            return B;
-        }
-    
-        for (size_t i = 0; i < BSize; ++i) {
-            uint32_t key;
-            int64_t value;
-    
-            // Read key
-            if (!inFile.read(reinterpret_cast<char*>(&key), sizeof(key))) {
-                std::cerr << "Error: Failed to read key!" << std::endl;
-                return B;
-            }
-    
-            // Read value
-            if (!inFile.read(reinterpret_cast<char*>(&value), sizeof(value))) {
-                std::cerr << "Error: Failed to read value!" << std::endl;
-                return B;
-            }
-    
-            B[key] = value;
-        }
-    
-        inFile.close();
+std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::string& BName) {
+    std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> B;
+
+    std::ifstream inFile(BName, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Error: Could not open file for reading!\n";
         return B;
     }
+
+    // Read number of entries
+    size_t BSize;
+    if (!inFile.read(reinterpret_cast<char*>(&BSize), sizeof(BSize))) {
+        std::cerr << "Error: Failed to read hash table size!\n";
+        return B;
+    }
+
+    for (size_t i = 0; i < BSize; ++i) {
+        uint32_t key;
+        int64_t v1, v2;
+
+        if (!inFile.read(reinterpret_cast<char*>(&key), sizeof(key))) {
+            std::cerr << "Error: Failed to read key!\n";
+            return B;
+        }
+        if (!inFile.read(reinterpret_cast<char*>(&v1), sizeof(v1))) {
+            std::cerr << "Error: Failed to read first value!\n";
+            return B;
+        }
+        if (!inFile.read(reinterpret_cast<char*>(&v2), sizeof(v2))) {
+            std::cerr << "Error: Failed to read second value!\n";
+            return B;
+        }
+
+        B[key] = {v1, v2};
+    }
+    inFile.close();
+    return B;
+}
+
 
     std::vector<std::set<int>> load_Colors(const std::string& filename) {
         std::vector<std::set<int>> C;
@@ -523,7 +528,7 @@ public:
         this->C = move(C);
         this->plen = move(plen); */
 
-        std::unordered_map<uint32_t, int64_t> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
+        std::unordered_map<uint32_t, pair<int64_t,int64_t>> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
         int_vector<0> T; // width 0 so that I can decide the width and modify every entry
         vector<set<int>> C;
@@ -562,7 +567,7 @@ public:
         Buckets(hashTable, helperB, B, sB, C, this->plen);
         
         // TODO 
-        storeTails(helperB, B, T, C);
+        storeTails(helperB, B, T, C, sB.size());
         
 
         // remove sbwt and LCS
@@ -685,7 +690,7 @@ public:
     
 
 
-    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, int64_t >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, char plen){
+    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, pair<int64_t,int64_t> >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, char plen){
         // create a hash table with all the possible strings of length plen
 
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
@@ -694,13 +699,13 @@ public:
         //                └─ {tail,{colors}}
         
         // TODO THIS SHOULD BE IN INPUT OR DEPENDENT ON K
-        plen = 10;
+        //plen = 10;
         
         int64_t index_sp = 0;
 
         uint32_t nbuckets = 1<<(plen<<1);
         for (uint32_t p=0; p<nbuckets; p++){
-            B[p]= -1;
+            B[p]= {-1,-1};
             // INSERT EVERY POSSIBLE PREFIX IN B
             // helperB only contains the existing prefixes
         }
@@ -755,7 +760,7 @@ public:
     }
 
     // TODO deal with tlen=0
-    void storeTails(unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, std::unordered_map<uint32_t, int64_t>& B, int_vector<0>& T, vector<set<int>>& C){
+    void storeTails(unordered_map<uint32_t, std::map<char, set< pair<uint32_t, set<int> >> >>& helperB, std::unordered_map<uint32_t, pair<int64_t,int64_t>>& B, int_vector<0>& T, vector<set<int>>& C, int64_t sB_size){
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
         // 1. Count the number of bits needed
         size_t total_bits = 0;
@@ -774,17 +779,20 @@ public:
             }
 
         }
-        T = int_vector<0>(total_bits, 0);
+        T = int_vector<0>(total_bits, 0); // is this what I want to do??
 
         // 2. Write data
-        size_t offset = 0;
+        int64_t offset = 0;
+        int64_t tails_so_far = sB_size;
+        // offset >> tails_so_far
+
         for (auto &prefix : helperB){
             // add a pointer to the prefix in B
-            B[prefix.first]=offset;
+            B[prefix.first]={offset, tails_so_far};
 
             for (auto &tails: prefix.second){    // this should be in tails order
                // tails is std::pair<const char, std::set<std::pair<uint32_t, std::set<int>>>>
-
+                // {tlen: [{tail1, {colors1}},..]}
                 // tail length
                 char tlen = tails.first;
                 write_bits(T, tlen, offset, (size_t)5);
@@ -800,6 +808,7 @@ public:
                         write_bits(T, b, offset, 8);
                         offset += 8;
                     }
+                    tails_so_far += tnumber;
 
                     for (const auto &p : tc){ //pair<uint32_t, set<int>
                         // tails
@@ -808,15 +817,20 @@ public:
                         
                         // 3. Write colors
                         // these are in the same order in which we are writing tails
-                        // can be accessed with the offset obtained by searching tails (REMEMBER TO ADD sB.size())
+                        // can be accessed with the offset obtained by searching tails (REMEMBER TO ADD sB.size()) // sB.size() has now been added to B directly
                         C.push_back(p.second);
                     }
-                } // if tlen=0, no need to write anything
+                }
+                else{
+                    tails_so_far++;
+                }
+                 // if tlen=0, no need to write anything
                   //if the first 5 bits are zero you should know you are done // HOW DO YOU KNOW!??!?!?!?!   
             }
 
                 
         }
+        assert(offset == total_bits);
 
         
     }    

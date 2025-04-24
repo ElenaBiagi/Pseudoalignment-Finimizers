@@ -24,18 +24,20 @@
 #include "SeqIO.hh"
 #include "BoundedDeque.hh"
 
+#include "bitsearch.hh"
 
-void print_B(const std::unordered_map<uint32_t, int64_t>& B) {
-    std::cout << "Contents of B (prefix_hash → offset):\n";
+
+void print_B(const unordered_map<uint32_t, pair<int64_t,int64_t> >& B) {
+    std::cout << "B (prefix → offset): " << endl;
     for (const auto& [prefix_hash, offset] : B) {
-        std::cout << prefix_hash << " → " << offset << "\n";
+        std::cout << prefix_hash << " → { " << offset.first << ", " << offset.second << " }" << endl;
     }
 }
 
 void print_helperB(const std::unordered_map<uint32_t, std::map<char, std::set<std::pair<uint32_t, std::set<int>>>>>& helperB) {
-    std::cerr << "Contents of helperB:\n";
+    std::cerr << "helperB:" << endl;
     for (const auto& [prefix, tail_map] : helperB) {
-        std::cerr << "Prefix: " << prefix << "\n";
+        std::cerr << "Prefix: " << prefix << endl;
         for (const auto& [character, finimizer_set] : tail_map) {
             std::cerr << "  └─ Tlen: '" << (int)character << "' → " << finimizer_set.size() << " finimizer(s)\n";
             for (const auto& [tail, color_set] : finimizer_set) {
@@ -43,16 +45,16 @@ void print_helperB(const std::unordered_map<uint32_t, std::map<char, std::set<st
                 for (int color : color_set) {
                     std::cerr << color << " ";
                 }
-                std::cerr << "}\n";
+                std::cerr << "}"<<endl;
             }
         }
     }
 }
 
 void print_sB(const std::unordered_map<uint32_t, int64_t>& sB) {
-    std::cout << "Contents of sB (prefix_hash → offset):\n";
+    std::cout << "sB (fmin → offset):\n";
     for (const auto& [key, value] : sB) {
-        std::cout << key << " → " << value << "\n";
+        std::cout << key << " → " << value << endl;
     }
 }
 
@@ -62,6 +64,13 @@ void printHashTable(const std::unordered_map<std::string, std::set<int>>& hashTa
         std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
     }
     std::cerr << "HASH TABLE done" << std::endl;
+}
+
+void print_results(const std::unordered_map<int, uint64_t>& results) {
+    std::cout << "results (position → count):" << endl;
+    for (const auto& [pos, count] : results) {
+        std::cout << "  " << pos << " → " << count << endl;
+    }
 }
 
 // These 3 methods are used in the build phase
@@ -89,7 +98,7 @@ pair<int64_t,int64_t> drop_first_char(const int64_t  new_len, const pair<int64_t
     return {new_I};
 }
 
-char get_char_idx(char c){
+inline char get_char_idx(char c){
     switch(c){
         case 'A': return 0;
         case 'C': return 1;
@@ -108,7 +117,7 @@ uint32_t prefix2int_old(const string& s, uint64_t offset, char plen){
     //cerr << h << '\n';
     return h;
 }
-uint32_t prefix2int(const std::string& s, uint64_t offset, char plen){
+inline uint32_t prefix2int(const std::string& s, uint64_t offset, char plen){
     uint32_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)plen; i++) {
         uint32_t b = get_char_idx(s[offset + i]);
@@ -133,9 +142,8 @@ uint32_t suffix2int(const std::string& s, uint64_t offset, char slen) {
 // Do we want to count the number of found kmers? YES
 // set ?
 // TODO replace sbwt and LCS with const std::unordered_map<uint32_t, uint32_t>& B, const std::unordered_map<uint32_t, std::set<int>>& sB, const sdsl::int_vector<0>& T,
-unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const std::unordered_map<uint32_t, int64_t>& B, const std::unordered_map<uint32_t, int64_t>& sB, const sdsl::int_vector<0>& T, const char plen, const int k){ 
-    // as input:
-    //          k, p (prefix length)
+unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const sdsl::int_vector<0>& T, const char plen, const int k){ 
+    
     const int64_t str_len = input.size();
 
     unordered_map<int64_t, uint64_t> Fmin; // pointer to C, number of such finimizers
@@ -172,19 +180,28 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
         uint32_t int_p = prefix2int(input, start, plen);
         //if (B.find(intp) != B.end()) { // B contains all the possible prefixes of length p
         
-        int64_t pointer = B.find((uint32_t)int_p)->second;
+        //int64_t pointer = B.find((uint32_t)int_p)->second;
+        auto pp = B.at(int_p);
+        int64_t pointer = pp.first;
+        int64_t tails_so_far = pp.second;
+
 
         if (pointer != -1){
             // TODO THIS IS COMPLETELY MISSING!!!!!!!!!!!
             // 2. prefix found!
             // go to where the pointer takes you in T
-            // TODO insert nks/slam.cpp
+            // TODO insert bitsearch.hh
             pair<int64_t, char> result; // = slam(pointer, T)
             if (result.first != -1){ 
+                // TODO
+                //
+                string s = input.substr(start+plen, k-plen); // extract the longest possible tail starting from start+plen
+                result = bitMagicSearch_new(T, pointer, s); // input: sdsl::int_vector<0> &T, int64_t pointer, string S
+                continue;
                 found = true;
                 // TODO update all these values
-                len_fmin = result.second; // TODO add the correct fmin len
-                C_fmin = result.first;
+                len_fmin = plen + result.second; // TODO add the correct fmin len
+                C_fmin = result.first + tails_so_far;
                 int_fmin = 0; // actual finimizer (as int) to check the colexicographically smallest one //TODO reverse it (NO, WRONG C,G) check 2 bits at a time?? but how to check simply? 
             }
         } else{
@@ -192,7 +209,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             // shorten the prefix until you find a match
             // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
             char sp_len = plen-1;
-            uint32_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix
+            uint32_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
             auto it = sB.find(int_sp);
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
@@ -629,3 +646,4 @@ void get_stats(std::unordered_map<std::string, std::set<int>>& hashTable){
     
     return;
 }
+
