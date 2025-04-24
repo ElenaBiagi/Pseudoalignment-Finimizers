@@ -215,17 +215,15 @@ tuple<vector<int>, vector<pair<int,int>>, vector<uint64_t>> count_itemsPerWord(i
    return {itemsPerWord,SLitems, Wmasks};
 }
 
-inline int64_t slam(const sdsl::int_vector<0> &T, int64_t start, char W, uint32_t key, uint16_t ntails){
+inline pair<int64_t,string> slam(const sdsl::int_vector<0> &T, int64_t start, char W, uint32_t key, uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
    // TODO: bitwise operations
    // look at 64 bits at a time and mask what is not a tail of the correct size
-   return 1;
+   return {1,"1"};
 
 }
 
-uint64_t read_bits(const sdsl::int_vector<0>& vec,
-                   size_t offset,
-                   size_t bit_width){
+uint64_t read_bits(const sdsl::int_vector<0>& vec, size_t offset, size_t bit_width){
     uint64_t value = 0;
     for (size_t i = 0; i < bit_width; ++i) {
         // Shift previous bits up by 1, then OR in the next bit
@@ -237,30 +235,24 @@ uint64_t read_bits(const sdsl::int_vector<0>& vec,
 
 
 // Report the lenght of the found tail and the pos in t to get the colors
-pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t start, string s){ // we know the width of the query
+// output: pos in T (to get colors), tailsubstring
+pair<int64_t, string> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t start, string s){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
-   // T.size()= found prefixes
-   // we know from where we need to look at the vector -> we start from here
-   // 5 bits for the length
-   // vbyte for the number of tails 
-   // Check first the shorter lengths. stop once a match is found
-
-   // 1. check the length of the first tail
-   // 2. check how many tails
-   // 3. Extract substring
-   // 4. Look for substring where the tails of that length start (WHERE??)
+   // T.size()= found prefixes THIS IS NOT TRUE!!
+   
    
    // NEW METHOD FOR EVERY KEY: SLAM
 
-   int64_t pos = start;
+   int64_t pos = start; // we know from where we need to look at the vector -> we start from here
    
+   // Check first the shorter lengths. stop once a match is found
    while (true){ // break the loop once something is found
-      // 1. 5‐bit tlen
+      // 1. check the length of the first tail, 5‐bit tlen
       char tlen = read_bits(T, pos, 5);
       pos += 5;
 
-      // 2. vbyte #tails
+      // 2. check how many tailS, vbyte #tails
       uint64_t ntails = 0;
       int shift = 0;
       while (true) {
@@ -270,15 +262,18 @@ pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t sta
          if ((byte & 0x80) == 0) break;
          shift += 7;
       }
+
+      // 3. Extract substring
       uint32_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGHT TLEN; // The max length is (k-plen)*2= 21 if k=31 and plen=10, we need at least that many bits
 
-      int64_t found = slam (T, pos, tlen, key, ntails); // TODO real bitwise operations 
+      // 4. Look for substring where the tails of that length start (WHERE??)
+      pair<int64_t,string> res = slam (T, pos, tlen, key, ntails); // TODO real bitwise operations 
    
    }
-     // TODO add to the result the number of finimizers preceeding this.
-   // option 1. store it in B = {prefix: {start, #prev tails}}
+   // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
+   // option 1. store it in B = {prefix: {start, #prev tails}} [using this option now]
    // option 2. calculate it (might be very slow) 
-   return {0,0};
+   return {0,"0"};
 }
 
 inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ // we know the width of the query
