@@ -22,7 +22,7 @@
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
 #include "common.hh"
-#include "bitsearch.hh"
+#include "rarest_fmin_search.hh"
 
 class FinimizerIndex{
 
