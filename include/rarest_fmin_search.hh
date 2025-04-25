@@ -45,7 +45,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
     bool found = false;
     int16_t len_fmin = 0;
-    int64_t int_fmin = 0;
+    //int64_t int_fmin = 0;
     string str_fmin;
     int64_t C_fmin = 0; // Can the result of color index be negative??? If not found??
 
@@ -86,8 +86,9 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
                 found = true;
                 len_fmin = plen + result.second.length(); // TODO add the correct fmin len
                 C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
-                int_fmin = 0; // TODO add suffix () after prefix (int_p) // TODO strong the fmin as a string and not as a number 
+                //int_fmin = 0; // TODO add suffix () after prefix (int_p) // TODO strong the fmin as a string and not as a number 
                 str_fmin = result.second;
+                reverse(str_fmin.begin(), str_fmin.end());
                 // actual finimizer (as int) to check the colexicographically smallest one //TODO reverse it (NO, WRONG C,G) check 2 bits at a time?? but how to check simply? 
             }
         } else{
@@ -106,6 +107,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
                 len_fmin = (int16_t)sp_len;
                 //int_fmin = int_sp;
                 str_fmin = input.substr(start,sp_len);
+                reverse(str_fmin.begin(), str_fmin.end());
                 C_fmin = it->second;
             }
         }
@@ -113,7 +115,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             curr_substr = {len_fmin, str_fmin, C_fmin, start}; // {len_fmin, int_fmin, C_fmin, start};
             // still don't know if this is the correct fmin
                 
-            if (w_fmin > curr_substr){ // TODO compare colex easily // compare the reverse of strings and not int
+            if (w_fmin > curr_substr){ // TODO compare colex easily // compare the REVERSE of strings and not int. Only strings of the same length will be compared
                 all_fmin.clear();
                 w_fmin = curr_substr;
             } else {
