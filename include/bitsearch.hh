@@ -215,35 +215,37 @@ tuple<vector<int>, vector<pair<int,int>>, vector<uint64_t>> count_itemsPerWord(i
    return {itemsPerWord,SLitems, Wmasks};
 }
 
-inline pair<int64_t,string> slam(const sdsl::int_vector<0> &T, int64_t start, char W, uint32_t key, uint16_t ntails){
+inline int64_t slam(const sdsl::int_vector<0> &T, int64_t start, char W, uint64_t key, uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
    // TODO: bitwise operations
    // look at 64 bits at a time and mask what is not a tail of the correct size
-   return {1,"1"};
+   return 0;
 
 }
 
-uint64_t read_bits(const sdsl::int_vector<0>& vec, size_t offset, size_t bit_width){
-    uint64_t value = 0;
-    for (size_t i = 0; i < bit_width; ++i) {
-        // Shift previous bits up by 1, then OR in the next bit
-        value <<= 1;
-        value |= vec[offset + i];
-    }
-    return value;
+uint64_t read_bits(const sdsl::int_vector<0>& vec, size_t offset, size_t bit_width) {
+    if (bit_width == 0)[[unlikely]] {return 0;}
+
+   // consider 64-bit words
+    size_t word_start = offset / 64;
+    size_t bit_offset = offset % 64;
+
+    // might need 2 words
+    uint64_t first_word = vec.data()[word_start];
+    uint64_t second_word = (word_start + 1 < (vec.size() + 63) / 64) ? vec.data()[word_start + 1] : 0;
+    uint64_t combined = (first_word >> bit_offset) | (second_word << (64 - bit_offset));
+
+    //if (bit_width == 64) {return combined;} // this will never be the case if k=31
+    return combined & ((1ULL << bit_width) - 1);
 }
 
 
-// Report the lenght of the found tail and the pos in t to get the colors
-// output: pos in T (to get colors), tailsubstring
-pair<int64_t, string> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t start, string s){ // we know the width of the query
+// output: pos in T (to get colors), tlen
+pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t start, string s){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!
    
-   
-   // NEW METHOD FOR EVERY KEY: SLAM
-
    int64_t pos = start; // we know from where we need to look at the vector -> we start from here
    
    // Check first the shorter lengths. stop once a match is found
@@ -264,16 +266,16 @@ pair<int64_t, string> bitMagicSearch_new(const sdsl::int_vector<0> &T, int64_t s
       }
 
       // 3. Extract substring
-      uint32_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGHT TLEN; // The max length is (k-plen)*2= 21 if k=31 and plen=10, we need at least that many bits
+      uint64_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGTH TLEN; // The max length is (k-plen)*2= 42 if k=31 and plen=10, we need at least that many bits
 
       // 4. Look for substring where the tails of that length start (WHERE??)
-      pair<int64_t,string> res = slam (T, pos, tlen, key, ntails); // TODO real bitwise operations 
+      int64_t res = slam (T, pos, tlen, key, ntails); // TODO real bitwise operations 
    
    }
    // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
    // option 1. store it in B = {prefix: {start, #prev tails}} [using this option now]
    // option 2. calculate it (might be very slow) 
-   return {0,"0"};
+   return {0,0};
 }
 
 inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ // we know the width of the query

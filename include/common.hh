@@ -108,7 +108,7 @@ inline char get_char_idx(char c){
     }
 }
 
-uint32_t prefix2int_old(const string& s, uint64_t offset, char plen){
+uint64_t prefix2int_old(const string& s, uint64_t offset, char plen){ 
     uint64_t h = 0;
     for(uint64_t i=0; i<(uint64_t)plen; i++){
        uint64_t b = get_char_idx(s[i+offset]);
@@ -117,17 +117,17 @@ uint32_t prefix2int_old(const string& s, uint64_t offset, char plen){
     //cerr << h << '\n';
     return h;
 }
-inline uint32_t prefix2int(const std::string& s, uint64_t offset, char plen){
-    uint32_t h = 0;
+inline uint64_t prefix2int(const std::string& s, uint64_t offset, char plen){ // if fmin length = 31 we need 62 bits in total, 20 for the prefix if plen=10
+    uint64_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)plen; i++) {
-        uint32_t b = get_char_idx(s[offset + i]);
+        uint64_t b = get_char_idx(s[offset + i]);
         h <<= 2;
         h |= b;
     }
     return h;
 }
 
-uint32_t suffix2int(const std::string& s, uint64_t offset, char slen) {
+inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { // if fmin length = 31 we need 62 bits in total, 42 for the tail if plen=10
     uint64_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)slen; i++) {
         uint64_t b = get_char_idx(s[offset + slen - 1 - i]);

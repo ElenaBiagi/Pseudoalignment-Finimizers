@@ -44,15 +44,15 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
     int64_t kmer_start = 0; // start of the first k-mer
 
     bool found = false;
-    int16_t len_fmin = 0;
+    char len_fmin = 0;
     //int64_t int_fmin = 0;
     string str_fmin;
     int64_t C_fmin = 0; // Can the result of color index be negative??? If not found??
 
-    BoundedDeque<tuple<int16_t, string, int64_t, int64_t>> all_fmin(input.size()-k+1);
+    BoundedDeque<tuple<char, string, int64_t, int64_t>> all_fmin(input.size()-k+1);
 
-    tuple<int16_t, string, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
-    tuple<int16_t, string, int64_t, int64_t> w_fmin = {k+1,"1",0, input.size()}; // start will always be < str_len
+    tuple<char, string, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
+    tuple<char, string, int64_t, int64_t> w_fmin = {k+1,"1",0, input.size()}; // start will always be < str_len
     
     // idea: look for prefixes of length p in the hashtable B
     // 1. prefix not found: the finimizer might be smaller
@@ -68,7 +68,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
     for (start = 0; start < str_len - k +1; start++) { // Extract p characters at a time
         //const string prefix = input.substr(start,end);
         // Look for the prefix in B
-        uint32_t int_p = prefix2int(input, start, plen);
+        uint64_t int_p = prefix2int(input, start, plen);
         //if (B.find(intp) != B.end()) { // B contains all the possible prefixes of length p
         
         //int64_t pointer = B.find((uint32_t)int_p)->second;
@@ -84,10 +84,10 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             auto result = bitMagicSearch_new(T, pointer, s); // input: sdsl::int_vector<0> &T, int64_t pointer, string S    
             if (result.first != -1){ 
                 found = true;
-                len_fmin = plen + result.second.length(); // TODO add the correct fmin len
+                len_fmin = plen + result.second; // TODO add the correct fmin len
                 C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
                 //int_fmin = 0; // TODO add suffix () after prefix (int_p) // TODO strong the fmin as a string and not as a number 
-                str_fmin = result.second;
+                str_fmin = input.substr(start+plen, start+plen+result.second);
                 reverse(str_fmin.begin(), str_fmin.end());
                 // actual finimizer (as int) to check the colexicographically smallest one //TODO reverse it (NO, WRONG C,G) check 2 bits at a time?? but how to check simply? 
             }
@@ -96,7 +96,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             // shorten the prefix until you find a match
             // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
             char sp_len = plen-1;
-            uint32_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
+            uint64_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
             auto it = sB.find(int_sp);
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
@@ -104,9 +104,10 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             }
             if (sp_len != 0){
                 found = true;
-                len_fmin = (int16_t)sp_len;
+                len_fmin = (char)sp_len;
                 //int_fmin = int_sp;
                 str_fmin = input.substr(start,sp_len);
+                // TODO this could be turned into numbers again now
                 reverse(str_fmin.begin(), str_fmin.end());
                 C_fmin = it->second;
             }
@@ -133,7 +134,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             
             while (get<3>(w_fmin) < kmer_start) {// {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
                 all_fmin.pop_front();
-                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<int16_t, string, int64_t, int64_t>{k+1,"0",0,kmer_start};
+                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<char, string, int64_t, int64_t>{k+1,"0",0,kmer_start};
             }
             
             if (all_fmin.size()>0){
