@@ -171,6 +171,7 @@ vector<string> remove_ns(const string& unitig, const int64_t k){
 } */
 const std::string remove_N_from_string(const std::string &input) {
     std::string result = input;
+    std::transform(result.begin(), result.end(), result.begin(), ::toupper); // uppercase
     result.erase(std::remove(result.begin(), result.end(), 'N'), result.end());
     return result; // Return the resulting string as const
 }
@@ -182,14 +183,18 @@ vector< std::string> split_by_N(const std::string &input, const int64_t k) {
 
     while ((end = input.find_first_of("BDEFHIJKLMNOPQRSUVWXYZbdefhijklmnopqrstuvwxyz", start)) != std::string::npos) {
         if (end - start +1 >= k) { // Exclude strings shorter than k
-            result.emplace_back(input.substr(start, end - start));
+            string seq = input.substr(start, end - start);
+            std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+            result.emplace_back(seq);
         }
         start = end + 1;
     }
 
     // Add the last part if it's at least k characters long
     if (input.size()-start >=k) {
-        result.emplace_back(input.substr(start));
+        string seq = input.substr(start);
+        std::transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+        result.emplace_back(seq);
     }
 
     return result;
