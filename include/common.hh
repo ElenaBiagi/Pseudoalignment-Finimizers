@@ -26,6 +26,35 @@
 
 
 
+inline void print_bit_vector(const std::unique_ptr<sdsl::bit_vector>& T) {
+    if (!T) {
+        std::cout << "T is null." << std::endl;
+        return;
+    }
+
+    std::cout << "bit_vector of size " << T->size() << ": [ ";
+    for (size_t i = 0; i < T->size(); ++i) {
+        std::cout << (*T)[i] << " ";
+        if (i == 128) { break; } 
+    }
+    std::cout << "]" << std::endl;
+}
+
+inline void print_bit_vector(const sdsl::bit_vector& T, int64_t pos) {
+    std::cerr << "T size = " << T.size() << std::endl;
+    std::cerr << "pos = " << pos << std::endl;
+    if (pos + 4 < (int64_t)T.size()) {
+        std::cerr << "T[pos] = " << T[pos] << " " << T[pos+1] << " " << T[pos+2] << " " << T[pos+3] << " " << T[pos+4] << std::endl;
+    } else {
+        std::cerr << "pos too close to end of vector for T[pos+4]" << std::endl;
+    }
+
+    std::cout << "bit_vector content from pos: ";
+    for (size_t i = pos; i < T.size() && i < (size_t)(pos + 64); ++i) {
+        std::cout << T[i] << " ";
+    }
+    std::cout << std::endl;
+}
 
 void print_B(const unordered_map<uint32_t, pair<int64_t,int64_t> >& B) {
     std::cout << "B (prefix → offset): " << endl;

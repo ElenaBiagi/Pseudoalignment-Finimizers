@@ -31,8 +31,8 @@
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? YES
 // set ?
-// TODO replace sbwt and LCS with const std::unordered_map<uint32_t, uint32_t>& B, const std::unordered_map<uint32_t, std::set<int>>& sB, const sdsl::int_vector<0>& T,
-unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const sdsl::int_vector<0>& T, const char plen, const int k){ 
+// TODO replace sbwt and LCS with const std::unordered_map<uint32_t, uint32_t>& B, const std::unordered_map<uint32_t, std::set<int>>& sB, const sdsl::bit_vector& T,
+unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const sdsl::int_vector<1>& T, const uint8_t plen, const int k){ 
     
     const int64_t str_len = input.size();
 
@@ -44,15 +44,15 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
     int64_t kmer_start = 0; // start of the first k-mer
 
     bool found = false;
-    char len_fmin = 0;
+    uint8_t len_fmin = 0;
     //int64_t int_fmin = 0;
     string str_fmin;
     int64_t C_fmin = 0; // Can the result of color index be negative??? If not found??
 
-    BoundedDeque<tuple<char, string, int64_t, int64_t>> all_fmin(input.size()-k+1);
+    BoundedDeque<tuple<uint8_t, string, int64_t, int64_t>> all_fmin(input.size()-k+1);
 
-    tuple<char, string, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
-    tuple<char, string, int64_t, int64_t> w_fmin = {k+1,"1",0, input.size()}; // start will always be < str_len
+    tuple<uint8_t, string, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
+    tuple<uint8_t, string, int64_t, int64_t> w_fmin = {k+1,"1",0, input.size()}; // start will always be < str_len
     
     // idea: look for prefixes of length p in the hashtable B
     // 1. prefix not found: the finimizer might be smaller
@@ -81,7 +81,8 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             // TODO THIS IS COMPLETELY MISSING!!!!!!!!!!!
             // 2. prefix found!
             string s = input.substr(start+plen, k-plen); // extract the longest possible tail starting from start+plen
-            auto result = bitMagicSearch_new(T, pointer, s); // input: sdsl::int_vector<0> &T, int64_t pointer, string S    
+            auto result = bitMagicSearch_new(T, pointer, s); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            return Fmin; // TODO REMOVE THIS!!!
             if (result.first != -1){ 
                 found = true;
                 len_fmin = plen + result.second; // TODO add the correct fmin len
@@ -95,16 +96,16 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             // 1. prefix NOT found
             // shorten the prefix until you find a match
             // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
-            char sp_len = plen-1;
+            uint8_t sp_len = plen-1;
             uint64_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
             auto it = sB.find(int_sp);
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
-                int_sp = prefix2int(input, start, sp_len);  // TODO add or remove one char at a time
+                int_sp = prefix2int(input, start, sp_len);  // TODO add or remove one uint8_t at a time
             }
             if (sp_len != 0){
                 found = true;
-                len_fmin = (char)sp_len;
+                len_fmin = (uint8_t)sp_len;
                 //int_fmin = int_sp;
                 str_fmin = input.substr(start,sp_len);
                 // TODO this could be turned into numbers again now
@@ -134,7 +135,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             
             while (get<3>(w_fmin) < kmer_start) {// {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
                 all_fmin.pop_front();
-                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<char, string, int64_t, int64_t>{k+1,"0",0,kmer_start};
+                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<uint8_t, string, int64_t, int64_t>{k+1,"0",0,kmer_start};
             }
             
             if (all_fmin.size()>0){
