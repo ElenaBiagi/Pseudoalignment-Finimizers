@@ -217,37 +217,113 @@ tuple<vector<int>, vector<pair<int,int>>, vector<uint64_t>> count_itemsPerWord(i
    return {itemsPerWord,SLitems, Wmasks};
 }
 
-inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t offset, char W, uint64_t key, uint16_t ntails){
+inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t offset, uint8_t W, uint64_t key, uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
    // TODO: bitwise operations
-   // look at 64 bits at a time and mask what is not a tail of the correct size
+
+   // Look at 64 bits at a time starting from offset (skip tlen and ntail (5+8+?))
+   // Look at tlen*ntail*2 bits
+   // Mask all the bits after that = what is not a tail of the correct size
+
+/*    uint64_t dataSize = T.size()/64 + (X.size()%64 > 0); 
+   for(uint64_t i=0;i<dataSize;i++){
+      uint64_t dw = data[i];
+   } */
+
+   W = W*2;
+   uint64_t mask, mask2, mask3;
+   createMask(key, W, 0, mask, mask2, mask3);
    //const uint64_t* data = T.data();
    uint64_t word_index = offset / 64;
-   uint64_t bit_in_word = offset % 64;
-   uint64_t total_words = (T.size() + 63) / 64;  // +63 to ensure not discarding the last bits
+   uint64_t offset_in_word = offset % 64;
+   //uint64_t total_words = (T.size() + 63) / 64;  // +63 to ensure not discarding the last bits
 
+   uint64_t total_bits_used = W*ntails*2;
+   uint64_t total_words = (W*ntails*2 + 63) / 64;  // +63 to ensure not discarding the last bits
+   uint64_t tails_so_far = 0;
 
+   uint64_t tailsPerWord = (64/(W*2)< ntails) ? 64/(W*2) : ntails;
+   uint8_t bitTailsNotRead = 0;  // TODO this could be masked as well but they are implicitly masked
+
+   int64_t Wmask =  (tailsPerWord < ntails)? (~0ULL) << (tailsPerWord*W) : (~0ULL) << (ntails*W);
    for (uint64_t i = word_index; i < total_words; ++i) {
         uint64_t w = data[i];
 
         // If the offset is not a multiple of 64, adjust the current word
-        if (bit_in_word > 0) {
-            w >>= bit_in_word; // Shift right to align with the desired bit
+        if (offset_in_word > 0) {
+            w >>= offset_in_word; // Shift right to align with the desired bit
+        }
+        if (bitTailsNotRead > 0){
+            w <<= bitTailsNotRead;
         }
 
       //while()
-      uint64_t mask = masks[W][0]*key;
+      
+      /* uint64_t mask = masks[W][0]*key;
+      //cerr << T[offset] << T[offset+1] << T[offset+2] << T[offset+3] << T[offset+4] << T[offset+5] << T[offset+6] << endl;
       printBinary(w); cerr << " w" << endl;
       printBinary(mask); cerr << " mask" << endl;
-      return 0;
-      uint64_t found = hasvaluesupply(w,mask);
+      printBinary(w ^ mask); cerr << " w ^ mask" << endl;
+      //printBinary(0x0101010101010101ULL); cerr << " 0x0101010101010101ULL" << endl;
+      printBinary(0x1111111111111111ULL); cerr << " 0x1111111111111111ULL" << endl;
+
+      printBinary((w ^ mask) - (0x1111111111111111ULL)); cerr << " (w ^ mask)- (0x1111111111111111ULL)" << endl;
+      printBinary(~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
+
+      printBinary(((w ^ mask) - (0x1111111111111111ULL)) & ~(w ^ mask)); cerr << "((w ^ mask) - (0x1111111111111111ULL) & ~(w ^ mask)" << endl;
+      printBinary(0x8888888888888888ULL); cerr << " 0x8888888888888888ULL" << endl;
+
+      printBinary(((w ^ mask) - (0x1111111111111111ULL) & ~(w ^ mask) & 0x8888888888888888ULL)); cerr << " ((w ^ mask)-0x1111111111111111ULL) & ~(w ^ mask) & 0x8888888888888888ULL)" << endl;
+
+
+      cerr << endl;
+      uint64_t found = hasvaluesupply(w,mask); // TODO MASK LARGER VALUES
+       */
+      uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
+      
+      if(found){
+         cerr << "width = "<< (int)W << endl;
+         cerr << "key = "<< key << endl;
+         cerr << "ntails = " << ntails << endl;
+         printBinary(w); cerr << " w" << endl;
+         printBinary(mask); cerr << " mask for the key" << endl;
+
+         printBinary((w) ^ mask); cerr << " (w) ^ mask" << endl;
+         printBinary(mask2); cerr << " mask2" << endl;
+         //printBinary(0x1111111111111111ULL); cerr << " 0x1111111111111111ULL" << endl;
+
+         printBinary(((w ) ^ mask) - mask2); cerr << " (w ^ mask)- (mask2)" << endl;
+         printBinary(~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
+
+         printBinary(((w ^ mask) - mask2) & ~(w  ^ mask)); cerr << "((w  ^ mask) - (mask2) & ~(w ^ mask)" << endl;
+         printBinary(mask3); cerr << " mask3" << endl;
+         printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3)); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3)" << endl;
+
+         printBinary(Wmask); cerr << " mask wrong width" << endl;
+
+         printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmask)); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (Wmask)" << endl;
+
+         printBinary(found); cerr << " found" << endl;
+         uint64_t lz = __builtin_clzll(found);
+         cerr << "lz = "<< lz<< endl;
+
+         bool needsCorrection = (found>>(63-lz-W))&1;
+         if (needsCorrection) cerr << "needsCorrection: " << needsCorrection << '\n';
+         uint64_t pos =  lz/W;
+         cerr << "pos " << pos << endl;
+         cerr << "result = " << (((((64-lz))/W) - needsCorrection) + (64-tailsPerWord*W) ) - 1 << endl;
+
+         cerr << "result = "<< i*(tailsPerWord)+((tailsPerWord)-pos-1-needsCorrection)<< endl;
+         cerr << endl;
+      }
+      // TODO TAKE CARE OF THE FACT THAT THE LAST TAIL MIGHT HAVE BEEN IN BTW TWO WORDS
+      // SHIFT THE NEXT WORD TO THE RIGHT by this many bits
+      bitTailsNotRead = 64 % (W*2);
       //uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
-   // 1. I'm only looking at words that start at 0 -> no need for shifting masks
+   // 1. I'm only looking at words that start at 0 -> no need for shifting masks [OK]
 
-   // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters
-   // 3. it is easy to know where longer tails start -> Do we need to mask longer tails??
-
-
+   // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
+   // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
 
    }
 
@@ -257,12 +333,12 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<1> &T, int64_t start, string s){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!
    
-   int64_t pos = start; // we know from where we need to look at the vector -> we start from here
+   int64_t pos = 0;// start from 0 now that we have a single vector // we know from where we need to look at the vector -> we start from here
    //BitReader br(T, pos);
 
    int64_t tails_so_far = 0;
@@ -277,6 +353,9 @@ pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<1> &T, int64_t sta
    std::cout << "Raw bits: " << bits << std::endl;
 
    std::cout << "val = " << val << std::endl; */
+   uint64_t word_index = 0;
+   uint8_t w_offset = 0;
+   int64_t res =-1;
 
    const uint64_t* data = T.data();
    // Check first the shorter lengths. stop once a match is found
@@ -285,10 +364,11 @@ pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<1> &T, int64_t sta
       //uint8_t char = read_bits(T, data, pos, 5);
       //pos += 5;
 
-      //uint8_t char = br.read(5);
-      print_bit_vector(T, pos);
-      //uint8_t tlen = (uint8_t)sdsl::bits::read_int(data, pos, 5); // wrong
-      uint8_t tlen = T.get_int(pos, 5);
+      word_index = pos/64;
+      w_offset = pos %64;
+      //print_bit_vector(T, pos);
+      uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5); // wrong
+      if (tlen ==0){ return {0,0};}
       pos += 5;
       cerr << "tlen = "<< (int)tlen << endl;
 
@@ -296,29 +376,23 @@ pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<1> &T, int64_t sta
       uint64_t ntails = 0;
       int shift = 0;
       while (true) {
-         // TODO WHEN TO STOP???
-         // 1. store the next pointer in B
-         // 2. store the total number of tails for every prefix in B
-         //uint8_t byte = sdsl::bits::read_int(data, pos, 8); //wrong
-         uint8_t byte = T.get_int(pos, 8);
 
+         word_index = pos/64;
+         w_offset = pos %64;
+         uint8_t byte = sdsl::bits::read_int(&data[word_index], w_offset, 8); //wrong
          pos += 8;
          //uint8_t byte = br.read(8); // pos updated automatically
          ntails |= uint64_t(byte & 0x7F) << shift;
          if ((byte & 0x80) == 0) break;
          shift += 7;
       }
-      if (tlen ==0){ return {0,0};}
-      else{
-         // 3. Extract substring
-
-         uint64_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGTH TLEN; // The max length is (k-plen)*2= 42 if k=31 and plen=10, we need at least that many bits
-
-         // 4. Look for substring where the tails of that length start (WHERE??)
-         int64_t res = slam (T,data, pos, tlen, key, ntails); // TODO real bitwise operations 
-      if (res!=-1) {break;}
-      }
       
+      // 3. Extract substring
+      uint64_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGTH TLEN; // The max length is (k-plen)*2= 42 if k=31 and plen=10, we need at least that many bits
+
+      // 4. Look for substring where the tails of that length start (WHERE??)
+      int64_t res = slam (T,data, pos, tlen, key, ntails); // TODO real bitwise operations 
+      if (res!=-1) {return {res+tails_so_far, tlen};}
 
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
@@ -326,7 +400,7 @@ pair<int64_t, char> bitMagicSearch_new(const sdsl::int_vector<1> &T, int64_t sta
    // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
    // option 1. store it in B = {prefix: {start, #prev tails}} [using this option now]
    // option 2. calculate it (might be very slow) 
-   return {0,0};
+   return {-1,0};
 }
 
 inline int64_t bitMagicSearch2(uint64_t X, int W, uint64_t key, uint64_t info){ // we know the width of the query

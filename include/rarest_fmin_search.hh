@@ -32,7 +32,7 @@
 // Do we want to count the number of found kmers? YES
 // set ?
 // TODO replace sbwt and LCS with const std::unordered_map<uint32_t, uint32_t>& B, const std::unordered_map<uint32_t, std::set<int>>& sB, const sdsl::bit_vector& T,
-unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const sdsl::int_vector<1>& T, const uint8_t plen, const int k){ 
+unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
     
     const int64_t str_len = input.size();
 
@@ -78,12 +78,13 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
 
         if (pointer != -1){
-            // TODO THIS IS COMPLETELY MISSING!!!!!!!!!!!
-            // 2. prefix found!
-            string s = input.substr(start+plen, k-plen); // extract the longest possible tail starting from start+plen
-            auto result = bitMagicSearch_new(T, pointer, s); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            // 2. Prefix found!
+            string s = input.substr(start+plen, k-plen); // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
+            auto result = bitMagicSearch_new(T[pointer], s); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             return Fmin; // TODO REMOVE THIS!!!
+            
             if (result.first != -1){ 
+                // b. Tail Found!
                 found = true;
                 len_fmin = plen + result.second; // TODO add the correct fmin len
                 C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
@@ -93,12 +94,13 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
                 // actual finimizer (as int) to check the colexicographically smallest one //TODO reverse it (NO, WRONG C,G) check 2 bits at a time?? but how to check simply? 
             }
         } else{
-            // 1. prefix NOT found
-            // shorten the prefix until you find a match
+            // 1. Prefix NOT found
+            // Shorten the prefix until you find a match
             // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
             uint8_t sp_len = plen-1;
             uint64_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
             auto it = sB.find(int_sp);
+
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
                 int_sp = prefix2int(input, start, sp_len);  // TODO add or remove one uint8_t at a time

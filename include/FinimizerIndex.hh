@@ -42,7 +42,8 @@ public:
 
     std::unordered_map<uint32_t, pair<int64_t,int64_t>> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
     std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
-    unique_ptr<int_vector<1>> T; // tails
+    //unique_ptr<int_vector<1>> T; // tails
+    std::vector<int_vector<1>> T;
     vector<set<int>> C;
     //TODO K and PLEN must be part of a structure
     //uint8_t plen; 
@@ -67,7 +68,7 @@ public:
       
         if (query.size() < this->k) return; 
 
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
+        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
       
         // TODO Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
@@ -88,7 +89,7 @@ public:
 
         if (query.size() < this->k) return; 
 
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, *T, this->plen, this->k);
+        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
 
         // Check the colors for every finimizer found
         //pseudoalignemnt_stats(Finimizers, this->hashTable, results, t);
@@ -398,8 +399,14 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
 
         serialize_B(B, index_prefix + ".B.BIN");
 
-        std::ofstream T_out(index_prefix + ".T.sdsl");
-        sdsl::serialize(*T.get(), T_out);
+        //std::ofstream T_out(index_prefix + ".T.sdsl");
+        //sdsl::serialize(*T.get(), T_out);
+        std::ofstream T_out(index_prefix + ".T.sdsl", std::ios::binary);
+        sdsl::serialize(T.size(), T_out); // Serialize the number of vectors
+        for (const auto& vec : T) {
+            sdsl::serialize(vec, T_out);
+        }
+        
 
         serialize_Colors(C, index_prefix + ".C.BIN");
     }
@@ -436,9 +443,16 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         B = load_B(index_prefix + ".B.BIN");
         std::cerr << "B loaded" << std::endl;
 
-        T = make_unique<sdsl::int_vector<1>>();
+        /* T = make_unique<sdsl::int_vector<1>>();
         ifstream T_in(index_prefix + ".T.sdsl", std::ios::binary);
-        sdsl::load(*T, T_in);
+        sdsl::load(*T, T_in); */
+        std::ifstream T_in(index_prefix + ".T.sdsl", std::ios::binary);
+        size_t num_vectors;
+        sdsl::load(num_vectors, T_in);
+        T.resize(num_vectors);
+        for (auto& vec : T) {
+            sdsl::load(vec, T_in);
+        }
         std::cerr<< "Tails loaded"<<std::endl;
 
         C = load_Colors(index_prefix + ".C.BIN");
@@ -461,7 +475,10 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         } */
 
         // T
-        if (T) {total += sdsl::size_in_bytes(*T);}
+        //if (T) {total += sdsl::size_in_bytes(*T);}
+        for (const auto& vec : T) {
+            total += sdsl::size_in_bytes(vec);
+        }
 
         // B
         total += sizeof(std::pair<uint32_t, int64_t>) * B.size();
@@ -527,7 +544,8 @@ public:
 
         std::unordered_map<uint32_t, pair<int64_t,int64_t>> B; // Create a hash table to store the prefixes of each bucket and a pointer to the start of the tails in the sdsl int vector
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
-        int_vector<1> T; // width 0 so that I can decide the width and modify every entry
+        //int_vector<1> T; // width 0 so that I can decide the width and modify every entry
+        std::vector<int_vector<1>> T;
         vector<set<int>> C;
         this->k = 31;
         //this->k = (int)index->sbwt->get_k(); //TODO FIX THIS
@@ -576,7 +594,7 @@ public:
         index->B = std::move(B); // Transfer ownership
         index->sB = std::move(sB); // Transfer ownership
         //index->T = std::move(T); // Transfer ownership
-        index->T = std::make_unique<sdsl::int_vector<1>>(std::move(T));
+        index->T = std::move(T);
         index->C = std::move(C); // Transfer ownership
 
     }
@@ -689,6 +707,7 @@ public:
     
 
     void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, pair<int64_t,int64_t> >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, uint8_t plen){
+        cerr << "Create buckets" << endl;
         // create a hash table with all the possible strings of length plen
 
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
@@ -752,10 +771,13 @@ public:
     }
 
     // TODO deal with tlen=0
-    void storeTails(unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, std::unordered_map<uint32_t, pair<int64_t,int64_t>>& B, sdsl::int_vector<1>& T, vector<set<int>>& C, int64_t sB_size){
+    void storeTails(unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, std::unordered_map<uint32_t, pair<int64_t,int64_t>>& B, std::vector<int_vector<1>>& T, vector<set<int>>& C, int64_t sB_size){
+        cerr << "Store Tails"<< endl;
+        T.clear();
+        
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
         // 1. Count the number of bits needed
-        size_t total_bits = 0;
+/*         size_t total_bits = 0;
         for (auto &prefix : helperB){
             for (auto &tails: prefix.second){
                 // this should be in tails order
@@ -769,56 +791,75 @@ public:
                     total_bits += tnumber * (2 * tlen); // actual tails 2bits/char
                 }
             }
-
         }
         T = int_vector<1>(total_bits, 0); // is this what I want to do??
-        uint64_t* data = T.data();
+ */
+        for (auto &prefix : helperB){
+            size_t prefix_bits = 0;
+            for (auto &tails: prefix.second){
+                // this should be in tails order
+                uint8_t tlen = tails.first; // 5 bits // tail length
+                prefix_bits += 5; // tlen: 5 bits
+
+                if (tlen > 0){
+                    int32_t tnumber = tails.second.size(); // vbyte
+                    auto vb = vbyte_encode(tnumber);
+                    prefix_bits += vb.size() * 8; // vbyte: 8 bits per byte // number of tails
+                    prefix_bits += tnumber * (2 * tlen); // actual tails 2bits/char
+                }
+            }
+            T.push_back(int_vector<1>(prefix_bits, 0)); // bits for each prefix
+        }
+
 
         // 2. Write data
-        int64_t offset = 0;
         int64_t tails_so_far = sB_size;
         // offset >> tails_so_far
 
-        for (auto &prefix : helperB){
+        int64_t i = 0;
+        for (auto &prefix : helperB){        
+            int64_t offset = 0;
             // add a pointer to the prefix in B
-            B[prefix.first]={offset, tails_so_far};
+            B[prefix.first]={i, tails_so_far}; // store the index of the int_vector in T and not the offset anymore // we could store a pointer
             //cerr << "Current offset for prefix " << prefix.first << ": " << offset << endl;
-            
-
+            uint64_t* data = T[i].data();
 
             for (auto &tails: prefix.second){    // this should be in tails order
                // tails is std::pair<const char, std::set<std::pair<uint32_t, std::set<int>>>>
                 // {tlen: [{tail1, {colors1}},..]}
                 // tail length
                 uint8_t tlen = tails.first;
-                sdsl::bits::write_int(T.data(), tlen, offset, 5);
-                /*  //  DO NOT USE WRONG MULTIPLE TIMES!!
-                uint8_t xlen = T.get_int(offset, 5);
-                if (xlen != tlen){
-                cerr << "Written tlen = " << (int)tlen << " at offset " << offset << endl;
-                cerr << "xlen at B[prefix].first: " << (int)xlen << endl; 
-                } */
-                uint8_t rxlen = sdsl::bits::read_int(T.data(), offset, 5); 
+                uint64_t word_index = offset/64;
+                uint8_t w_offset = offset %64;
+                sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+                
+                // TODO remov this as it is useful only as a safety check
+                uint8_t rxlen = sdsl::bits::read_int(&data[word_index], w_offset, 5); 
                 if (rxlen != tlen){
                 cerr << "Written tlen = " << (int)tlen << " at offset " << offset << endl;
                 cerr << "rxlen at B[prefix].first: " << (int)rxlen << endl; // WRONG WHEN OFFSET IS A MULTIPLE OF 64
                 }
+                
                 offset += 5;
                 // deal with tlen=0
                 if (tlen >0){
+                    word_index = offset/64;
+                    w_offset = offset %64;
                     // number of tails of length tlen
                     std::set<std::pair<uint32_t, std::set<int>>> tc = tails.second; //{tail1,{colors1}}
                     uint32_t tnumber = tc.size();
                     auto vb = vbyte_encode(tnumber);
                     for (uint8_t b : vb) {
-                        sdsl::bits::write_int(T.data(), b, offset, 8);
+                        sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
                         offset += 8;
                     }
                     tails_so_far += tnumber;
 
+                    word_index = offset/64;
+                    w_offset = offset %64;
                     for (const auto &p : tc){ //pair<uint32_t, set<int>
                         // tails
-                        sdsl::bits::write_int(T.data(), p.first, offset, tlen*2);
+                        sdsl::bits::write_int(&data[word_index], p.first, w_offset, tlen*2);
                         offset += 2 * tlen;
                         
                         // 3. Write colors
@@ -833,14 +874,8 @@ public:
                  // if tlen=0, no need to write anything
                   //if the first 5 bits are zero you should know you are done // HOW DO YOU KNOW!??!?!?!?!   
             }
-
-                
-        }
-        cerr << "Final offset: " << offset << ", Total bits: " << total_bits << endl;
-
-        assert(offset == total_bits);
-
-        
+            i++;       
+        }        
     }    
 
     // Transfer ownership of the index out of the builder
