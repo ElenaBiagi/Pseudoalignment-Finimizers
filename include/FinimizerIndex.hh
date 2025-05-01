@@ -777,23 +777,7 @@ public:
         
         // helperB={prefix:{tlen1:{{tail1,colors1},...}, tlen2:{{tail1,colors1},...},... }}
         // 1. Count the number of bits needed
-/*         size_t total_bits = 0;
-        for (auto &prefix : helperB){
-            for (auto &tails: prefix.second){
-                // this should be in tails order
-                uint8_t tlen = tails.first; // 5 bits // tail length
-                total_bits += 5; // tlen: 5 bits
 
-                if (tlen > 0){
-                    int32_t tnumber = tails.second.size(); // vbyte
-                    auto vb = vbyte_encode(tnumber);
-                    total_bits += vb.size() * 8; // vbyte: 8 bits per byte // number of tails
-                    total_bits += tnumber * (2 * tlen); // actual tails 2bits/char
-                }
-            }
-        }
-        T = int_vector<1>(total_bits, 0); // is this what I want to do??
- */
         for (auto &prefix : helperB){
             size_t prefix_bits = 0;
             for (auto &tails: prefix.second){
@@ -823,12 +807,13 @@ public:
             B[prefix.first]={i, tails_so_far}; // store the index of the int_vector in T and not the offset anymore // we could store a pointer
             //cerr << "Current offset for prefix " << prefix.first << ": " << offset << endl;
             uint64_t* data = T[i].data();
-
+            cerr << endl;
             for (auto &tails: prefix.second){    // this should be in tails order
                // tails is std::pair<const char, std::set<std::pair<uint32_t, std::set<int>>>>
                 // {tlen: [{tail1, {colors1}},..]}
                 // tail length
                 uint8_t tlen = tails.first;
+                cerr << (int)tlen << ", ";
                 uint64_t word_index = offset/64;
                 uint8_t w_offset = offset %64;
                 sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
@@ -842,25 +827,26 @@ public:
                 
                 offset += 5;
                 // deal with tlen=0
+                std::set<std::pair<uint32_t, std::set<int>>> tc = tails.second; //{tail1,{colors1}}
                 if (tlen >0){
-                    word_index = offset/64;
-                    w_offset = offset %64;
                     // number of tails of length tlen
-                    std::set<std::pair<uint32_t, std::set<int>>> tc = tails.second; //{tail1,{colors1}}
                     uint32_t tnumber = tc.size();
                     auto vb = vbyte_encode(tnumber);
                     for (uint8_t b : vb) {
+                        word_index = offset/64;
+                        w_offset = offset %64;
                         sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
                         offset += 8;
                     }
                     tails_so_far += tnumber;
 
-                    word_index = offset/64;
-                    w_offset = offset %64;
+                    
                     for (const auto &p : tc){ //pair<uint32_t, set<int>
                         // tails
+                        word_index = offset/64;
+                        w_offset = offset %64;
                         sdsl::bits::write_int(&data[word_index], p.first, w_offset, tlen*2);
-                        offset += 2 * tlen;
+                        offset += (2 * tlen);
                         
                         // 3. Write colors
                         // these are in the same order in which we are writing tails
@@ -869,7 +855,13 @@ public:
                     }
                 }
                 else{
+                    if (tc.size()!=1){
+                        cerr << "ERROR!!! tc.size() = "<< tc.size()<< endl; 
+                    }
+                    const auto& only_entry = *tc.begin();
+                    C.push_back(only_entry.second);
                     tails_so_far++;
+                    // offset has already been updated after tlen and nothing else has been written
                 }
                  // if tlen=0, no need to write anything
                   //if the first 5 bits are zero you should know you are done // HOW DO YOU KNOW!??!?!?!?!   

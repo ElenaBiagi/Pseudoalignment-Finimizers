@@ -235,7 +235,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
    createMask(key, W, 0, mask, mask2, mask3);
    //const uint64_t* data = T.data();
    uint64_t word_index = offset / 64;
-   uint64_t offset_in_word = offset % 64;
+   uint64_t w_offset = offset % 64;
    //uint64_t total_words = (T.size() + 63) / 64;  // +63 to ensure not discarding the last bits
 
    uint64_t total_bits_used = W*ntails*2;
@@ -246,12 +246,13 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
    uint8_t bitTailsNotRead = 0;  // TODO this could be masked as well but they are implicitly masked
 
    int64_t Wmask =  (tailsPerWord < ntails)? (~0ULL) << (tailsPerWord*W) : (~0ULL) << (ntails*W);
+   uint64_t j = 0;
    for (uint64_t i = word_index; i < total_words; ++i) {
         uint64_t w = data[i];
 
         // If the offset is not a multiple of 64, adjust the current word
-        if (offset_in_word > 0) {
-            w >>= offset_in_word; // Shift right to align with the desired bit
+        if (w_offset > 0) {
+            w >>= w_offset; // Shift right to align with the desired bit
         }
         if (bitTailsNotRead > 0){
             w <<= bitTailsNotRead;
@@ -282,7 +283,11 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
       uint64_t found = hasvaluesupply2(w,W,mask,mask2, mask3, Wmask);
       
       if(found){
-         cerr << "width = "<< (int)W << endl;
+         uint64_t lz = __builtin_clzll(found);
+         bool needsCorrection = (found>>(63-lz-W))&1;
+         int64_t result = (j*(tailsPerWord))+((64-lz)/W)-1-needsCorrection;
+
+         /* cerr << "width = "<< (int)W << endl;
          cerr << "key = "<< key << endl;
          cerr << "ntails = " << ntails << endl;
          printBinary(w); cerr << " w" << endl;
@@ -290,7 +295,6 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
 
          printBinary((w) ^ mask); cerr << " (w) ^ mask" << endl;
          printBinary(mask2); cerr << " mask2" << endl;
-         //printBinary(0x1111111111111111ULL); cerr << " 0x1111111111111111ULL" << endl;
 
          printBinary(((w ) ^ mask) - mask2); cerr << " (w ^ mask)- (mask2)" << endl;
          printBinary(~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
@@ -304,18 +308,21 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
          printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmask)); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (Wmask)" << endl;
 
          printBinary(found); cerr << " found" << endl;
-         uint64_t lz = __builtin_clzll(found);
+         
+         cerr << "j = "<< j << endl;
          cerr << "lz = "<< lz<< endl;
 
-         bool needsCorrection = (found>>(63-lz-W))&1;
+         
          if (needsCorrection) cerr << "needsCorrection: " << needsCorrection << '\n';
-         uint64_t pos =  lz/W;
-         cerr << "pos " << pos << endl;
-         cerr << "result = " << (((((64-lz))/W) - needsCorrection) + (64-tailsPerWord*W) ) - 1 << endl;
+         
+         //cerr << "result = " << (((((64-lz))/W) - needsCorrection) + (64-tailsPerWord*W) ) - 1 << endl;
+         
+         cerr << "ok result = "<< result << endl;
 
-         cerr << "result = "<< i*(tailsPerWord)+((tailsPerWord)-pos-1-needsCorrection)<< endl;
-         cerr << endl;
+         cerr << endl; */
+         return result;
       }
+      j++; 
       // TODO TAKE CARE OF THE FACT THAT THE LAST TAIL MIGHT HAVE BEEN IN BTW TWO WORDS
       // SHIFT THE NEXT WORD TO THE RIGHT by this many bits
       bitTailsNotRead = 64 % (W*2);
@@ -327,7 +334,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
 
    }
 
-   return 0;
+   return -1;
 
 }
 
@@ -355,11 +362,11 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s
    std::cout << "val = " << val << std::endl; */
    uint64_t word_index = 0;
    uint8_t w_offset = 0;
-   int64_t res =-1;
+   bool firstTail = true;
 
    const uint64_t* data = T.data();
    // Check first the shorter lengths. stop once a match is found
-   while (true){ // break the loop once something is found
+   while (pos < T.size()){ // break the loop once something is found
       // 1. check the length of the first tail, 5‐bit tlen
       //uint8_t char = read_bits(T, data, pos, 5);
       //pos += 5;
@@ -367,8 +374,14 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s
       word_index = pos/64;
       w_offset = pos %64;
       //print_bit_vector(T, pos);
-      uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5); // wrong
-      if (tlen ==0){ return {0,0};}
+      uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
+      //if (tlen == 0 && firstTail){ return {0,0};}
+      if (tlen == 0){
+         if (firstTail){return {0,0};}
+         return {-1,0};
+      }
+      firstTail = false; // be sure to report ) only if it's the first tail length read
+
       pos += 5;
       cerr << "tlen = "<< (int)tlen << endl;
 
@@ -379,12 +392,12 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s
 
          word_index = pos/64;
          w_offset = pos %64;
-         uint8_t byte = sdsl::bits::read_int(&data[word_index], w_offset, 8); //wrong
+         uint8_t byte = sdsl::bits::read_int(&data[word_index], w_offset, 8); 
          pos += 8;
-         //uint8_t byte = br.read(8); // pos updated automatically
          ntails |= uint64_t(byte & 0x7F) << shift;
          if ((byte & 0x80) == 0) break;
          shift += 7;
+         if (shift >= 64) throw std::runtime_error("Invalid vbyte: too long");
       }
       
       // 3. Extract substring
@@ -393,7 +406,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s
       // 4. Look for substring where the tails of that length start (WHERE??)
       int64_t res = slam (T,data, pos, tlen, key, ntails); // TODO real bitwise operations 
       if (res!=-1) {return {res+tails_so_far, tlen};}
-
+      pos+= (tlen*ntails*2);
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
    }
