@@ -807,15 +807,19 @@ public:
             B[prefix.first]={i, tails_so_far}; // store the index of the int_vector in T and not the offset anymore // we could store a pointer
             //cerr << "Current offset for prefix " << prefix.first << ": " << offset << endl;
             uint64_t* data = T[i].data();
-            cerr << endl;
+            uint64_t word_index = 0;
+            uint8_t w_offset = 0;
+
+            uint8_t tlen = 0;
+
             for (auto &tails: prefix.second){    // this should be in tails order
                // tails is std::pair<const char, std::set<std::pair<uint32_t, std::set<int>>>>
                 // {tlen: [{tail1, {colors1}},..]}
                 // tail length
-                uint8_t tlen = tails.first;
-                cerr << (int)tlen << ", ";
-                uint64_t word_index = offset/64;
-                uint8_t w_offset = offset %64;
+                tlen = tails.first;
+
+                word_index = offset/64;
+                w_offset = offset %64;
                 sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
                 
                 // TODO remov this as it is useful only as a safety check

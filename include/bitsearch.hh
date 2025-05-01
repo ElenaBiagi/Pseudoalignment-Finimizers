@@ -383,7 +383,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s
       firstTail = false; // be sure to report ) only if it's the first tail length read
 
       pos += 5;
-      cerr << "tlen = "<< (int)tlen << endl;
+      //cerr << "tlen = "<< (int)tlen << endl;
 
       // 2. check how many tailS, vbyte #tails
       uint64_t ntails = 0;

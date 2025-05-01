@@ -81,7 +81,7 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             // 2. Prefix found!
             string s = input.substr(start+plen, k-plen); // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
             auto result = bitMagicSearch_new(T[pointer], s); // input: sdsl::bit_vector &T, int64_t pointer, string S    
-            cerr << endl;
+            //cerr << endl;
             
             if (result.first != -1){ 
                 // b. Tail Found!
