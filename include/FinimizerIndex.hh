@@ -573,7 +573,7 @@ public:
             else{
                 run_colors_file<in_colors_no_gzip>(incolors[i], hashTable, i);
             }
-            std::cerr << "DONE"<< std::endl;
+            std::cerr << "DONE " << i << std::endl;
         }
         // TODO remove or modify to avoid using hash table
         // Extract statistics
@@ -601,7 +601,7 @@ public:
 
     // TODO fix return type
     template<typename reader_t>
-    int64_t run_colors_file(const string& infile, unordered_map<std::string, std::set<int>>& hashTable, int& i){
+    int64_t run_colors_file(const string& infile, unordered_map<std::string, std::set<int>>& hashTable, const int i){
         reader_t reader(infile);
         write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
         return from_reader_to_seq(reader, hashTable, i);
@@ -609,7 +609,7 @@ public:
 
     // TODO fix return type
     template<typename reader_t>
-    int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
+    int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::set<int>>& hashTable, const int i) {
         
         const int64_t k = sbwt->get_k();
         cerr << "k= " << k << endl;
@@ -622,20 +622,20 @@ public:
             for (const string &seq : seq_vector){
                 scan_color(seq, hashTable, i);
             }
-            std::cerr << "done seq"<< std::endl;
+            //std::cerr << "done seq"<< std::endl;
             
             for (const string &seq : seq_vector){
                 const string reverse = sbwt::get_rc(seq);
                 scan_color(reverse, hashTable, i);
             }
-            std::cerr << "done rev"<< std::endl;
+            //std::cerr << "done rev"<< std::endl;
 
         }
         return 1;
     }
 
     // TODO fix return type
-    int scan_color(const std::string& seq, unordered_map<std::string, std::set<int>>& hashTable, int& i) {
+    int scan_color(const std::string& seq, unordered_map<std::string, std::set<int>>& hashTable, const int i) {
         //std::cerr << seq << std::endl;
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
