@@ -56,34 +56,19 @@ public:
 
     void search(const std::string& query, unordered_map<int, uint64_t>& results) const {
   
-        //std::cerr << "Searching " << query << std::endl;
-
-        //const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
-        //const int64_t n_nodes = sbwt.number_of_subsets();
-        //const int64_t k = sbwt.get_k();
-        //const vector<int64_t>& C = sbwt.get_C_array();
-
         const int64_t query_len = query.length();
-        // B is not empty!
       
         if (query.size() < this->k) return; 
 
         unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
       
-        // TODO Check the colors for every finimizer found
-        //pseudoalignemnt_stats(Finimizers, this->hashTable, results);
+        // Check the colors for every finimizer found
         pseudoalignemnt_stats(Finimizers, this->C, results);
         //print_results(results);
         return;
     }
 
-    // TODO check THIS ONCE THE ABOVE IS FIXED
     void search(const std::string& query, vector<pair<int, float>>& results, const float& t) const {
-  
-        /* const plain_matrix_sbwt_t& sbwt = *(this->sbwt.get());
-        const int64_t n_nodes = sbwt.number_of_subsets();
-        const int64_t k = sbwt.get_k();
-        const vector<int64_t>& C = sbwt.get_C_array(); */
         
         const int64_t query_len = query.length();
 
@@ -92,38 +77,10 @@ public:
         unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
 
         // Check the colors for every finimizer found
-        //pseudoalignemnt_stats(Finimizers, this->hashTable, results, t);
         pseudoalignemnt_stats(Finimizers, this->C, results, t);
         return;
     }
 
-    // TODO remove
-    /* void serialize_HashTable(const std::unordered_map<std::string, std::set<int>>& hashTable, const std::string& hashTableName) const{
-        std::ofstream hashTable_out(hashTableName, std::ios::binary);
-        if (!hashTable_out) {
-            std::cerr << "Error: Could not open file for writing!" << std::endl;
-            return;
-        }
-
-        // Write the number of elements in the hash table
-        size_t hashTableSize = hashTable.size();
-        hashTable_out.write(reinterpret_cast<const char*>(&hashTableSize), sizeof(hashTableSize));
-
-        for (const auto& [key, value] : hashTable) {
-            // Write the size of the key and the key itself
-            size_t keySize = key.size();
-            hashTable_out.write(reinterpret_cast<const char*>(&keySize), sizeof(keySize));
-            hashTable_out.write(key.data(), keySize);
-
-            // Write the size of the value set and the set itself
-            size_t valueSize = value.size();
-            hashTable_out.write(reinterpret_cast<const char*>(&valueSize), sizeof(valueSize));
-            for (const int elem : value) {
-                hashTable_out.write(reinterpret_cast<const char*>(&elem), sizeof(elem));
-            }
-        }
-        hashTable_out.close();
-    } */
 
     void serialize_sB(const std::unordered_map<uint32_t, int64_t >& sB, const std::string& sBName) const {
         std::ofstream sB_out(sBName, std::ios::binary);
@@ -191,66 +148,7 @@ public:
     
         outFile.close();
     }
- 
-    // TODO remove
-    /* std::unordered_map<std::string, std::set<int>> load_HashTable(const std::string& hashTableName) {
-        hashTable = this->hashTable;
 
-        std::ifstream inFile(hashTableName, std::ios::binary);
-        if (!inFile) {
-            std::cerr << "Error: Could not open file for reading!" << std::endl;
-            return hashTable;
-        }
-
-        // Read the number of elements in the hash table
-        size_t hashTableSize;
-        if (!inFile.read(reinterpret_cast<char*>(&hashTableSize), sizeof(hashTableSize))) {
-            std::cerr << "Error: Failed to read hash table size!" << std::endl;
-            return hashTable;
-        }
-
-        for (size_t i = 0; i < hashTableSize; ++i) {
-            // Read the key
-            size_t keySize;
-
-            if (!inFile.read(reinterpret_cast<char*>(&keySize), sizeof(keySize))) {
-                std::cerr << "Error: Failed to read key size!" << std::endl;
-                return hashTable;
-            }
-
-            std::string key(keySize, '\0');
-            if (!inFile.read(&key[0], keySize)) {
-                std::cerr << "Error: Failed to read key!" << std::endl;
-                return hashTable;
-            }
-
-            // Read the value set
-            size_t valueSize;
-
-            if (!inFile.read(reinterpret_cast<char*>(&valueSize), sizeof(valueSize))) {
-                std::cerr << "Error: Failed to read value size!" << std::endl;
-                return hashTable;
-            }
-
-            std::set<int> value;
-            for (size_t j = 0; j < valueSize; ++j) {
-                int elem;
-                if (!inFile.read(reinterpret_cast<char*>(&elem), sizeof(elem))) {
-                    std::cerr << "Error: Failed to read value element!" << std::endl;
-                    return hashTable;
-                }
-                value.insert(elem);
-            }
-
-            // Insert the key-value pair into the hash table
-            hashTable[key] = value;
-
-        }
-
-        inFile.close();
-        return hashTable;
-    }
- */
 
 std::unordered_map<uint32_t, int64_t> load_sB(const std::string& sBName) {
     std::unordered_map<uint32_t, int64_t> sB;
@@ -374,7 +272,6 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
     }
     
 
-    // TODO finimizerindex does not require sbwt nor LCS
     // TODO add plen and k
     void serialize(const string& index_prefix) const {
 
@@ -388,19 +285,11 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
         meta_out.close();
         cerr << "k = " << k<< endl;
-        /* std::ofstream LCS_out(index_prefix + ".LCS.sdsl");
-        sdsl::serialize(*LCS, LCS_out);
-
-        sbwt->serialize(index_prefix + ".sbwt"); */
-
-        //serialize_HashTable(hashTable, index_prefix + ".ht.BIN");
 
         serialize_sB(sB, index_prefix + ".sB.BIN");
 
         serialize_B(B, index_prefix + ".B.BIN");
 
-        //std::ofstream T_out(index_prefix + ".T.sdsl");
-        //sdsl::serialize(*T.get(), T_out);
         std::ofstream T_out(index_prefix + ".T.sdsl", std::ios::binary);
         sdsl::serialize(T.size(), T_out); // Serialize the number of vectors
         for (const auto& vec : T) {
@@ -411,7 +300,6 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         serialize_Colors(C, index_prefix + ".C.BIN");
     }
 
-    // TODO finimizerindex does not require sbwt nor LCS
     // TODO add plen and k
     void load(const string& index_prefix) {
         // k and plen
@@ -424,28 +312,12 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         meta_in.read(reinterpret_cast<char*>(&plen), sizeof(plen));
         meta_in.close();
 
-        /* LCS = make_unique<sdsl::int_vector<>>();
-        ifstream LCS_in(index_prefix + ".LCS.sdsl");
-        sdsl::load(*LCS, LCS_in);
-        std::cerr<< "LCS_file loaded"<<std::endl;
-
-        sbwt = make_unique<plain_matrix_sbwt_t>();
-        sbwt->load(index_prefix + ".sbwt");
-        std::cerr << "SBWT matrix loaded" << std::endl;
-        */
-        /* hashTable=load_HashTable(index_prefix + ".ht.BIN");
-        std::cerr << "hashTable loaded" << std::endl;
-        //printHashTable(hashTable);
-        */
         sB = load_sB(index_prefix + ".sB.BIN");
         std::cerr << "sB loaded" << std::endl;
 
         B = load_B(index_prefix + ".B.BIN");
         std::cerr << "B loaded" << std::endl;
 
-        /* T = make_unique<sdsl::int_vector<1>>();
-        ifstream T_in(index_prefix + ".T.sdsl", std::ios::binary);
-        sdsl::load(*T, T_in); */
         std::ifstream T_in(index_prefix + ".T.sdsl", std::ios::binary);
         size_t num_vectors;
         sdsl::load(num_vectors, T_in);
@@ -465,34 +337,24 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         total += sizeof(k);
         total += sizeof(plen);
 
-        /* // LCS
-        if (LCS) {total += sdsl::size_in_bytes(*LCS);}
-
-        // SBWT 
-        if (sbwt) {
-            sbwt::SeqIO::NullStream ns;
-            total += sbwt->serialize(ns);
-        } */
-
         // T
-        //if (T) {total += sdsl::size_in_bytes(*T);}
         for (const auto& vec : T) {
             total += sdsl::size_in_bytes(vec);
         }
 
         // B
         total += sizeof(std::pair<uint32_t, int64_t>) * B.size();
-        total += sizeof(B); // Approximation for internal structure overhead
+        total += sizeof(B);
 
         // sB
         total += sizeof(std::pair<uint32_t, int64_t>) * sB.size();
         total += sizeof(sB);
 
         // C (vector<set<int>>)
-        total += sizeof(C); // vector overhead
+        total += sizeof(C);
         for (const auto& s : C) {
             total += sizeof(std::set<int>);
-            total += sizeof(int) * s.size(); // actual values
+            total += sizeof(int) * s.size();
         }
         return total;
     }
@@ -526,7 +388,7 @@ public:
 
 
     // Takes ownership of sbwt and LCS
-    // TODO this should contain plen
+    // TODO this should contain plen and k
     // k is now taken from the sbwt but must be linked to the new data str
     FinimizerIndexBuilder(unique_ptr<plain_matrix_sbwt_t> sbwt, unique_ptr<sdsl::int_vector<>> LCS, const vector<string>& incolors){ 
         index = make_unique<FinimizerIndex>();
@@ -586,10 +448,9 @@ public:
         storeTails(helperB, B, T, C, sB.size());
         
 
-        // remove sbwt and LCS
+        // TODO remove sbwt and LCS?
         index->sbwt = std::move(this->sbwt); // Transfer ownership
         index->LCS = std::move(this->LCS); // Transfer ownership 
-        //index->hashTable = std::move(hashTable); // Transfer ownership
 
         index->B = std::move(B); // Transfer ownership
         index->sB = std::move(sB); // Transfer ownership
@@ -868,7 +729,7 @@ public:
                     // offset has already been updated after tlen and nothing else has been written
                 }
                  // if tlen=0, no need to write anything
-                  //if the first 5 bits are zero you should know you are done // HOW DO YOU KNOW!??!?!?!?!   
+                  //if the first 5 bits are zero you should know you are done // This is taken care of in the search
             }
             i++;       
         }        
