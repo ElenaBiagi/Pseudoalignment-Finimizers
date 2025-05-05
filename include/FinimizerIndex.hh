@@ -291,7 +291,7 @@ std::unordered_map<uint32_t, std::pair<int64_t,int64_t>> load_B(const std::strin
         serialize_B(B, index_prefix + ".B.BIN");
 
         std::ofstream T_out(index_prefix + ".T.sdsl", std::ios::binary);
-        sdsl::serialize(T.size(), T_out); // Serialize the number of vectors
+        sdsl::serialize(T.size(), T_out);
         for (const auto& vec : T) {
             sdsl::serialize(vec, T_out);
         }
@@ -567,7 +567,7 @@ public:
     
     
 
-    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, pair<int64_t,int64_t> >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, uint8_t plen){
+    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, pair<int64_t,int64_t> >& B,  unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, const uint8_t plen){
         cerr << "Create buckets" << endl;
         // create a hash table with all the possible strings of length plen
 
