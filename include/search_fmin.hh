@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <cstdio>
 #include <optional>
+#include <variant>
 
 #include "sbwt/throwing_streams.hh"
 #include "PackedStrings.hh"
