@@ -93,7 +93,7 @@ void createMask(uint64_t key, int keyLen, int startPos, uint64_t &kmask, uint64_
 }
 
 
-inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t offset, uint8_t W, uint64_t key, uint16_t ntails){
+inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t tlen, const uint64_t key, const uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
    // TODO: bitwise operations
 
@@ -102,7 +102,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
    // Mask all the bits after that = what is not a tail of the correct size
 
 
-   W = W*2;
+   const uint8_t W = tlen*2;
    uint64_t mask, mask2, mask3;
    createMask(key, W, 0, mask, mask2, mask3);
    //const uint64_t* data = T.data();
@@ -188,7 +188,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, int64_t 
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, string s){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, const string& s){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!
