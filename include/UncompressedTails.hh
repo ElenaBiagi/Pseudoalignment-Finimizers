@@ -1,4 +1,3 @@
-#pragma once
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -13,7 +12,11 @@ public:
     vector<uint8_t> lengths;
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors
 
+    // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
+    // That format colexicographically sorted reverse finimizers. We reverse them to
+    // get lex-sorted finimizers.
     void load(std::istream& in) {
+        cerr << "Loading uncompressed tails" << endl;
         uint64_t n_finimizers;
         in.read(reinterpret_cast<char*>(&n_finimizers), sizeof(n_finimizers));
 
@@ -36,6 +39,15 @@ public:
         color_sets_concat.resize(n_bits);
         for(int64_t i = 0; i < words.size(); i++) {
             color_sets_concat.set_int(i*64, words[i]);
+        }
+
+        cerr << "Reversing finimizer strings" << endl;
+        int64_t start_in_concat = 0;
+        for(int64_t f_idx = 0; f_idx < lengths.size(); f_idx++) {
+            int64_t s = start_in_concat;
+            int64_t e = start_in_concat + lengths[f_idx];
+            std::reverse(concat.begin() + s, concat.begin() + e);
+            start_in_concat = e;
         }
     }
 };
