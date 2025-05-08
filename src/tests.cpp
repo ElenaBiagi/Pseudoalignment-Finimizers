@@ -171,14 +171,15 @@ void test_tail_search(){
 }
 
 void test_tail_search_2(){
-    string s = "TGTAC"; // 10 bits 
-    
+    string s = "AAGT"; // 10 bits 
+    cerr << s << endl;
+
     vector <int> tlens = {2,3,5}; 
     //                                                                                                                                               x
     //vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
-    //                                                                                          9
+    //                               x                                    x                      f
     vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"TGTAC", "TTTAA", "TGAGT"}};
-
+    //                                                                                           9 
 
     uint64_t total_bits = 0;
     for (size_t i = 0; i < tlens.size(); ++i) {
@@ -225,6 +226,7 @@ void test_tail_search_2(){
             offset += (2 * tlen);
         }
     }
+    std::cout << T << std::endl;
     uint64_t s_int = prefix2int(s, 0, s.size());
     auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
     pair<int64_t, uint8_t> correct_result = {9,5};
@@ -243,7 +245,7 @@ int main(int argc, char** argv){
     cerr << "...ok" << endl;
 
     cerr << "Testing longer tail search..." << endl;
-    //test_tail_search_2();
+    test_tail_search_2();
     cerr << "...ok" << endl;
 
     /* cerr << "Testing shortest unique construction..." << endl;
