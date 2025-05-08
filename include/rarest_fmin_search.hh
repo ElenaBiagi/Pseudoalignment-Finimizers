@@ -46,7 +46,9 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
     uint8_t len_fmin = 0;
     uint64_t int_fmin = 0;
     //string str_fmin;
+    uint64_t s_int = 0;
     int64_t C_fmin = 0; // Can the result of color index be negative??? If not found??
+
 
     BoundedDeque<tuple<uint8_t, uint64_t, int64_t, int64_t>> all_fmin(input.size()-k+1);
     uint64_t m = std::numeric_limits<uint64_t>::max();
@@ -66,9 +68,9 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
         
     // TODO select the correct fmin for every k-mer
     for (start = 0; start < str_len - k +1; start++) { // Extract p characters at a time
-        //const string prefix = input.substr(start,end);
-        // Look for the prefix in B
+        // TODO convert 32 values at time = 64 bits
         uint64_t int_p = prefix2int(input, start, plen);
+        // Look for the prefix in B
         //if (B.find(intp) != B.end()) { // B contains all the possible prefixes of length p
         
         //int64_t pointer = B.find((uint32_t)int_p)->second;
@@ -79,12 +81,10 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
 
         if (pointer != -1){
             // 2. Prefix found!
-            //string s = input.substr(start+plen, k-plen); // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
+            // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
             char s_len = (str_len >= start+k) ? k-plen : str_len-start;
-            uint64_t s_int = prefix2int(input, start+plen, s_len);
-            // TODO HAVE THIS AS A NUMBER ALREADY HERE
+            s_int = prefix2int(input, start+plen, s_len);
             auto result = bitMagicSearch_new(T[pointer], s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
-            //cerr << endl;
             
             if (result.first != -1){ 
                 // b. Tail Found!
@@ -93,8 +93,9 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
                 C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
                 // Store the string as a number. OK as only strings of the same length will be compared 
                 
-                // TODO extract the number insteas of converting again
-                int_fmin =  prefix2int(input, start+plen, len_fmin);
+                // TODO extract the number instead of converting again
+                int_fmin = (s_int >> ((s_len - len_fmin) * 2)) & ((1ULL << (len_fmin * 2)) - 1); 
+                //int_fmin =  prefix2int(input, start+plen, len_fmin);
                 
                 // TODO compare LEXICOGRAPHICALLY
                 
@@ -104,21 +105,19 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
             // Shorten the prefix until you find a match
             // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
             uint8_t sp_len = plen-1;
-            uint64_t int_sp = prefix2int(input, start, sp_len); // It might be smarter to start from the longest prefix, done
+            //uint64_t int_sp = prefix2int(input, start, slen); // It might be smarter to start from the longest prefix, done
+            uint64_t int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1); // subtract 2 bits from the original prefix
             auto it = sB.find(int_sp);
 
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
-                // TODO subtract or add 2bits (1 letter) at a time 
-                int_sp = prefix2int(input, start, sp_len);
+                int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1); // Subtract 2bits (1 letter) at a time
+                //int_sp = prefix2int(input, start, sp_len);
             }
             if (sp_len != 0){
                 found = true;
                 len_fmin = (uint8_t)sp_len;
                 int_fmin = int_sp;
-                //str_fmin = input.substr(start,sp_len);
-                // TODO this could be turned into numbers again now
-                //reverse(str_fmin.begin(), str_fmin.end());
                 C_fmin = it->second;
             }
         }
