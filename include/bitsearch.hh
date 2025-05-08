@@ -188,7 +188,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, const string& s){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, uint64_t s, char slen){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!
@@ -223,6 +223,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, const st
       w_offset = pos %64;
       //print_bit_vector(T, pos);
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
+      //cerr << "tlen: " << (int)tlen << endl; 
       //if (tlen == 0 && firstTail){ return {0,0};}
       if (tlen == 0){
          if (firstTail){return {0,0};}
@@ -247,9 +248,14 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, const st
          shift += 7;
          if (shift >= 64) throw std::runtime_error("Invalid vbyte: too long");
       }
+      //cerr << ntails << endl;
       
       // 3. Extract substring
-      uint64_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGTH TLEN; // The max length is (k-plen)*2= 42 if k=31 and plen=10, we need at least that many bits
+      // TODO Satrting at pos (64 - slen*2) extract the first 2*tlen bits of s
+      //uint64_t key = (s >> (64 - (64-(s_len*2)) - t_len*2)) & ((1ULL << (t_len*2)) - 1);
+      uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1);
+
+      //uint64_t key = prefix2int(s, 0, tlen); // TODO EXTRACT SUFFIX OF LENGTH TLEN; // The max length is (k-plen)*2= 42 if k=31 and plen=10, we need at least that many bits
 
       // 4. Look for substring where the tails of that length start (WHERE??)
       int64_t res = slam (T,data, pos, tlen, key, ntails); // TODO real bitwise operations 
@@ -258,9 +264,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, const st
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
    }
-   // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
-   // option 1. store it in B = {prefix: {start, #prev tails}} [using this option now]
-   // option 2. calculate it (might be very slow) 
+   // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
    return {-1,0};
 }
 
