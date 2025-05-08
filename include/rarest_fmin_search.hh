@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include <unordered_map>
+#include <limits>
 
 #include "sbwt/cxxopts.hpp"
 #include "sbwt/globals.hh"
@@ -31,13 +32,11 @@
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? YES
 // set ?
-// TODO replace sbwt and LCS with const std::unordered_map<uint32_t, uint32_t>& B, const std::unordered_map<uint32_t, std::set<int>>& sB, const sdsl::bit_vector& T,
-unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
     
     const int64_t str_len = input.size();
 
-    unordered_map<int64_t, uint64_t> Fmin; // pointer to C, number of such finimizers
-    Fmin.reserve(str_len-k+1);
+    vector<uint64_t> Fmin;// pointer to C
 
     int64_t last_pos = 0;
     int64_t start = 0;
@@ -45,14 +44,15 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
     bool found = false;
     uint8_t len_fmin = 0;
-    //int64_t int_fmin = 0;
-    string str_fmin;
+    uint64_t int_fmin = 0;
+    //string str_fmin;
     int64_t C_fmin = 0; // Can the result of color index be negative??? If not found??
 
-    BoundedDeque<tuple<uint8_t, string, int64_t, int64_t>> all_fmin(input.size()-k+1);
+    BoundedDeque<tuple<uint8_t, uint64_t, int64_t, int64_t>> all_fmin(input.size()-k+1);
+    uint64_t m = std::numeric_limits<uint64_t>::max();
 
-    tuple<uint8_t, string, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
-    tuple<uint8_t, string, int64_t, int64_t> w_fmin = {k+1,"1",0, input.size()}; // start will always be < str_len
+    tuple<uint8_t, uint64_t, int64_t, int64_t> curr_substr; // length, fmin, C_offset, start
+    tuple<uint8_t, uint64_t, int64_t, int64_t> w_fmin = {k+1,m,0, input.size()}; // start will always be < str_len
     
     // idea: look for prefixes of length p in the hashtable B
     // 1. prefix not found: the finimizer might be smaller
@@ -79,8 +79,11 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
         if (pointer != -1){
             // 2. Prefix found!
-            string s = input.substr(start+plen, k-plen); // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
-            auto result = bitMagicSearch_new(T[pointer], s); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            //string s = input.substr(start+plen, k-plen); // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
+            char s_len = (str_len >= start+k) ? k-plen : str_len-start;
+            uint64_t s_int = prefix2int(input, start+plen, s_len);
+            // TODO HAVE THIS AS A NUMBER ALREADY HERE
+            auto result = bitMagicSearch_new(T[pointer], s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             //cerr << endl;
             
             if (result.first != -1){ 
@@ -88,10 +91,13 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
                 found = true;
                 len_fmin = plen + result.second; // TODO add the correct fmin len
                 C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
-                //int_fmin = 0; // TODO add suffix () after prefix (int_p) // TODO strong the fmin as a string and not as a number 
-                str_fmin = input.substr(start+plen, start+plen+result.second);
-                reverse(str_fmin.begin(), str_fmin.end());
-                // actual finimizer (as int) to check the colexicographically smallest one //TODO reverse it (NO, WRONG C,G) check 2 bits at a time?? but how to check simply? 
+                // Store the string as a number. OK as only strings of the same length will be compared 
+                
+                // TODO extract the number insteas of converting again
+                int_fmin =  prefix2int(input, start+plen, len_fmin);
+                
+                // TODO compare LEXICOGRAPHICALLY
+                
             }
         } else{
             // 1. Prefix NOT found
@@ -103,23 +109,24 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
 
             while(it == sB.end() and sp_len > 0){
                 sp_len--;
-                int_sp = prefix2int(input, start, sp_len);  // TODO add or remove one uint8_t at a time
+                // TODO subtract or add 2bits (1 letter) at a time 
+                int_sp = prefix2int(input, start, sp_len);
             }
             if (sp_len != 0){
                 found = true;
                 len_fmin = (uint8_t)sp_len;
-                //int_fmin = int_sp;
-                str_fmin = input.substr(start,sp_len);
+                int_fmin = int_sp;
+                //str_fmin = input.substr(start,sp_len);
                 // TODO this could be turned into numbers again now
-                reverse(str_fmin.begin(), str_fmin.end());
+                //reverse(str_fmin.begin(), str_fmin.end());
                 C_fmin = it->second;
             }
         }
         if (found){
-            curr_substr = {len_fmin, str_fmin, C_fmin, start}; // {len_fmin, int_fmin, C_fmin, start};
+            curr_substr = {len_fmin, int_fmin, C_fmin, start}; // {len_fmin, int_fmin, C_fmin, start};
             // still don't know if this is the correct fmin
                 
-            if (w_fmin > curr_substr){ // TODO compare colex easily // compare the REVERSE of strings and not int. Only strings of the same length will be compared
+            if (w_fmin > curr_substr){ // Compare LEXICOGRAPHICALLY Only strings of the same length will be compared
                 all_fmin.clear();
                 w_fmin = curr_substr;
             } else {
@@ -137,17 +144,13 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
             
             while (get<3>(w_fmin) < kmer_start) {// {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
                 all_fmin.pop_front();
-                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<uint8_t, string, int64_t, int64_t>{k+1,"0",0,kmer_start};
+                w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<uint8_t, uint64_t, int64_t, int64_t>{k+1,0,0,kmer_start};
             }
             
             if (all_fmin.size()>0){
-                // NO, we want to store them all -> This avoids storing the same finimizer (same) multiple times for distinct kmers
-                //if (last_pos != get<3>(w_fmin) ) {Fmin.push_back(input.substr(get<3>(w_fmin)-get<1>(w_fmin)+1,get<1>(w_fmin)))};
-                //last_pos = get<3>(w_fmin);
-                // TODO improve this: e.g. store a counter for every finimizer
-                Fmin[get<2>(w_fmin)]++;
-                // sum of found finimizers = found k-mers
-                //count++; // counts the number of kmers?? not used now
+                // This avoids storing the same finimizer multiple times for distinct kmers
+                if (last_pos != get<3>(w_fmin) ) {Fmin.push_back(get<2>(w_fmin));} // pointer to C
+                last_pos = get<3>(w_fmin);
             }
             
             kmer_start++;
@@ -156,74 +159,56 @@ unordered_map<int64_t, uint64_t> rarest_fmin_streaming_search(const string& inpu
     return Fmin;
 }
    
-    void pseudoalignemnt_stats(unordered_map<int64_t, uint64_t>& Fmin, const vector<set<int>>& C, unordered_map<int, uint64_t>& results){ 
+   // FOUND COLORS: vector of bits and flip found and store in a vector
+   // the flip back
+
+   // BITMAPS SETS INSTEAD OF COLORS
+
+    //TODO: int for the number of colors, change if needed
+    void pseudoalignemnt_stats(vector<uint64_t>& Fmin, const vector<set<int>>& C, unordered_map<int, uint64_t>& results){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
-
-        // count the number of colors found
-        set<int> found_colors = {};
-        vector<set<int>> found_colors_single = {};
-        found_colors_single.reserve(found_fmin);
         
-        for(const auto& pair : Fmin){
-            try {
-                std::set<int> colors = C[pair.first];//old hashTable.at(pair.first); // TODO replace this with colors you store the index of the finimizer (x) and then you can get the color from colors[x]
-                found_colors_single.push_back(colors);
-                for(const int& c : colors){
-                    found_colors.insert(c);
-                    results[c]+=pair.second;
-                }
-            } catch (const std::out_of_range& e) {
-                rm_fmin+=pair.second; // this is not used
+        //TODO if we knew the number of colors, results could be a vector of size colors
+
+        for(const auto& f : Fmin){
+            std::set<int> colors = C[f];//old hashTable.at(pair.first); // TODO replace this with colors you store the index of the finimizer (x) and then you can get the color from colors[x]
+            for(const int& c : colors){
+                results[c]++;
             }
         }
-        //if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
-        
-        //std::cerr << found_colors.size() << " found colors" << std::endl;
         return;
     }
 
-    void pseudoalignemnt_stats(unordered_map<int64_t, uint64_t>& Fmin, const vector<set<int>>& C, vector<pair<int, float>>& results, const float& t){ 
+    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<set<int>>& C, vector<pair<int, float>>& results, const float& t){ 
         // count the number of finimizers found
-        size_t found_fmin = Fmin.size(); // # distinct finimizers
-        size_t ok_fmin = 0; // total finimizers found
+        size_t found_fmin = Fmin.size(); // # total finimizers
         size_t rm_fmin = 0; // finimizers not found in the index
 
         // count the number of colors found
         set<int> found_colors = {};
         std::unordered_map<int,uint64_t> fmin_per_color;
         
-        for(const auto& pair : Fmin){
-            try {
-                std::set<int> colors = C[pair.first];
-                ok_fmin += pair.second;
-                for(const int& c : colors){ 
-                    found_colors.insert(c);
-                    fmin_per_color[c] += pair.second;
-                 }
-            } catch (const std::out_of_range& e) {
-                rm_fmin+=pair.second; // not used now
+        for(const auto& f : Fmin){
+            std::set<int> colors = C[f];
+            for(const int& c : colors){ 
+                found_colors.insert(c);
+                fmin_per_color[c] ++;
             }
         }
-        //if ( rm_fmin > 0 ) std::cerr << rm_fmin << std::endl;
-        
-        // TODO all colors and not only the found ones (input?)
+
         results.reserve(found_colors.size());
 
-        for (const int& c : found_colors){
-            
-            //std::cerr<< "color " << c << ": " << fmin_per_color[c] << " finimizers" << std::endl;
-           
+        for (const int& c : found_colors){         
             // For every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
-            float fraction = static_cast<float>(fmin_per_color[c]/static_cast<float>(ok_fmin));
+            float fraction = static_cast<float>(fmin_per_color[c]/static_cast<float>(found_fmin));
         
             if (t==1){ 
                 if (fraction == t ){results.push_back({c,fraction});}
             } else{
                 if (fraction > t){results.push_back({c,fraction});}
             }
-        
         }
         return;
     }
@@ -249,16 +234,3 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     write_log("Avg length: " + to_string(static_cast<float>(sum_len)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
     return result;
 }
- // ????
-/*     std::ostream& operator<<(std::ostream& os, const std::set<int>& set) {
-    os << "{";
-    for (auto it = set.begin(); it != set.end(); ++it) {
-        os << *it;
-        if (std::next(it) != set.end()) {
-            os << ", ";
-        }
-    }
-    os << "}";
-    return os;
-} */
-

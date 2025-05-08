@@ -60,7 +60,7 @@ public:
       
         if (query.size() < this->k) return; 
 
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
+        vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
       
         // Check the colors for every finimizer found
         pseudoalignemnt_stats(Finimizers, this->C, results);
@@ -74,7 +74,7 @@ public:
 
         if (query.size() < this->k) return; 
 
-        unordered_map<int64_t, uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
+        vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->B, this->sB, this->T, this->plen, this->k);
 
         // Check the colors for every finimizer found
         pseudoalignemnt_stats(Finimizers, this->C, results, t);
