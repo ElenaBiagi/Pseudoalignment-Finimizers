@@ -102,9 +102,12 @@ public:
     uint64_t n_colors;
     uint64_t n_finimizers;
 
-    CompressedColoredFinimizers(ColoredFinimizers& cf, int64_t prefix_len) {
-        uint64_t n_finimizers = cf.lengths.size();
+    CompressedColoredFinimizers(ColoredFinimizers&& cf, int64_t prefix_len) {
+        n_finimizers = cf.lengths.size();
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
+
+        true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
+        n_colors = cf.color_sets_concat.size() / n_finimizers;
 
         vector<std::string_view> cur_bucket_nonnegative_tails;
         int64_t first_nonegative_tail_idx = -1;
@@ -142,6 +145,10 @@ public:
         if(cur_tails.size() > 0){ // Last bucket
             buckets.push_back(Bucket(cur_tails, cur_color_set_ids));
         }
+
+        buckets.shrink_to_fit();
+        color_sets_concat = std::move(cf.color_sets_concat);
+    }
 
 };
 
