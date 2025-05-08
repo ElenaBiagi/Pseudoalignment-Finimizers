@@ -32,8 +32,7 @@
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? YES
 // set ?
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unordered_map<uint32_t, pair<int64_t,int64_t> >& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
-    
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<int64_t>& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
     const int64_t str_len = input.size();
 
     vector<uint64_t> Fmin;// pointer to C
@@ -71,20 +70,15 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
         // TODO convert 32 values at time = 64 bits
         uint64_t int_p = prefix2int(input, start, plen);
         // Look for the prefix in B
-        //if (B.find(intp) != B.end()) { // B contains all the possible prefixes of length p
         
-        //int64_t pointer = B.find((uint32_t)int_p)->second;
-        auto pp = B.at(int_p);
-        int64_t pointer = pp.first;
-        int64_t tails_so_far = pp.second;
+        int64_t tails_so_far = B[int_p];
 
-
-        if (pointer != -1){
+        if (tails_so_far != -1){
             // 2. Prefix found!
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
             char s_len = (str_len >= start+k) ? k-plen : str_len-start;
             s_int = prefix2int(input, start+plen, s_len);
-            auto result = bitMagicSearch_new(T[pointer], s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            auto result = bitMagicSearch_new(T[int_p], s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             
             if (result.first != -1){ 
                 // b. Tail Found!
@@ -164,6 +158,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
    // BITMAPS SETS INSTEAD OF COLORS
 
     //TODO: int for the number of colors, change if needed
+    // TODO store somewhere the number of colors
     void pseudoalignemnt_stats(vector<uint64_t>& Fmin, const vector<set<int>>& C, unordered_map<int, uint64_t>& results){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
@@ -172,7 +167,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const unorder
         //TODO if we knew the number of colors, results could be a vector of size colors
 
         for(const auto& f : Fmin){
-            std::set<int> colors = C[f];//old hashTable.at(pair.first); // TODO replace this with colors you store the index of the finimizer (x) and then you can get the color from colors[x]
+            std::set<int> colors = C[f];
             for(const int& c : colors){
                 results[c]++;
             }
