@@ -37,7 +37,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
     vector<uint64_t> Fmin;// pointer to C
 
-    int64_t last_pos = 0;
+    //int64_t last_pos = 0;
     int64_t start = 0;
     int64_t kmer_start = 0; // start of the first k-mer
 
@@ -89,10 +89,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
                 
                 // TODO extract the number instead of converting again
                 int_fmin = (s_int >> ((s_len - len_fmin) * 2)) & ((1ULL << (len_fmin * 2)) - 1); 
-                //int_fmin =  prefix2int(input, start+plen, len_fmin);
-                
-                // TODO compare LEXICOGRAPHICALLY
-                
+                //int_fmin =  prefix2int(input, start+plen, len_fmin);                
             }
         } else{
             // 1. Prefix NOT found
@@ -140,11 +137,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
                 w_fmin = (all_fmin.size()>0) ? all_fmin.front() : tuple<uint8_t, uint64_t, int64_t, int64_t>{k+1,0,0,kmer_start};
             }
             
-            if (all_fmin.size()>0){
-                // This avoids storing the same finimizer multiple times for distinct kmers
-                if (last_pos != get<3>(w_fmin) ) {Fmin.push_back(get<2>(w_fmin));} // pointer to C
-                last_pos = get<3>(w_fmin);
-            }
+            if (all_fmin.size()>0){Fmin.push_back(get<2>(w_fmin));}
             
             kmer_start++;
         }
