@@ -14,7 +14,7 @@ public:
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors.
 
     // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
-    // That format colexicographically sorted reverse finimizers. We reverse them to
+    // That format has colexicographically sorted reverse finimizers. We reverse them to
     // get lex-sorted finimizers.
     void load(std::istream& in) {
         cerr << "Loading uncompressed tails" << endl;
