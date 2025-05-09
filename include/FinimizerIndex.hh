@@ -44,7 +44,7 @@ public:
     std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
     //unique_ptr<int_vector<1>> T; // tails
     std::vector<int_vector<1>> T;
-    vector<set<int>> C;
+    vector<vector<int>> C;
     //TODO K and PLEN must be part of a structure
     //uint8_t plen; 
     //int k;
@@ -112,27 +112,24 @@ public:
         out.close();
     }
 
-    void serialize_Colors(const std::vector<std::set<int>>& C, const std::string& filename) const {
+    void serialize_Colors(const std::vector<std::vector<int>>& C, const std::string& filename) const {
         std::ofstream outFile(filename, std::ios::binary);
         if (!outFile) {
             std::cerr << "Error: Could not open colors file for writing!" << std::endl;
             return;
         }
-    
-        // Write the number of sets
-        size_t numColors = C.size();
-        outFile.write(reinterpret_cast<const char*>(&numColors), sizeof(numColors));
-    
-        // Write each set
+
+        // num vectors
+        size_t num = C.size();
+        outFile.write(reinterpret_cast<const char*>(&num), sizeof(num));
+
+        // single vectors
         for (const auto& colorSet : C) {
-            size_t setSize = colorSet.size();
-            outFile.write(reinterpret_cast<const char*>(&setSize), sizeof(setSize));
-    
-            for (int val : colorSet) {
-                outFile.write(reinterpret_cast<const char*>(&val), sizeof(val));
-            }
+            size_t size = colorSet.size();
+            outFile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+            outFile.write(reinterpret_cast<const char*>(colorSet.data()), size * sizeof(int));
         }
-    
+
         outFile.close();
     }
 
@@ -186,43 +183,28 @@ public:
         in.close();
         return B;
     }
-    std::vector<std::set<int>> load_Colors(const std::string& filename) {
-        std::vector<std::set<int>> C;
-    
+
+    std::vector<std::vector<int>> load_Colors(const std::string& filename) {
+        std::vector<std::vector<int>> C;
         std::ifstream inFile(filename, std::ios::binary);
         if (!inFile) {
             std::cerr << "Error: Could not open colors file for reading!" << std::endl;
             return C;
         }
-    
-        // Read number of sets
-        size_t numColors;
-        if (!inFile.read(reinterpret_cast<char*>(&numColors), sizeof(numColors))) {
-            std::cerr << "Error: Failed to read number of color sets!" << std::endl;
-            return C;
+
+        // Read the number of vectors
+        size_t num = 0;
+        inFile.read(reinterpret_cast<char*>(&num), sizeof(num));
+        C.resize(num);
+
+        // Read each vector
+        for (size_t i = 0; i < num; ++i) {
+            size_t size = 0;
+            inFile.read(reinterpret_cast<char*>(&size), sizeof(size));
+            C[i].resize(size);
+            inFile.read(reinterpret_cast<char*>(C[i].data()), size * sizeof(int));
         }
-        C.resize(numColors);
-    
-        for (size_t i = 0; i < numColors; ++i) {
-            size_t setSize;
-            if (!inFile.read(reinterpret_cast<char*>(&setSize), sizeof(setSize))) {
-                std::cerr << "Error: Failed to read set size!" << std::endl;
-                return C;
-            }
-    
-            std::set<int> colorSet;
-            for (size_t j = 0; j < setSize; ++j) {
-                int val;
-                if (!inFile.read(reinterpret_cast<char*>(&val), sizeof(val))) {
-                    std::cerr << "Error: Failed to read color value!" << std::endl;
-                    return C;
-                }
-                colorSet.insert(val);
-            }
-    
-            C[i] = std::move(colorSet);
-        }
-    
+
         inFile.close();
         return C;
     }
@@ -306,10 +288,10 @@ public:
         total += sizeof(std::pair<uint32_t, int64_t>) * sB.size();
         total += sizeof(sB);
 
-        // C (vector<set<int>>)
+        // C (vector<vector<int>>)
         total += sizeof(C);
         for (const auto& s : C) {
-            total += sizeof(std::set<int>);
+            total += sizeof(std::vector<int>);
             total += sizeof(int) * s.size();
         }
         return total;
@@ -364,15 +346,14 @@ public:
         std::unordered_map<uint32_t, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
         //int_vector<1> T; // width 0 so that I can decide the width and modify every entry
         std::vector<int_vector<1>> T;
-        vector<set<int>> C;
+        vector<vector<int>> C;
         this->k = 31;
         //this->k = (int)index->sbwt->get_k(); //TODO FIX THIS
 
         //uint8_t plen; // plen has to be given in input
 
         //helpers
-        std::unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >> helperB;
-
+        std::unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, vector<int> >> >> helperB;
 
         //TODO we are still using hashTable, but we could get rid of it
         std::unordered_map<std::string, std::set<int>> hashTable; // Create a hash table to store the list of colors for each Finimizer
@@ -393,15 +374,20 @@ public:
             }
             std::cerr << "DONE " << i << std::endl;
         }
+        std::cerr << "DONE scanning genomes" << std::endl;
         // TODO remove or modify to avoid using hash table
         // Extract statistics
         // get_stats(hashTable);
 
         // TODO 
         Buckets(hashTable, helperB, sB, C, this->plen);
+        std::cerr << "DONE Buckets" << std::endl;
+
         
         // TODO 
         storeTails(helperB, B, T, C, sB.size(), this->plen);
+        std::cerr << "DONE storeTails" << std::endl;
+
         
 
         // TODO remove sbwt and LCS?
@@ -420,7 +406,7 @@ public:
     template<typename reader_t>
     int64_t run_colors_file(const string& infile, unordered_map<std::string, std::set<int>>& hashTable, const int i){
         reader_t reader(infile);
-        write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
+        //write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
         return from_reader_to_seq(reader, hashTable, i);
     }
 
@@ -429,7 +415,7 @@ public:
     int from_reader_to_seq(reader_t& reader, unordered_map<std::string, std::set<int>>& hashTable, const int i) {
         
         const int64_t k = sbwt->get_k();
-        cerr << "k= " << k << endl;
+        //cerr << "k= " << k << endl;
         while(true){
             int64_t len = reader.get_next_read_to_buffer();
             if(len == 0) [[unlikely]] break;
@@ -456,7 +442,7 @@ public:
         //std::cerr << seq << std::endl;
         const int64_t n_nodes = sbwt->number_of_subsets();
         const int64_t k = sbwt->get_k();
-        const vector<int64_t>& C = sbwt->get_C_array();
+        //const vector<int64_t>& C = sbwt->get_C_array();
 
         int64_t freq;
         BoundedDeque<tuple<int64_t, int64_t, int64_t, int64_t>> all_fmin(seq.size());
@@ -523,7 +509,7 @@ public:
     
     
 
-    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, unordered_map<uint32_t, int64_t >& sB, vector<set<int>>& C, const uint8_t plen){
+    void Buckets (unordered_map<std::string, std::set<int>>& hashTable,unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, vector<int> >> >>& helperB, unordered_map<uint32_t, int64_t >& sB, vector<vector<int>>& C, const uint8_t plen){
         cerr << "Create buckets" << endl;
         // create a hash table with all the possible strings of length plen
 
@@ -540,11 +526,14 @@ public:
         for (auto &f : hashTable){
             string fmin = f.first;
             set<int> colors = f.second;
+            std::set<int> mySet = {1, 2, 3, 4};
+            std::vector<int> vcolors(colors.begin(), colors.end());
+
             uint8_t flen = fmin.length();
             if (flen < plen){ 
                 uint32_t sfmin = prefix2int(fmin,0,flen);
                 sB[sfmin]= index_sp++;  // ADD THE COLORS at the beginning of the colors vector<set<int>> and keep track of sB.size()
-                C.push_back(colors);
+                C.push_back(vcolors);
             }
             else{
                 uint32_t pfmin = prefix2int(fmin,0,plen);
@@ -557,14 +546,14 @@ public:
                     
                     if (helperB.find(pfmin) != helperB.end() and helperB[pfmin].find(tlen) != helperB[pfmin].end()) {
                         // The prefix is already there and also the correct length, add {tail, colors}
-                            helperB[pfmin][tlen].insert({tail, colors}); 
+                            helperB[pfmin][tlen].insert({tail, vcolors}); 
                     } else {
                         // the prefix is not there yet, insert it!
                         // or the correct length is not there yet, insert it!
-                        helperB[pfmin][tlen]={{tail, colors}};                     
+                        helperB[pfmin][tlen]={{tail, vcolors}};                     
                     }
                 } else {
-                    helperB[pfmin][tlen]={{0, colors}}; // here 0 will be interpreted as A*plen !!!!!!!!!!!!!!!
+                    helperB[pfmin][tlen]={{0, vcolors}}; // here 0 will be interpreted as A*plen !!!!!!!!!!!!!!!
                 }
             }
         }
@@ -582,7 +571,7 @@ public:
     }
 
     // TODO deal with tlen=0
-        void storeTails(unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, set<int> >> >>& helperB, vector<int64_t>& B, vector<int_vector<1>>& T, vector<set<int>>& C, int64_t sB_size, const uint8_t plen){
+        void storeTails(unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, vector<int> >> >>& helperB, vector<int64_t>& B, vector<int_vector<1>>& T, vector<vector<int>>& C, int64_t sB_size, const uint8_t plen){
         cerr << "Store Tails"<< endl;
         T.clear();
         
@@ -653,7 +642,7 @@ public:
                 
                 offset += 5;
                 // deal with tlen=0
-                std::set<std::pair<uint32_t, std::set<int>>> tc = tails.second; //{tail1,{colors1}}
+                std::set<std::pair<uint32_t, std::vector<int>>> tc = tails.second; //{tail1,{colors1}}
                 if (tlen >0){
                     // number of tails of length tlen
                     uint32_t tnumber = tc.size();

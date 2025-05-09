@@ -130,7 +130,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_file(const string& infile, out_stream_t& out, const FinimizerIndex& index, const float& t){
     reader_t reader(infile);
-    write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
+    //write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
     return run_fmin_queries_streaming(reader, out, index, t);
 }
 

@@ -159,7 +159,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
     //TODO: int for the number of colors, change if needed
     // TODO store somewhere the number of colors
-    void pseudoalignemnt_stats(vector<uint64_t>& Fmin, const vector<set<int>>& C, unordered_map<int, uint64_t>& results){ 
+    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<vector<int>>& C, unordered_map<int, uint64_t>& results){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size();
         size_t rm_fmin = 0; // finimizers not found in the index
@@ -167,7 +167,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         //TODO if we knew the number of colors, results could be a vector of size colors
 
         for(const auto& f : Fmin){
-            std::set<int> colors = C[f];
+            std::vector<int> colors = C[f];
             for(const int& c : colors){
                 results[c]++;
             }
@@ -175,7 +175,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         return;
     }
 
-    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<set<int>>& C, vector<pair<int, float>>& results, const float& t){ 
+    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<vector<int>>& C, vector<pair<int, float>>& results, const float& t){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size(); // # total finimizers
         size_t rm_fmin = 0; // finimizers not found in the index
@@ -185,7 +185,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         std::unordered_map<int,uint64_t> fmin_per_color;
         
         for(const auto& f : Fmin){
-            std::set<int> colors = C[f];
+            std::vector<int> colors = C[f];
             for(const int& c : colors){ 
                 found_colors.insert(c);
                 fmin_per_color[c] ++;
