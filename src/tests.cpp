@@ -102,10 +102,10 @@ void test_finimizer_selection(){
  */
 
 void test_tail_search(){
-    string s = "ATCTT";//"TCT";//"AGGATTGTCT"; // 10 bits NEXT TGTAC
+    string s = "AAGGAT";//"TCT";//"AGGATTGTCT"; // 10 bits NEXT TGTAC
     cerr << s << endl;
     vector <int> tlens = {2,3,5}; 
-    //                                x   x    x      x     x       x    x      x      f        f        f      x         x        f        f        f      f(13)     f(14)
+    //                                x   x    x      x     x       x    x      x      f        f        f9      x         x        f        f        f      f(13)     f(14)
     vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
     //                               0    1     2     3     4      5     6      7       8       9       10      11       12        13       14        15     16         17 
     // 00010-00000101--0000-0001-1010-0111-0101
@@ -165,21 +165,21 @@ void test_tail_search(){
     std::cout << T << std::endl;
     uint64_t s_int = prefix2int(s, 0, s.size());
     auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
-    pair<int64_t, uint8_t> correct_result = {11,5};
+    pair<int64_t, uint8_t> correct_result = {10,5};
     cerr << result.first << ", " << (int)result.second << endl; 
     assert_equal(result, correct_result);
 }
 
 void test_tail_search_2(){
-    string s = "AAGT"; // 10 bits 
+    string s = "AC"; // 10 bits 
     cerr << s << endl;
 
     vector <int> tlens = {2,3,5}; 
     //                                                                                                                                               x
     //vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
-    //                               x                                    x                      f
+    //                               x                                    x             x        f
     vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"TGTAC", "TTTAA", "TGAGT"}};
-    //                                                                                           9 
+    //                                                                                  8         9 
 
     uint64_t total_bits = 0;
     for (size_t i = 0; i < tlens.size(); ++i) {
@@ -229,7 +229,7 @@ void test_tail_search_2(){
     std::cout << T << std::endl;
     uint64_t s_int = prefix2int(s, 0, s.size());
     auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
-    pair<int64_t, uint8_t> correct_result = {9,5};
+    pair<int64_t, uint8_t> correct_result = {0,5};
     cerr << result.first << ", " << (int)result.second << endl; 
     assert_equal(result, correct_result);
 }
@@ -247,43 +247,6 @@ int main(int argc, char** argv){
     cerr << "Testing longer tail search..." << endl;
     test_tail_search_2();
     cerr << "...ok" << endl;
-
-    /* cerr << "Testing shortest unique construction..." << endl;
-    test_shortest_unique_construction();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing shortest unique queries..." << endl;
-    test_shortest_unique_queries();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing finimizer branch" << endl;
-    test_finimizer_branch();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing reverse complement branch" << endl;
-    test_reverse_complement_branch();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing leftmost" << endl;
-    test_leftmost();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing Finimizer selection" << endl;
-    test_finimizer_selection();
-    cerr << "...ok" << endl;
- 
-    cerr << "Testing incoming rc branch" << endl;
-    test_incoming_rc_branch();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing rc query" << endl;
-    test_reverse_complement_query();
-    cerr << "...ok" << endl;
-
-    cerr << "Testing WALK" << endl;
-    test_walk();
-    cerr << "...ok" << endl; 
-    */
 
     cerr << "ALL TESTS PASSED" << endl;
 
