@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include "sdsl/bit_vectors.hpp"
+#include "commons.hh"
 
 using namespace std;
 
@@ -80,8 +81,17 @@ public:
     // Color set ids for each tail
     vector<uint32_t> color_set_ids;
 
-    Bucket(vector<std::string_view> tails, vector<uint32_t>& color_set_ids) {
-        // TODO
+    Bucket(vector<std::string_view> tails, vector<uint32_t>& color_set_ids, uint8_t n_distinct_lengths, sdsl::bit_vector tail_data) {
+
+        // TODO Elena
+        // we need :
+        //          tails (=actual tails), 
+        //          n_distinct_lengths (=Number of distinct tail lengths in this bucket)
+        //          #tails
+        //sdsl::int_vector<1> 
+
+        tail_data = WriteTailsVector(tails, uint8_t n_distinct_lengths ){
+
     }
 
 };
@@ -103,6 +113,9 @@ public:
     uint64_t n_finimizers;
 
     CompressedColoredFinimizers(ColoredFinimizers&& cf, int64_t prefix_len) {
+        uint64_t n_buckets = (1ULL << (prefix_len * 2));
+        buckets.resize(n_buckets);
+
         n_finimizers = cf.lengths.size();
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
 
@@ -124,14 +137,22 @@ public:
         std::string_view cur_prefix(cf.concat.data() + f_start, prefix_len);
         vector<std::string_view> cur_tails;
         vector<uint32_t> cur_color_set_ids;
+        std::unordered_map<pair<uint32_t,char>, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
+
+        uint64_t p_int;
         for(int64_t i = 0; i < n_finimizers; i++) {
             if(cf.lengths[i] < prefix_len){
                 // Skip negative tails. TODO: do something about them.
+                //TODO we need to store the lengths (char) as well
+                std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
+
+                sB[{prefix2int(sprefix,0, cf.lengths[i]), cf.lengths[i]}]=i; // i= color_set_id
             } else {
                 std::string_view prefix(cf.concat.data() + f_start, prefix_len);
+                p_int = prefix2int(prefix, 0, prefix_len);
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
-                    buckets.push_back(Bucket(cur_tails, cur_color_set_ids));
+                    buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
@@ -143,7 +164,7 @@ public:
         }
 
         if(cur_tails.size() > 0){ // Last bucket
-            buckets.push_back(Bucket(cur_tails, cur_color_set_ids));
+            buckets[p_int]=Bucket(cur_tails, cur_color_set_ids));
         }
 
         buckets.shrink_to_fit();

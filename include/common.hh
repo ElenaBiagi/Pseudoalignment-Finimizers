@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstring>
+#include <string_view>
 #include <unordered_map>
 
 #include "sbwt/cxxopts.hpp"
@@ -156,6 +157,16 @@ inline uint64_t prefix2int(const std::string& s, uint64_t offset, char plen){ //
     return h;
 }
 
+inline uint64_t prefix2int(std::string_view s, uint64_t offset, char plen) {
+    uint64_t h = 0;
+    for (uint64_t i = 0; i < static_cast<uint64_t>(plen); ++i) {
+        uint64_t b = get_char_idx(s[offset + i]);
+        h <<= 2;
+        h |= b;
+    }
+    return h;
+}
+
 inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { // if fmin length = 31 we need 62 bits in total, 42 for the tail if plen=10
     uint64_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)slen; i++) {
@@ -165,7 +176,126 @@ inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { /
     return h;
 }
 
+    vector<uint8_t> vbyte_encode(uint64_t x) {
+        vector<uint8_t> bytes;
+        do {
+            uint8_t byte = x & 0x7F;
+            x >>= 7;
+            if (x != 0) byte |= 0x80;
+            bytes.push_back(byte);
+        } while (x != 0);
+        return bytes;
+    }
+    
+inline sdsl::int_vector<1> WriteTailsVector(vector<vector<string>>& tails,vector <int> tlens ){
+    uint64_t total_bits = 0;
+    for (size_t i = 0; i < tlens.size(); ++i) {
+        int tlen = tlens[i];
+        uint32_t ntails = tails[i].size();
 
+        total_bits += 5; // tlen
+        total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
+
+        total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
+    }
+
+    sdsl::int_vector<1> T;
+    T.resize(total_bits); 
+    uint64_t* data = T.data();
+
+
+   const char ntlen = tlens.size();
+    int64_t offset = 0;
+    uint64_t word_index = 0;
+    uint8_t w_offset = 0;
+           
+    for (char i=0; i<ntlen; i++){
+        int tlen = tlens[i]; 
+        word_index = offset/64;
+        w_offset = offset %64;
+        sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+        offset += 5;
+
+        const uint32_t tnumber = tails[i].size();
+        auto vb = vbyte_encode(tnumber);
+        for (uint8_t b : vb) {
+            word_index = offset/64;
+            w_offset = offset %64;
+            sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
+            offset += 8;
+        }
+        for (const auto &t : tails[i]){ //pair<uint32_t, set<int>
+            // tails
+            word_index = offset/64;
+            w_offset = offset %64;
+            uint32_t t_int = prefix2int(t,0,tlen);
+            sdsl::bits::write_int(&data[word_index], t_int, w_offset, tlen*2);
+            offset += (2 * tlen);
+        }
+    }
+    return T;
+}
+
+inline sdsl::int_vector<1> WriteTailsVector(const vector<std::string_view>& tails, const uint8_t n_distinct_lengths ){
+    uint64_t total_bits = 0;
+    int tlen;
+    int cur_tlen = -1;
+    uint32_t ntails = 0;
+    vector <int> tlens;
+    unordered_map<int, uint8_t> m_ntails;
+
+    for (size_t i = 0; i < tails.size(); ++i) {
+        tlen = tails[i].size();
+        ntails++;
+        if (tlen != cur_tlen){ 
+            tlens.push_back(tlen);
+            m_ntails[tlen]=ntails;
+            cur_tlen = tlen;
+            total_bits += 5; // tlen
+            total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
+            total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
+            ntails = 0;
+        }
+
+    }
+
+    sdsl::int_vector<1> T;
+    T.resize(total_bits); 
+    uint64_t* data = T.data();
+
+
+    int64_t offset = 0;
+    uint64_t word_index = 0;
+    uint8_t w_offset = 0;
+
+    cur_tlen = -1;
+    for (char i=0; i < tails.size(); i++){
+        tlen = tails[i].size();
+        if (tlen != cur_tlen){
+            cur_tlen = tlen;
+            word_index = offset/64;
+            w_offset = offset %64;
+            sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+            offset += 5;
+
+            const uint32_t tnumber = m_ntails[tlen];
+            auto vb = vbyte_encode(tnumber);
+            for (uint8_t b : vb) {
+                word_index = offset/64;
+                w_offset = offset %64;
+                sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
+                offset += 8;
+            }
+        } 
+        // tails
+        word_index = offset/64;
+        w_offset = offset %64;
+        uint32_t t_int = prefix2int(tails[i],0,tlen);
+        sdsl::bits::write_int(&data[word_index], t_int, w_offset, tlen*2);
+        offset += (2 * tlen);
+    }
+    return T;
+}
 
 
 //old
