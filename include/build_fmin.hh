@@ -29,7 +29,7 @@
 #include "sbwt/suffix_group_optimization.hh"
 #include "lcs_basic_parallel_algorithm.hpp"
 #include "common.hh"
-//#include "lcs_basic_algorithm.hpp"
+#include "ColoredFinimizers.hh"
 
 using namespace std;
 using namespace sbwt;
@@ -222,26 +222,16 @@ string run_fmin_streaming(const string& index_prefix, unique_ptr<sbwt_t> sbwt, u
             throw std::runtime_error("t != 1 does not make sense with rarest type");
         }
 
-        FinimizerIndexBuilder builder(move(sbwt), move(LCS), incolors);
-        unique_ptr<FinimizerIndex> index = builder.get_index();
-        index->serialize(index_prefix);
-    } /* else if(type == "shortest"){
-        // Just print stats because we don't have an index for this yet
-        result = print_shortest_finimizer_stats(*sbwt, *LCS, reader, t);
-    } else if(type == "verify"){
-        // Print stats on shortest finimizers based on a reference implementation
-        set<tuple<int64_t,int64_t, int64_t>> finimizers;
-        while(true){
-            int64_t len = reader.get_next_read_to_buffer();
-            if(len == 0) [[unlikely]] break;
-            vector<string> preprocessed_unitigs = remove_ns(reader.read_buf, sbwt->get_k());
-            for (string& seq : preprocessed_unitigs){
-                set<tuple<int64_t, int64_t, int64_t>> new_search = verify_shortest_streaming_search(*sbwt, seq, t);
-                finimizers.insert(new_search.begin(), new_search.end());
-            }
-        }
-        result = print_finimizer_stats(finimizers, sbwt->number_of_kmers(), sbwt->number_of_subsets(), t);    
-    } */
+        //FinimizerIndexBuilder builder(move(sbwt), move(LCS), incolors);
+        //unique_ptr<FinimizerIndex> index = builder.get_index();
+        //index->serialize(index_prefix);
+
+        ColoredFinimizers cf;
+        ifstream in(argv[1]);
+        cf.load(in);
+        CompressedColoredFinimizers(std::move(cf), 10);
+
+    }
     return result;
 }
 

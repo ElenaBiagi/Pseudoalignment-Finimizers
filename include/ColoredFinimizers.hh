@@ -1,8 +1,10 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <optional>
+
 #include "sdsl/bit_vectors.hpp"
-#include "commons.hh"
+#include "common.hh"
 
 using namespace std;
 
@@ -68,31 +70,147 @@ vector<uint8_t> vbyte_encode(uint64_t x) {
 class Bucket {
 public:
 
-    // Number of distinct tail lengths in this bucket
-    uint8_t n_distinct_lengths; 
+    struct Compact_tails{
+        int tlen;
+        uint64_t int_tail;
+        uint32_t color_set_id;
 
+        bool operator<(const Compact_tails& other) const {
+            return tlen < other.tlen;  // sort by tlen // No need for them to be in lexicographic order
+        }
+    };
+    
     // Compressed tail data
     // Bit layout: [tail length: u8][#tails: vbyte][concat of bitpacked tails]
     //             [tail length: u8][#tails: vbyte][concat of bitpacked tails] 
     //             [tail length: u8][#tails: vbyte][concat of bitpacked tails] 
     //             ...
-    sdsl::bit_vector tail_data;
+    sdsl::int_vector<1> tail_data;
 
     // Color set ids for each tail
     vector<uint32_t> color_set_ids;
 
-    Bucket(vector<std::string_view> tails, vector<uint32_t>& color_set_ids, uint8_t n_distinct_lengths, sdsl::bit_vector tail_data) {
+    Bucket(vector<std::string_view> tails, vector<uint32_t>& unsorted_color_set_ids) {
+        
+        // Convert tails to Compact_tails
+        vector<Compact_tails> B_tails;
+        B_tails.reserve(tails.size());
+        for (size_t i = 0; i < tails.size(); i++) {
+            Compact_tails ct;
+            ct.tlen = tails[i].size();
+            ct.int_tail = prefix2int(tails[i], 0, ct.tlen);
+            ct.color_set_id = unsorted_color_set_ids[i];
+            B_tails.push_back(ct);
+        }
+        std::sort(B_tails.begin(), B_tails.end()); 
+        /* for (size_t i = 0; i < B_tails; i++)
+            color_set_ids[i]=B_tails[i].color_set_id;
+        } */
 
-        // TODO Elena
-        // we need :
-        //          tails (=actual tails), 
-        //          n_distinct_lengths (=Number of distinct tail lengths in this bucket)
-        //          #tails
-        //sdsl::int_vector<1> 
+        // This permutes the color_set_ids
+        color_set_ids.reserve(unsorted_color_set_ids.size());
 
-        tail_data = WriteTailsVector(tails, uint8_t n_distinct_lengths ){
+        WriteTailsVector(B_tails);
 
     }
+
+    WriteTailsVector(const vector<Compact_tails>& B_tails){
+        // tlen == 0 is a special case -> B_tails.size() == 1
+        // Compressed tails
+        //sdsl::int_vector<1> tail_data;
+        
+        // Color set ids for every tail
+        //vector<uint32_t> color_set_ids;
+        //color_set_ids.resize(B_tails.size()); 
+
+        uint64_t total_bits = 0;
+        int tlen;
+        int cur_tlen = 0; // tlen cannot be 0 when compared to cur_tlen
+        uint32_t ntails = 0;
+        vector <int> tlens;
+        unordered_map<int, uint8_t> m_ntails;
+        
+        // B_tails must be of length at least 0;
+        tlen = B_tails[0].tlen;
+
+        if (tlen == 0){
+            total_bits += 5; // tlen
+        }
+        else{
+            for (size_t i = 0; i < B_tails.size(); ++i) {
+                tlen = B_tails[i].tlen;
+                ntails++;
+                if (tlen != cur_tlen){ 
+                    tlens.push_back(tlen);
+                    m_ntails[tlen]=ntails;
+                    cur_tlen = tlen;
+                    total_bits += 5; // tlen
+                    total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
+                    total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
+                    ntails = 0;
+                }
+            }
+        }
+        
+        tail_data.resize(total_bits); 
+        uint64_t* data = tail_data.data();
+        
+        int64_t offset = 0;
+        uint64_t word_index = 0;
+        uint8_t w_offset = 0;
+        
+        // if tlen changed it was never 0        
+        if (tlen == 0){
+            color_set_ids[0]=B_tails[0].color_set_id; // nothing changed
+
+            word_index = offset/64;
+            w_offset = offset % 64;
+            sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+            offset += 5;
+        } 
+        else {
+            cur_tlen = 0; // tlen cannot be 0
+
+            for (size_t i=0; i < B_tails.size(); i++){
+
+                color_set_ids[i]=B_tails[i].color_set_id;
+
+                tlen = B_tails[i].tlen;
+
+                if (tlen != cur_tlen){
+                    cur_tlen = tlen;
+                    word_index = offset/64;
+                    w_offset = offset % 64;
+                    sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+                    offset += 5;
+                        
+                    const uint32_t tnumber = m_ntails[tlen];
+                    auto vb = vbyte_encode(tnumber);
+                    for (uint8_t b : vb) {
+                        word_index = offset/64;
+                        w_offset = offset % 64;
+                        sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
+                        offset += 8;
+                    }
+                } 
+                // tails
+                word_index = offset/64;
+                w_offset = offset % 64;
+                sdsl::bits::write_int(&data[word_index], B_tails[i].int_tail, w_offset, tlen*2);
+                offset += (2 * tlen);
+            }
+        }
+
+        return;
+    }
+
+    void serialize(std::ostream& out) const {
+    sdsl::serialize(tail_data, out);
+    
+    size_t size = color_set_ids.size();
+    out.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    out.write(reinterpret_cast<const char*>(color_set_ids.data()), size * sizeof(uint32_t));
+}
 
 };
 
@@ -108,13 +226,18 @@ class CompressedColoredFinimizers {
 public:
 
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors. TODO: deduplicate.
-    vector<Bucket> buckets;
+    vector<optional<Bucket>> buckets; // TODO optional
+    std::unordered_map<pair<uint32_t,char>, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
     uint64_t n_colors;
     uint64_t n_finimizers;
+    uint64_t plen;
+    uint64_t k;
+
 
     CompressedColoredFinimizers(ColoredFinimizers&& cf, int64_t prefix_len) {
         uint64_t n_buckets = (1ULL << (prefix_len * 2));
         buckets.resize(n_buckets);
+        // TODO: What do we have in empty Buckets??
 
         n_finimizers = cf.lengths.size();
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
@@ -137,7 +260,6 @@ public:
         std::string_view cur_prefix(cf.concat.data() + f_start, prefix_len);
         vector<std::string_view> cur_tails;
         vector<uint32_t> cur_color_set_ids;
-        std::unordered_map<pair<uint32_t,char>, int64_t> sB; // Create a hash table to store the finimizers shorter than the prefix length
 
         uint64_t p_int;
         for(int64_t i = 0; i < n_finimizers; i++) {
@@ -167,11 +289,67 @@ public:
             buckets[p_int]=Bucket(cur_tails, cur_color_set_ids));
         }
 
-        buckets.shrink_to_fit();
+        //buckets.shrink_to_fit(); // we need exactly that many buckets
         color_sets_concat = std::move(cf.color_sets_concat);
     }
 
+    // Transfer ownership of the index out of the builder
+    unique_ptr<CompressedColoredFinimizers> get_index(){
+        return std::move(this->index);
+    }
+
+    void serialize(const string& index_prefix) const {
+        
+        // color_sets_concat
+        std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
+        sdsl::serialize(color_sets_concat, colors_out);
+        colors_out.close();
+
+        // TODO buckets
+        std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
+        size_t num_buckets = buckets.size();
+        buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
+
+        for (const auto& b : buckets) {
+            b.serialize(buckets_out);
+        }
+
+        buckets_out.close();
+
+
+        //sB
+        std::ifstream sB_in(index_prefix + ".sB.BIN", std::ios::binary);
+        size_t map_size;
+        sB_in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
+        for (size_t i = 0; i < map_size; ++i) {
+            std::pair<uint32_t, char> key;
+            int64_t val;
+            sB_in.read(reinterpret_cast<char*>(&key.first), sizeof(uint32_t));
+            sB_in.read(reinterpret_cast<char*>(&key.second), sizeof(char));
+            sB_in.read(reinterpret_cast<char*>(&val), sizeof(int64_t));
+            sB[key] = val;
+        }
+        sB_in.close();
+
+        // n_colors, n_finimizers
+        std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);
+        if (!meta_out) {
+            std::cerr << "Error: Could not write metadata!" << std::endl;
+            return;
+        }
+        meta_out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
+        meta_out.write(reinterpret_cast<const char*>(&n_finimizers), sizeof(n_finimizers));
+        meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
+        meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
+
+        meta_out.close();
+        
+        
+    }
+
 };
+
+    
 
 /*
 int main(){
