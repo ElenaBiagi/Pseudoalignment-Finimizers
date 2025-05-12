@@ -39,17 +39,6 @@ void write_as_fasta(const vector<string>& seqs, const string& filename){
     }
 }
 
-    
-    vector<uint8_t> vbyte_encode(uint64_t x) {
-        vector<uint8_t> bytes;
-        do {
-            uint8_t byte = x & 0x7F;
-            x >>= 7;
-            if (x != 0) byte |= 0x80;
-            bytes.push_back(byte);
-        } while (x != 0);
-        return bytes;
-    }
 
 /* // Takes in a spectrum-preserving string set
 unique_ptr<FinimizerIndex> build_index(const vector<string>& spss, int64_t k){

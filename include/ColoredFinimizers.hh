@@ -8,6 +8,15 @@
 
 using namespace std;
 
+namespace std {
+    template<>
+    struct hash<std::pair<uint32_t, char>> {
+        std::size_t operator()(const std::pair<uint32_t, char>& p) const {
+            return std::hash<uint32_t>{}(p.first) ^ (std::hash<char>{}(p.second) << 1);
+        }
+    };
+}
+
 // Colored finimizers without much compression
 class ColoredFinimizers {
 public:
@@ -56,17 +65,6 @@ public:
     }
 };
 
-vector<uint8_t> vbyte_encode(uint64_t x) {
-    vector<uint8_t> bytes;
-    do {
-        uint8_t byte = x & 0x7F;
-        x >>= 7;
-        if (x != 0) byte |= 0x80;
-        bytes.push_back(byte);
-    } while (x != 0);
-    return bytes;
-}
-
 class Bucket {
 public:
 
@@ -114,7 +112,7 @@ public:
 
     }
 
-    WriteTailsVector(const vector<Compact_tails>& B_tails){
+    void WriteTailsVector(const vector<Compact_tails>& B_tails){
         // tlen == 0 is a special case -> B_tails.size() == 1
         // Compressed tails
         //sdsl::int_vector<1> tail_data;
@@ -286,17 +284,17 @@ public:
         }
 
         if(cur_tails.size() > 0){ // Last bucket
-            buckets[p_int]=Bucket(cur_tails, cur_color_set_ids));
+            buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
         }
 
         //buckets.shrink_to_fit(); // we need exactly that many buckets
         color_sets_concat = std::move(cf.color_sets_concat);
     }
 
-    // Transfer ownership of the index out of the builder
+/*     // Transfer ownership of the index out of the builder
     unique_ptr<CompressedColoredFinimizers> get_index(){
         return std::move(this->index);
-    }
+    } */
 
     void serialize(const string& index_prefix) const {
         
@@ -306,18 +304,20 @@ public:
         colors_out.close();
 
         // TODO buckets
-        std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
-        size_t num_buckets = buckets.size();
-        buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
+        // WRONG
+        // std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
+        // size_t num_buckets = buckets.size();
+        // buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
 
-        for (const auto& b : buckets) {
-            b.serialize(buckets_out);
-        }
+        // for (const auto& b : buckets) {
+        //     b.serialize(buckets_out);
+        // }
 
-        buckets_out.close();
+        // buckets_out.close();
 
 
         //sB
+
         std::ifstream sB_in(index_prefix + ".sB.BIN", std::ios::binary);
         size_t map_size;
         sB_in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
@@ -329,7 +329,7 @@ public:
             sB_in.read(reinterpret_cast<char*>(&val), sizeof(int64_t));
             sB[key] = val;
         }
-        sB_in.close();
+        sB_in.close(); 
 
         // n_colors, n_finimizers
         std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);

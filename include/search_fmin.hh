@@ -21,6 +21,7 @@
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
 #include "common.hh"
+#include "FinimizerIndex.hh"
 
 //#include <sdsl/elias_fano_vector.hpp>
 
@@ -70,13 +71,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
             index.search(seq, (*res)[i]);
         }
 
-        /* //reverse compl is already in the BUILD PHASE 
-        r_result.push_back({});
-        r_intersection.push_back({});
-        const string reverse = sbwt::get_rc(seq);
-        index.search(reverse, r_result[i], r_intersection[i]); */
-        //int64_t tot_kmers = result.local_offsets.size();
-        //int64_t str_len = reverse.length(); // the string and its reverse complement have the same length
+        //reverse compl is already in the BUILD PHASE 
         i++;
         total_micros += cur_time_micros() - t0;
     }
@@ -85,16 +80,6 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     //write_log("Found kmers: " + to_string(kmers_count), LogLevel::MAJOR);
     //write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
     //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
-
-    // Compare with Themisto
-    
-/*     for (int j = 0; j < i; j++) {
-        out << j << " ";
-        for (const std::pair<int, float>& p : result[j]) {
-            out << p.first << " ";
-        }
-        out << std::endl;
-    } */
 
     // Compare (genome id, # k-mer matched)
     if (auto* res = std::get_if<std::vector<std::unordered_map<int, uint64_t>>>(&result)) {
