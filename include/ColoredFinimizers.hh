@@ -296,56 +296,62 @@ public:
         return std::move(this->index);
     } */
 
-    void serialize(const string& index_prefix) const {
-        
-        // color_sets_concat
-        std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
-        sdsl::serialize(color_sets_concat, colors_out);
-        colors_out.close();
-
-        // TODO buckets
-        // WRONG
-        // std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
-        // size_t num_buckets = buckets.size();
-        // buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
-
-        // for (const auto& b : buckets) {
-        //     b.serialize(buckets_out);
-        // }
-
-        // buckets_out.close();
-
-
-        //sB
-
-        std::ifstream sB_in(index_prefix + ".sB.BIN", std::ios::binary);
-        size_t map_size;
-        sB_in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
-        for (size_t i = 0; i < map_size; ++i) {
-            std::pair<uint32_t, char> key;
-            int64_t val;
-            sB_in.read(reinterpret_cast<char*>(&key.first), sizeof(uint32_t));
-            sB_in.read(reinterpret_cast<char*>(&key.second), sizeof(char));
-            sB_in.read(reinterpret_cast<char*>(&val), sizeof(int64_t));
-            sB[key] = val;
-        }
-        sB_in.close(); 
-
-        // n_colors, n_finimizers
-        std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);
-        if (!meta_out) {
-            std::cerr << "Error: Could not write metadata!" << std::endl;
-            return;
-        }
-        meta_out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
-        meta_out.write(reinterpret_cast<const char*>(&n_finimizers), sizeof(n_finimizers));
-        meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
-        meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
-
-        meta_out.close();
-        
-        
+void serialize(const std::string& index_prefix) const {
+    // color_sets_concat
+    std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
+    if (!colors_out) {
+        std::cerr << "Error: Could not open colors file!" << std::endl;
+        return;
     }
+    sdsl::serialize(color_sets_concat, colors_out);
+    colors_out.close();
+
+    // buckets (std::optional<Bucket>)
+    std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
+    if (!buckets_out) {
+        std::cerr << "Error: Could not open buckets file!" << std::endl;
+        return;
+    }
+
+    size_t num_buckets = buckets.size();
+    buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
+    for (const auto& bucket_opt : buckets) {
+        bool present = bucket_opt.has_value();
+        buckets_out.write(reinterpret_cast<const char*>(&present), sizeof(present));
+        if (present) {
+            bucket_opt->serialize(buckets_out);
+        }
+    }
+    buckets_out.close();
+
+    // sB
+    std::ofstream sB_out(index_prefix + ".sB.BIN", std::ios::binary);
+    if (!sB_out) {
+        std::cerr << "Error: Could not open sB file!" << std::endl;
+        return;
+    }
+
+    size_t map_size = sB.size();
+    sB_out.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
+    for (const auto& [key, val] : sB) {
+        sB_out.write(reinterpret_cast<const char*>(&key.first), sizeof(uint32_t));
+        sB_out.write(reinterpret_cast<const char*>(&key.second), sizeof(char));
+        sB_out.write(reinterpret_cast<const char*>(&val), sizeof(int64_t));
+    }
+    sB_out.close();
+
+    // metadata
+    std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);
+    if (!meta_out) {
+        std::cerr << "Error: Could not write metadata!" << std::endl;
+        return;
+    }
+    meta_out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
+    meta_out.write(reinterpret_cast<const char*>(&n_finimizers), sizeof(n_finimizers));
+    meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
+    meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
+    meta_out.close();
+}
 
 };
 
