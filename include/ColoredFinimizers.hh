@@ -67,7 +67,7 @@ public:
 
 class Bucket {
 public:
-
+    Bucket() = default;
     struct Compact_tails{
         int tlen;
         uint64_t int_tail;
@@ -203,12 +203,27 @@ public:
     }
 
     void serialize(std::ostream& out) const {
-    sdsl::serialize(tail_data, out);
-    
-    size_t size = color_set_ids.size();
-    out.write(reinterpret_cast<const char*>(&size), sizeof(size));
-    out.write(reinterpret_cast<const char*>(color_set_ids.data()), size * sizeof(uint32_t));
-}
+        // tail_data
+        sdsl::serialize(tail_data, out);
+
+        // color_set_ids
+        size_t num_ids = color_set_ids.size();
+        out.write(reinterpret_cast<const char*>(&num_ids), sizeof(num_ids));
+        out.write(reinterpret_cast<const char*>(color_set_ids.data()), num_ids * sizeof(uint32_t));
+    }
+
+    void load(std::istream& in) {
+        // tail_data
+        sdsl::load(tail_data, in);
+
+        //color_set_ids
+        size_t num_ids;
+        in.read(reinterpret_cast<char*>(&num_ids), sizeof(num_ids));
+        color_set_ids.resize(num_ids);
+        in.read(reinterpret_cast<char*>(color_set_ids.data()), num_ids * sizeof(uint32_t));
+    }
+
+
 
 };
 
@@ -352,6 +367,73 @@ void serialize(const std::string& index_prefix) const {
     meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
     meta_out.close();
 }
+
+void load(const std::string& index_prefix) {
+    // color_sets_concat
+    std::ifstream colors_in(index_prefix + ".colors.sdsl", std::ios::binary);
+    if (!colors_in) {
+        std::cerr << "Error: Could not open colors file!" << std::endl;
+        return;
+    }
+    sdsl::load(color_sets_concat, colors_in);
+    colors_in.close();
+
+    // Buckets
+    std::ifstream buckets_in(index_prefix + ".buckets.BIN", std::ios::binary);
+    if (!buckets_in) {
+        std::cerr << "Error: Could not open buckets file!" << std::endl;
+        return;
+    }
+
+    size_t num_buckets;
+    buckets_in.read(reinterpret_cast<char*>(&num_buckets), sizeof(num_buckets));
+    buckets.resize(num_buckets);
+    for (size_t i = 0; i < num_buckets; ++i) {
+        bool present;
+        buckets_in.read(reinterpret_cast<char*>(&present), sizeof(present));
+        if (present) {
+            Bucket bucket;
+            bucket.load(buckets_in);  // Make sure Bucket has a `load(std::istream&)` method
+            buckets[i] = bucket;
+        } else {
+            buckets[i] = std::nullopt;
+        }
+    }
+    buckets_in.close();
+
+    // sB
+    std::ifstream sB_in(index_prefix + ".sB.BIN", std::ios::binary);
+    if (!sB_in) {
+        std::cerr << "Error: Could not open sB file!" << std::endl;
+        return;
+    }
+
+    size_t map_size;
+    sB_in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
+    sB.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        std::pair<uint32_t, char> key;
+        int64_t val;
+        sB_in.read(reinterpret_cast<char*>(&key.first), sizeof(uint32_t));
+        sB_in.read(reinterpret_cast<char*>(&key.second), sizeof(char));
+        sB_in.read(reinterpret_cast<char*>(&val), sizeof(int64_t));
+        sB[key] = val;
+    }
+    sB_in.close();
+
+    // metadata
+    std::ifstream meta_in(index_prefix + ".meta", std::ios::binary);
+    if (!meta_in) {
+        std::cerr << "Error: Could not read metadata!" << std::endl;
+        return;
+    }
+    meta_in.read(reinterpret_cast<char*>(&n_colors), sizeof(n_colors));
+    meta_in.read(reinterpret_cast<char*>(&n_finimizers), sizeof(n_finimizers));
+    meta_in.read(reinterpret_cast<char*>(&plen), sizeof(plen));
+    meta_in.read(reinterpret_cast<char*>(&k), sizeof(k));
+    meta_in.close();
+}
+
 
 };
 
