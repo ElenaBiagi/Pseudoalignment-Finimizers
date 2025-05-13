@@ -559,16 +559,6 @@ public:
         }
     }
 
-    vector<uint8_t> vbyte_encode(uint64_t x) {
-        vector<uint8_t> bytes;
-        do {
-            uint8_t byte = x & 0x7F;
-            x >>= 7;
-            if (x != 0) byte |= 0x80;
-            bytes.push_back(byte);
-        } while (x != 0);
-        return bytes;
-    }
 
     // TODO deal with tlen=0
         void storeTails(unordered_map<uint32_t, std::map<uint8_t, set< pair<uint32_t, vector<int> >> >>& helperB, vector<int64_t>& B, vector<int_vector<1>>& T, vector<vector<int>>& C, int64_t sB_size, const uint8_t plen){

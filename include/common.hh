@@ -176,16 +176,16 @@ inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { /
     return h;
 }
 
-    vector<uint8_t> vbyte_encode(uint64_t x) {
-        vector<uint8_t> bytes;
-        do {
-            uint8_t byte = x & 0x7F;
-            x >>= 7;
-            if (x != 0) byte |= 0x80;
-            bytes.push_back(byte);
-        } while (x != 0);
-        return bytes;
-    }
+vector<uint8_t> vbyte_encode(uint64_t x) {
+    vector<uint8_t> bytes;
+    do {
+        uint8_t byte = x & 0x7F;
+        x >>= 7;
+        if (x != 0) byte |= 0x80;
+        bytes.push_back(byte);
+    } while (x != 0);
+    return bytes;
+}
     
 inline sdsl::int_vector<1> WriteTailsVector(vector<vector<string>>& tails,vector <int> tlens ){
     uint64_t total_bits = 0;
