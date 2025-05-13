@@ -113,41 +113,34 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
    // Look at tlen*ntail*2 bits
    // Mask all the bits after that = what is not a tail of the correct size
 
-   //uint64_t mask, mask2, mask3;
-
-   //const uint8_t W = tlen*2;
    auto masks = createMask(key, W);
    uint64_t mask  = std::get<0>(masks);
    uint64_t mask2 = std::get<1>(masks);
    uint64_t mask3 = std::get<2>(masks);
 
-   //const uint64_t* data = T.data();
-   uint64_t word_index = offset / 64;
-   uint64_t w_offset = offset % 64;
-
-   uint64_t total_bits_used = W*ntails;
-   uint64_t total_words = (W*ntails + 63) / 64;  // +63 to ensure not discarding the last bits
-   
-   uint64_t tails_so_far = 0;
-   uint64_t tailsPerWord = (64/(W)< ntails) ? 64/(W) : ntails;
-   uint8_t bitTailsNotRead = 0;  // TODO this could be masked as well but they are implicitly masked
-
-   int64_t Wmask =  (tailsPerWord < ntails)? (~0ULL) << (tailsPerWord*W) : (~0ULL) << (ntails*W);
+   uint64_t tails_per_word = std::min<uint64_t>(64 / W, ntails);
+   uint64_t total_groups = (ntails + tails_per_word - 1) / tails_per_word;
    
    uint64_t j = 0;
-   for (uint64_t i = word_index; i < total_words; ++i) {
-      size_t bit_offset = offset + i * W;
+   for (uint64_t i = 0; i < total_groups; ++i) {
+      size_t bit_offset = offset + i * tails_per_word * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64; // size_t bit_offset = offset + i * W; //
+
 
       uint64_t w = read_unaligned_64bits(data, bit_offset);
-      printBinary(w); cerr << " w at bit_offset=" << bit_offset << endl;      
+      //printBinary(w); cerr << " w at bit_offset=" << bit_offset << endl;      
 
-      
+      uint64_t tails_in_this_group = std::min(tails_per_word, ntails - i * tails_per_word);
+
+      uint64_t bits_used = tails_in_this_group * W;
+      uint64_t Wmask = (bits_used < 64) ? (~0ULL << bits_used) : 0;
+      //printBinary(Wmask); cerr << " = Wmask " << endl;
+
       uint64_t found = hasvaluesupply(w,W,mask,mask2, mask3, Wmask);
       
       if(found){
          uint64_t lz = __builtin_clzll(found);
          bool needsCorrection = (found>>(63-lz-W))&1;
-         int64_t result = (j*(tailsPerWord))+((64-lz)/W)-1-needsCorrection;
+         int64_t result = (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
 
          /* cerr << "width = "<< (int)W << endl;
          cerr << "key = "<< key << endl;
@@ -185,9 +178,8 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
       j++; 
       // TODO TAKE CARE OF THE FACT THAT THE LAST TAIL MIGHT HAVE BEEN IN BTW TWO WORDS
       // SHIFT THE NEXT WORD TO THE RIGHT by this many bits
-      bitTailsNotRead = 64 % (W);
-   // 1. I'm only looking at words that start at 0 -> no need for shifting masks [OK]
 
+   // 1. I'm only looking at words that start at 0 -> no need for shifting masks [OK]
    // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
    // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
 
@@ -224,7 +216,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, uint64_t
       w_offset = pos %64;
       //print_bit_vector(T, pos);
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
-      //cerr << "tlen: " << (int)tlen << endl; 
+      cerr << "tlen: " << (int)tlen << endl; 
       //if (tlen == 0 && firstTail){ return {0,0};}
       if (tlen == 0){
          if (firstTail){return {0,0};}
@@ -249,6 +241,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, uint64_t
          shift += 7;
          if (shift >= 64) throw std::runtime_error("Invalid vbyte: too long");
       }
+      cerr << "ntails: "<< ntails << endl;
       
       // 3. Extract substring
       // TODO Satrting at pos (64 - slen*2) extract the first 2*tlen bits of s
@@ -263,6 +256,7 @@ pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, uint64_t
       pos+= (tlen*ntails*2);
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
+      cerr << "tails_so_far = " << tails_so_far << endl;
    }
    // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
    return {-1,0};

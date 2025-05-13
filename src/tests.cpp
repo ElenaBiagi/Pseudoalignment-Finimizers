@@ -90,13 +90,8 @@ void test_finimizer_selection(){
 }
  */
 
-void test_tail_search(){
-    string s = "AAGGAT";//"TCT";//"AGGATTGTCT"; // 10 bits NEXT TGTAC
+void test_tail_search(string& s, pair<int64_t, uint8_t>& correct_result, sdsl::int_vector<1> T){
     cerr << s << endl;
-    vector <int> tlens = {2,3,5}; 
-    //                                x   x    x      x     x       x    x      x      f        f        f9      x         x        f        f        f      f(13)     f(14)
-    vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
-    //                               0    1     2     3     4      5     6      7       8       9       10      11       12        13       14        15     16         17 
     // 00010-00000101--0000-0001-1010-0111-0101
     // 00011-00000100--001111-001011-111100-110111
     // // r
@@ -106,119 +101,11 @@ void test_tail_search(){
     // 01000-10100000--0000-1000-0101-1110-1010
     // 11000-00100000--111100-110100-001111-111011 // end = 66!!
     // 10100-10010000--1100010100-0101100100-1111101100-1111101001-1110100001-1101101111-100011011100001111111101000111
-    uint64_t total_bits = 0;
-    for (size_t i = 0; i < tlens.size(); ++i) {
-        int tlen = tlens[i];
-        uint32_t ntails = tails[i].size();
 
-        total_bits += 5; // tlen
-        total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
-
-        total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
-    }
-
-    sdsl::int_vector<1> T;
-    T.resize(total_bits); 
-    uint64_t* data = T.data();
-
-
-   const char ntlen = tlens.size();
-    int64_t offset = 0;
-    uint64_t word_index = 0;
-    uint8_t w_offset = 0;
-           
-    for (char i=0; i<ntlen; i++){
-        int tlen = tlens[i]; 
-        word_index = offset/64;
-        w_offset = offset %64;
-        sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
-        offset += 5;
-
-        const uint32_t tnumber = tails[i].size();
-        auto vb = vbyte_encode(tnumber);
-        for (uint8_t b : vb) {
-            word_index = offset/64;
-            w_offset = offset %64;
-            sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
-            offset += 8;
-        }
-        for (const auto &t : tails[i]){ //pair<uint32_t, set<int>
-            // tails
-            word_index = offset/64;
-            w_offset = offset %64;
-            uint32_t t_int = prefix2int(t,0,tlen);
-            sdsl::bits::write_int(&data[word_index], t_int, w_offset, tlen*2);
-            offset += (2 * tlen);
-        }
-    }
     std::cout << T << std::endl;
     uint64_t s_int = prefix2int(s, 0, s.size());
     auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
-    pair<int64_t, uint8_t> correct_result = {10,5};
-    cerr << result.first << ", " << (int)result.second << endl; 
-    assert_equal(result, correct_result);
-}
-
-void test_tail_search_2(){
-    string s = "AC"; // 10 bits 
-    cerr << s << endl;
-
-    vector <int> tlens = {2,3,5}; 
-    //                                                                                                                                               x
-    //vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
-    //                               x                                    x             x        f
-    vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"TGTAC", "TTTAA", "TGAGT"}};
-    //                                                                                  8         9 
-
-    uint64_t total_bits = 0;
-    for (size_t i = 0; i < tlens.size(); ++i) {
-        int tlen = tlens[i];
-        uint32_t ntails = tails[i].size();
-
-        total_bits += 5; // tlen
-        total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
-
-        total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
-    }
-
-    sdsl::int_vector<1> T;
-    T.resize(total_bits); 
-    uint64_t* data = T.data();
-
-
-   const char ntlen = tlens.size();
-    int64_t offset = 0;
-    uint64_t word_index = 0;
-    uint8_t w_offset = 0;
-           
-    for (char i=0; i<ntlen; i++){
-        int tlen = tlens[i]; 
-        word_index = offset/64;
-        w_offset = offset %64;
-        sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
-        offset += 5;
-
-        const uint32_t tnumber = tails[i].size();
-        auto vb = vbyte_encode(tnumber);
-        for (uint8_t b : vb) {
-            word_index = offset/64;
-            w_offset = offset %64;
-            sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
-            offset += 8;
-        }
-        for (const auto &t : tails[i]){ //pair<uint32_t, set<int>
-            // tails
-            word_index = offset/64;
-            w_offset = offset %64;
-            uint32_t t_int = prefix2int(t,0,tlen);
-            sdsl::bits::write_int(&data[word_index], t_int, w_offset, tlen*2);
-            offset += (2 * tlen);
-        }
-    }
-    std::cout << T << std::endl;
-    uint64_t s_int = prefix2int(s, 0, s.size());
-    auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
-    pair<int64_t, uint8_t> correct_result = {0,5};
+    
     cerr << result.first << ", " << (int)result.second << endl; 
     assert_equal(result, correct_result);
 }
@@ -230,13 +117,35 @@ int main(int argc, char** argv){
     }
 
     cerr << "Testing tail search..." << endl;
-    test_tail_search();
+    vector<vector<string>> tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"}};
+    //                               0    1     2     3     4      5     6      7       8       9       10      11       12        13       14        15     16         17 
+    vector <int> tlens = {2,3,5}; 
+    vector<int> tails_so_far = {0,5,9};
+    sdsl::int_vector<1> T = WriteTailsVector(tails,tlens);
+
+    for (int j=0; j < tails.size(); j++){
+        for (int i=0; i < tails[j].size(); i++){
+            pair<int64_t, uint8_t> correct_result = {i+tails_so_far[j],tlens[j]};
+            test_tail_search(tails[j][i], correct_result, T);
+            cerr << "...ok" << endl << endl;
+        }
+    }
     cerr << "...ok" << endl;
 
-    cerr << "Testing longer tail search..." << endl;
-    test_tail_search_2();
-    cerr << "...ok" << endl;
+    cerr << "Testing again tail search..." << endl;
+    tails= {{"AA","AC","GG", "CT", "CC"},{"ATT","AGT", "TTA", "TCT"}, {"TGTAC", "TTTAA", "TGAGT"}};
+    //        0    1     2     3     4      5     6      7       8       9        10        11      
+    tlens = {2,3,5}; 
+    tails_so_far = {0,5,9};
+    T = WriteTailsVector(tails,tlens);
 
+    for (int j=0; j < tails.size(); j++){
+        for (int i=0; i < tails[j].size(); i++){
+            pair<int64_t, uint8_t> correct_result = {i+tails_so_far[j],tlens[j]};
+            test_tail_search(tails[j][i], correct_result, T);
+            cerr << "...ok" << endl << endl;
+        }
+    }
     cerr << "ALL TESTS PASSED" << endl;
 
 }
