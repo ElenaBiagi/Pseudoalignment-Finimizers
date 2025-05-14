@@ -5,22 +5,11 @@
 #include <unordered_map>
 #include <limits>
 
-#include "sbwt/cxxopts.hpp"
-#include "sbwt/globals.hh"
-#include "sbwt/SBWT.hh"
-#include "sbwt/SubsetWT.hh"
-#include "sbwt/stdlib_printing.hh"
-#include "sbwt/SeqIO.hh"
-#include "sbwt/SubsetMatrixRank.hh"
-#include "sbwt/buffered_streams.hh"
-#include "sbwt/variants.hh"
-#include "sbwt/commands.hh"
 #include <filesystem>
 #include <cstdio>
 #include <optional>
 #include <deque>
 
-#include "sbwt/throwing_streams.hh"
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
 #include "BoundedDeque.hh"
@@ -198,9 +187,9 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         return;
     }
 
-//TODO remove?
+//TODO rewrite
 // used in build
-string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimizers, int64_t n_kmers, int64_t n_nodes, int64_t t){
+/* string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimizers, int64_t n_kmers, int64_t n_nodes, int64_t t){
     int64_t new_number_of_fmin = finimizers.size();
     int64_t sum_freq = 0;
     int64_t sum_len = 0;
@@ -212,10 +201,9 @@ string print_finimizer_stats(const set<tuple<int64_t, int64_t, int64_t>>& finimi
     string result = to_string(new_number_of_fmin) + "," + to_string(sum_freq) + "," + to_string(static_cast<float>(sum_freq) / static_cast<float>(new_number_of_fmin)) + "," + to_string(static_cast<float>(sum_len) / static_cast<float>(new_number_of_fmin)) + "," + to_string(n_kmers);
 
     write_log(to_string(t) + "," + result, LogLevel::MAJOR);
-    write_log("#SBWT nodes: " + to_string(n_nodes) , LogLevel::MAJOR);
     write_log("#Distinct finimizers: " + to_string(new_number_of_fmin) , LogLevel::MAJOR);
     write_log("Sum of frequencies: " + to_string(sum_freq) , LogLevel::MAJOR);
     write_log("Avg frequency: " + to_string(static_cast<float>(sum_freq)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
     write_log("Avg length: " + to_string(static_cast<float>(sum_len)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
     return result;
-}
+} */

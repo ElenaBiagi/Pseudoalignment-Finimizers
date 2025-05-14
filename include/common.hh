@@ -5,22 +5,11 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "sbwt/cxxopts.hpp"
-#include "sbwt/globals.hh"
-#include "sbwt/SBWT.hh"
-#include "sbwt/SubsetWT.hh"
-#include "sbwt/stdlib_printing.hh"
-#include "sbwt/SeqIO.hh"
-#include "sbwt/SubsetMatrixRank.hh"
-#include "sbwt/buffered_streams.hh"
-#include "sbwt/variants.hh"
-#include "sbwt/commands.hh"
 #include <filesystem>
 #include <cstdio>
 #include <optional>
 #include <deque>
 
-#include "sbwt/throwing_streams.hh"
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
 //#include "BoundedDeque.hh"
@@ -101,31 +90,6 @@ void print_results(const std::unordered_map<int, uint64_t>& results) {
     for (const auto& [pos, count] : results) {
         std::cout << "  " << pos << " → " << count << endl;
     }
-}
-
-// These 3 methods are used in the build phase
-pair<int64_t,int64_t> update_sbwt_interval(const int64_t C_char, const pair<int64_t,int64_t>& I, const sdsl::rank_support_v5<>& Bit_rs){
-    if(I.first == -1) return I;
-    pair<int64_t,int64_t> new_I;
-    // both start and end are included
-    new_I.first = C_char + Bit_rs(I.first);
-    new_I.second = C_char + Bit_rs(I.second+1) -1;
-    if(new_I.first > new_I.second){
-        return {-1,-1}; // Not found
-    } 
-    return new_I;
-}
-
-pair<int64_t,int64_t> drop_first_char(const int64_t  new_len, const pair<int64_t,int64_t>& I, const sdsl::int_vector<>& LCS, const int64_t n_nodes){
-    if(I.first == -1) return I;
-    if (new_len<=0){return {0, n_nodes - 1};}
-    pair<int64_t,int64_t> new_I = I;
-    //Check top and bottom w the LCS
-    while (new_I.first > 0 && LCS[new_I.first] >= new_len ){new_I.first --;}
-    while(new_I.second < (n_nodes - 1) && LCS[new_I.second + 1] >= new_len ){
-        new_I.second ++;
-    }
-    return {new_I};
 }
 
 inline char get_char_idx(char c){

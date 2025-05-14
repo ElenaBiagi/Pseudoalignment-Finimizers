@@ -7,10 +7,9 @@
 #include "build_fmin.hh"
 #include "search_fmin.hh"
 #include <filesystem>
-#include "FinimizerIndex.hh"
-#include "lcs_basic_parallel_algorithm.hpp"
 #include "backward.hpp"
 #include "bitsearch.hh"
+#include "ColoredFinimizers.hh"
 
 string temp_dir = "tests_temp";
 
@@ -39,56 +38,8 @@ void write_as_fasta(const vector<string>& seqs, const string& filename){
     }
 }
 
+//TODO TEST EVERYTHING
 
-/* // Takes in a spectrum-preserving string set
-unique_ptr<FinimizerIndex> build_index(const vector<string>& spss, int64_t k){
-
-    unique_ptr<plain_matrix_sbwt_t> sbwt = make_unique<plain_matrix_sbwt_t>();
-    NodeBOSSInMemoryConstructor<plain_matrix_sbwt_t> constructor;
-    constructor.build(spss, *sbwt, k, true);
-
-    unique_ptr<sdsl::int_vector<>> LCS = make_unique<sdsl::int_vector<>>(move(lcs_basic_parallel_algorithm(*sbwt, 3))); // 3 threads
-
-    string input_filename = temp_dir + "/spss.fna";
-    write_as_fasta(spss, input_filename);
-    SeqIO::Reader<> reader(input_filename);
-    FinimizerIndexBuilder builder(move(sbwt), move(LCS), reader);
-    unique_ptr<FinimizerIndex> index = builder.get_index();
-    return move(index);
-}
-
-unique_ptr<FinimizerIndex> build_example_index(){
-    return build_index(paper_example_unitigs, 4);
-}
-
-void test_finimizer_selection(){
-    // ACGG has outgoing edges T and C, but the one with C goes to the reverse complemented k-mer CGGC
-    int64_t k = 4;
-    vector<string> unitigs = {"ACGG", "CGGT", "GCCGTA"};
-    string query = "GCCGTA";
-    // Permuted order:            1       2        0
-
-    unique_ptr<FinimizerIndex> index = build_index(unitigs, 4);
-    index->search(query);
-
-    sdsl::bit_vector true_fmin = {0,0,1,1,1,0,0,0,0,1,0,0};
-    assert_equal(true_fmin, index->fmin);
-
-    // 0 $$$$
-    // 1 $$$A
-    // 2 CGTA*
-    // 3 $$AC*
-    // 4 $GCC*
-    // 5 $$GC
-    // 6 $$$G
-    // 7 $ACG
-    // 8 GCCG
-    // 9 ACGG*
-    // 10 CCGT
-    // 11 CGGT
-
-}
- */
 
 void test_tail_search(string& s, pair<int64_t, uint8_t>& correct_result, sdsl::int_vector<1> T){
     cerr << s << endl;
