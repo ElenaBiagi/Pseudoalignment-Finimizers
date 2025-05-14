@@ -58,7 +58,9 @@ public:
             std::reverse(concat.begin() + s, concat.begin() + e);
             start_in_concat = e;
         }
+        cerr << "Uncompressed index loaded" << endl;
     }
+
 };
 
 
@@ -88,12 +90,17 @@ public:
     CompressedColoredFinimizers() = default;
 
     CompressedColoredFinimizers(ColoredFinimizers&& cf, int64_t prefix_len, uint64_t kmer_size) {
+        cerr << "Let's compress it!"<< endl;
         plen = prefix_len;
+        cerr << "prefix length: "<< plen<< endl;
         k = kmer_size;
+        cerr << "k-mer size: "<< k << endl;
+
         uint64_t n_buckets = (1ULL << (prefix_len * 2));
         buckets.resize(n_buckets);
 
         n_finimizers = cf.lengths.size();
+        cerr << "total finimizers: "<< endl;
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
 
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
@@ -119,14 +126,19 @@ public:
         for(int64_t i = 0; i < n_finimizers; i++) {
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
+                p_int = prefix2int(sprefix,0, cf.lengths[i]);
+                cerr << "Accessing sB (pos" << (int)p_int <<")...";
+                sB[p_int]= {cf.lengths[i],i}; // i= color_set_id
+                cerr << " ok"<< endl;
 
-                sB[prefix2int(sprefix,0, cf.lengths[i])]= {cf.lengths[i],i}; // i= color_set_id
             } else {
                 std::string_view prefix(cf.concat.data() + f_start, prefix_len);
                 p_int = prefix2int(prefix, 0, prefix_len);
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
+                    cerr << "Accessing buckets (pos" << (int)p_int <<")...";
                     buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
+                    cerr << " ok"<< endl;
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
@@ -138,7 +150,10 @@ public:
         }
 
         if(cur_tails.size() > 0){ // Last bucket
+            cerr << "Accessing buckets (pos" << (int)p_int <<")...";
             buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
+            cerr << " ok"<< endl;
+
         }
         color_sets_concat = std::move(cf.color_sets_concat);
     }
