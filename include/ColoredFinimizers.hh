@@ -98,9 +98,10 @@ public:
 
         uint64_t n_buckets = (1ULL << (prefix_len * 2));
         buckets.resize(n_buckets);
+        cerr << "total buckets: "<< (int)n_buckets << endl;
 
         n_finimizers = cf.lengths.size();
-        cerr << "total finimizers: "<< endl;
+        cerr << "total finimizers: "<< (int)n_finimizers << endl;
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
 
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
