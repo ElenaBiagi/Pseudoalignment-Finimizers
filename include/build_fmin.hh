@@ -24,4 +24,6 @@ int build_fmin(int argc, char** argv) {
     ifstream in(indexfile);
     cf.load(in);
     CompressedColoredFinimizers(std::move(cf), 10, 31);
+    
+    return 0;
 }
