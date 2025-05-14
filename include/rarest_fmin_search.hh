@@ -27,12 +27,13 @@
 
 #include "common.hh"
 #include "bitsearch.hh"
+#include "Buckets.hh"
 
 
 // TODO simplify this removing what is not necessary
 // Do we want to count the number of found kmers? YES
 // set ?
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<int64_t>& B, const std::unordered_map<uint32_t, int64_t>& sB, const std::vector<int_vector<1>>& T, const uint8_t plen, const int k){ 
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
     const int64_t str_len = input.size();
 
     vector<uint64_t> Fmin;// pointer to C
@@ -71,52 +72,54 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         uint64_t int_p = prefix2int(input, start, plen);
         // Look for the prefix in B
         
-        int64_t tails_so_far = B[int_p];
+        //int64_t tails_so_far = B[int_p];
 
-        if (tails_so_far != -1){
+        if (buckets[int_p].has_value()){
             // 2. Prefix found!
+            const Bucket& bucket_p = *buckets[int_p];
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
+
             char s_len = (str_len >= start+k) ? k-plen : str_len-start;
-            s_int = prefix2int(input, start+plen, s_len);
-            auto result = bitMagicSearch_new(T[int_p], s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            s_int = prefix2int(input, start+plen, s_len); // tail
+            auto result = bitMagicSearch_new(bucket_p.tail_data, s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             
             if (result.first != -1){ 
                 // b. Tail Found!
                 found = true;
                 len_fmin = plen + result.second; // TODO add the correct fmin len
-                C_fmin = result.first + tails_so_far; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
+                C_fmin = bucket_p.color_set_ids[result.first]; // TODO NO NEED TO STORE THE COLORS NOW AS LONG AS WE KEEP THE OFFSET 
                 // Store the string as a number. OK as only strings of the same length will be compared 
                 
-                // TODO extract the number instead of converting again
+                // Extract the number instead of converting again
                 int_fmin = (s_int >> ((s_len - len_fmin) * 2)) & ((1ULL << (len_fmin * 2)) - 1); 
-                //int_fmin =  prefix2int(input, start+plen, len_fmin);                
+                //old //int_fmin =  prefix2int(input, start+plen, len_fmin);                
             }
         } else{
             // 1. Prefix NOT found
-            // Shorten the prefix until you find a match
-            // TODO should we keep the length of the SHORTEST finimizer? To know when to stop
-            uint8_t sp_len = plen-1;
-            //uint64_t int_sp = prefix2int(input, start, slen); // It might be smarter to start from the longest prefix, done
-            uint64_t int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1); // subtract 2 bits from the original prefix
+            // Start from the shortest possible prefix
+            // if you find a real match, stop
+            uint8_t sp_len = 1;
+            uint64_t int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1); // prefix of length 1 of int_p
             auto it = sB.find(int_sp);
 
-            while(it == sB.end() and sp_len > 0){
-                sp_len--;
-                int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1); // Subtract 2bits (1 letter) at a time
-                //int_sp = prefix2int(input, start, sp_len);
-            }
-            if (sp_len != 0){
-                found = true;
-                len_fmin = (uint8_t)sp_len;
-                int_fmin = int_sp;
-                C_fmin = it->second;
+            while (sp_len < plen){ // sp_len must be < plen as the whole prefix was not found
+                if (it != sB.end() && sp_len == it->second.first){ // real match
+                    found = true;
+                    len_fmin = sp_len;
+                    int_fmin = int_sp;
+                    C_fmin = it->second.second;
+                    break;
+                }
+                sp_len++;
+                int_sp = (int_p >> ((plen - sp_len) * 2)) & ((1ULL << (sp_len * 2)) - 1);
+                it = sB.find(int_sp);
             }
         }
         if (found){
             curr_substr = {len_fmin, int_fmin, C_fmin, start}; // {len_fmin, int_fmin, C_fmin, start};
             // still don't know if this is the correct fmin
                 
-            if (w_fmin > curr_substr){ // Compare LEXICOGRAPHICALLY Only strings of the same length will be compared
+            if (w_fmin > curr_substr){ // Compare LEXICOGRAPHICALLY Only strings of the same length will be compared so it's ok to use numbers
                 all_fmin.clear();
                 w_fmin = curr_substr;
             } else {
@@ -145,56 +148,51 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     return Fmin;
 }
    
-   // FOUND COLORS: vector of bits and flip found and store in a vector
-   // the flip back
-
+   // TODO: FOUND COLORS: vector of bits and flip found and store in a vector, then flip back
    // BITMAPS SETS INSTEAD OF COLORS
 
     //TODO: int for the number of colors, change if needed
-    // TODO store somewhere the number of colors
-    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<vector<int>>& C, unordered_map<int, uint64_t>& results){ 
+    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         // count the number of finimizers found
-        size_t found_fmin = Fmin.size();
-        size_t rm_fmin = 0; // finimizers not found in the index
+        results.assign(n_colors, 0);
         
-        //TODO if we knew the number of colors, results could be a vector of size colors
-
-        for(const auto& f : Fmin){
-            std::vector<int> colors = C[f];
-            for(const int& c : colors){
-                results[c]++;
+        #pragma omp parallel for
+        for(const auto& start : Fmin){
+            for (uint64_t i=0; i< n_colors; i++){
+                #pragma omp atomic
+                results[i]+=color_sets_concat[start+i];
             }
         }
         return;
     }
 
-    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const vector<vector<int>>& C, vector<pair<int, float>>& results, const float& t){ 
+    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
         // count the number of finimizers found
         size_t found_fmin = Fmin.size(); // # total finimizers
-        size_t rm_fmin = 0; // finimizers not found in the index
+        //size_t rm_fmin = 0; // finimizers not found in the index
 
-        // count the number of colors found
-        set<int> found_colors = {};
-        std::unordered_map<int,uint64_t> fmin_per_color;
         
-        for(const auto& f : Fmin){
-            std::vector<int> colors = C[f];
-            for(const int& c : colors){ 
-                found_colors.insert(c);
-                fmin_per_color[c] ++;
+        vector<uint64_t> tot_res;
+        tot_res.assign(n_colors, 0);
+
+        #pragma omp parallel for
+        for(const auto& start : Fmin){
+            for (uint64_t i=0; i< n_colors; i++){
+                #pragma omp atomic
+                tot_res[i]+=color_sets_concat[start+i];
             }
         }
-
-        results.reserve(found_colors.size());
-
-        for (const int& c : found_colors){         
-            // For every color found, (#finimizers with that color)/(#tot finimizers - finimizers not found)
-            float fraction = static_cast<float>(fmin_per_color[c]/static_cast<float>(found_fmin));
+        results.assign(n_colors, 0);
         
-            if (t==1){ 
-                if (fraction == t ){results.push_back({c,fraction});}
-            } else{
-                if (fraction > t){results.push_back({c,fraction});}
+        #pragma omp parallel for
+        for (uint64_t i=0; i< n_colors; i++){         
+            // For every color found, (#finimizers with that color)/(#tot finimizers)
+            float fraction = static_cast<float>(tot_res[i]/static_cast<float>(found_fmin));
+            
+            if (t==1 && fraction ==1){ 
+                results[i]=1;
+            } else if (fraction > t){
+                results[i]=fraction;
             }
         }
         return;
