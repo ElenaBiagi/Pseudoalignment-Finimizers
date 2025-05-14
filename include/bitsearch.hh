@@ -1,4 +1,3 @@
-// To compile: (in Pseudoaligment-Finimizers) srun g++ nks/slam.cpp SBWT/build/libsbwt_static.a SBWT/build/external/sdsl-lite/build/lib/libsdsl.a -std=c++20 -I ./SBWT/sdsl-lite/include/ -O3 -I include -I ./SBWT/include -I ./SBWT/include/sbwt -I SBWT/build/external/sdsl-lite/build/external/libdivsufsort/include/ -g -o slam -lz -Wno-deprecated-declarations
 
 // GENERAL IDEA: create distinct int vectors of diff widths and combine them together into a 64bit int keeping track of number and width 
 #pragma once
@@ -30,18 +29,15 @@ void printBinary(uint64_t v){ // prints in the reverse order
    //cerr << '\n';
 }
 
-//__builtin_popcountll
-//__builtin_clzll
+
 
 #define hasless(x,n) (((x)-~0UL/255*(n))&~(x)&~0UL/255*128)
 
 #define haszero(v, W, mask2, mask3, Wmask) ((((v) - mask2) & ~(v) & mask3)&(~Wmask))
-   //   (((v) - 0x1111111111111111ULL) & ~(v) & 0x8888888888888888ULL)
 
 
 #define hasvaluesupply(x,W,mask, mask2, mask3, Wmask) \
 (haszero((x ^ mask), W, mask2, mask3, Wmask))
-//(hasless((x) ^ (mask),1))
 
 
 // TODO: Adapt createMask to this as this is faster
@@ -107,7 +103,6 @@ uint64_t read_unaligned_64bits(const uint64_t* data, size_t offset_bits) {
 
 inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
-   // TODO: bitwise operations
 
    // Look at 64 bits at a time starting from offset (skip tlen and ntail (5+8+?))
    // Look at tlen*ntail*2 bits
@@ -176,9 +171,6 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
          return result;
       }
       j++; 
-      // TODO TAKE CARE OF THE FACT THAT THE LAST TAIL MIGHT HAVE BEEN IN BTW TWO WORDS
-      // SHIFT THE NEXT WORD TO THE RIGHT by this many bits
-
    // 1. I'm only looking at words that start at 0 -> no need for shifting masks [OK]
    // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
    // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
@@ -191,7 +183,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, uint8_t> bitMagicSearch_new(const sdsl::int_vector<1> &T, uint64_t s, char slen){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, uint64_t s, char slen){ // we know the width of the query
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!

@@ -55,7 +55,7 @@ void test_tail_search(string& s, pair<int64_t, uint8_t>& correct_result, sdsl::i
 
     std::cout << T << std::endl;
     uint64_t s_int = prefix2int(s, 0, s.size());
-    auto result = bitMagicSearch_new(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
+    auto result = bitMagicSearch(T, s_int, s.size()); // input: const sdsl::int_vector<1> &T, string S 
     
     cerr << result.first << ", " << (int)result.second << endl; 
     assert_equal(result, correct_result);

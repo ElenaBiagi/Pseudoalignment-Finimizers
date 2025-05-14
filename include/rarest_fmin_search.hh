@@ -66,11 +66,11 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         if (buckets[int_p].has_value()){
             // 2. Prefix found!
             const Bucket& bucket_p = *buckets[int_p];
-            // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch_new depending on tlen
+            // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
 
             char s_len = (str_len >= start+k) ? k-plen : str_len-start;
             s_int = prefix2int(input, start+plen, s_len); // tail
-            auto result = bitMagicSearch_new(bucket_p.tail_data, s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+            auto result = bitMagicSearch(bucket_p.tail_data, s_int, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             
             if (result.first != -1){ 
                 // b. Tail Found!
