@@ -2,40 +2,23 @@
 
 #include <string>
 #include <cstring>
-#include "sbwt/cxxopts.hpp"
-#include "sbwt/globals.hh"
-#include "sbwt/SBWT.hh"
-#include "sbwt/SubsetWT.hh"
-#include "sbwt/stdlib_printing.hh"
-#include "sbwt/SeqIO.hh"
-#include "sbwt/SubsetMatrixRank.hh"
-#include "sbwt/buffered_streams.hh"
-#include "sbwt/variants.hh"
-#include "sbwt/commands.hh"
+
 #include <filesystem>
 #include <cstdio>
 #include <optional>
 #include <variant>
 
-#include "sbwt/throwing_streams.hh"
 #include "PackedStrings.hh"
 #include "SeqIO.hh"
-#include "common.hh"
-#include "FinimizerIndex.hh"
+#include "ColoredFinimizers.hh"
 
 //#include <sdsl/elias_fano_vector.hpp>
 
-// Defined in build_fmin.cpp. TODO: TO HEADER
-extern pair<int64_t,int64_t> drop_first_char(const int64_t  new_len, const pair<int64_t,int64_t>& I, const sdsl::int_vector<>& LCS, const int64_t n_nodes);
-
 using namespace std;
 
-using namespace sbwt;
-
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const FinimizerIndex& index, const float& t){
+int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
 
-    //const int64_t k = index.sbwt->get_k();
     int k = index.get_k();
     int64_t total_micros = 0;
     int64_t number_of_queries = 1; // TODO remove or fix
@@ -43,15 +26,15 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     int64_t total_positive = 0;
     vector<int64_t> out_buffer, out_buffer_rev;
 
-    //vector<vector<pair<int,float>>> result = {};
-    using ResultType = variant<vector<vector<pair<int, float>>>, vector<unordered_map<int, uint64_t>>>;
+    //vector<vector<float>> result = {};
+    using ResultType = variant<vector<vector<float>>, vector<vector<uint64_t>>>;
     
     ResultType result;
 
     if (t > 0) {
-        result = vector<vector<pair<int, float>>>{};
+        result = vector<vector<float>>{};
     } else {
-        result = vector<unordered_map<int, uint64_t>>{};
+        result = vector<vector<uint64_t>>{};
     }
     
     int i=0;
@@ -61,17 +44,17 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
-        string seq = remove_N_from_string(reader.read_buf);
+        //string seq = remove_N_from_string(reader.read_buf);
+        string seq = reader.read_buf;
 
-        if (auto* res = get_if<vector<vector<pair<int, float>>>>(&result)) {
+        if (auto* res = get_if<vector<vector<float>>>(&result)) {
             res->push_back({});
             index.search(seq, (*res)[i], t);
-        } else if (auto* res = get_if<vector<unordered_map<int, uint64_t>>>(&result)) {
+        } else if (auto* res = get_if<vector<vector<uint64_t>>>(&result)) {
             res->push_back({});
             index.search(seq, (*res)[i]);
         }
 
-        //reverse compl is already in the BUILD PHASE 
         i++;
         total_micros += cur_time_micros() - t0;
     }
@@ -82,45 +65,61 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Fi
     //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
 
     // Compare (genome id, # k-mer matched)
-    if (auto* res = std::get_if<std::vector<std::unordered_map<int, uint64_t>>>(&result)) {
-        // Handling case: vector<unordered_map<int, uint64_t>>
-        for (int j = 0; j < i; j++) {
-            vector<pair<int, uint64_t>> new_vec((*res)[j].begin(), (*res)[j].end());
+    if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
+        // Handling case: vector<vector<uint64_t>>
+        for (int j = 0; j < i; ++j) {
             out << j << " ";
-            std::sort(new_vec.begin(), new_vec.end(), [](const auto &f, const auto &s) {
-                return (f.second > s.second) || (f.second == s.second && f.first < s.first);
-            });
-            for (const std::pair<int, uint64_t>& p : new_vec) {
-                out << p.first << ":" << p.second << " ";
+
+            std::vector<std::pair<int, int64_t>> nonzero_entries;
+            for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
+                if ((*res)[j][idx] > 0)
+                    nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
             }
+
+            std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
+                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
+            });
+
+            for (const auto& [idx, count] : nonzero_entries) {
+                out << idx << ":" << count << " ";
+            }
+
             out << std::endl;
         }
     // Compare (genome id, (% k-mer matched) > t)
-    } else if (auto* res = std::get_if<std::vector<std::vector<std::pair<int, float>>>>(&result)) {
-        for (int j = 0; j < i; j++) {
+    } else if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
+        for (int j = 0; j < i; ++j) {
             out << j << " ";
-            std::sort((*res)[j].begin(), (*res)[j].end(), [](const auto &f, const auto &s) {
-                return (f.second > s.second) || (f.second == s.second && f.first < s.first);
-            });
-            for (const std::pair<int, float>& p : (*res)[j]) {
-                out << p.first << ":" << p.second << " ";
+
+            std::vector<std::pair<int, float>> nonzero_entries;
+            for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
+                if ((*res)[j][idx] > 0)
+                    nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
             }
+
+            std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
+                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
+            });
+
+            for (const auto& [idx, count] : nonzero_entries) {
+                out << idx << ":" << count << " ";
+            }
+
             out << std::endl;
         }
     }
-
     return number_of_queries;
 }
 
 template<typename reader_t, typename out_stream_t>
-int64_t run_fmin_file(const string& infile, out_stream_t& out, const FinimizerIndex& index, const float& t){
+int64_t run_fmin_file(const string& infile, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
     reader_t reader(infile);
     //write_log("Running streaming queries from input file " + infile, LogLevel::MAJOR);
     return run_fmin_queries_streaming(reader, out, index, t);
 }
 
 // Returns number of queries executed
-int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const FinimizerIndex& index, const float& t){
+int64_t run_fmin_queries(const vector<string>& infiles, const optional<vector<string>>& outfiles, const CompressedColoredFinimizers& index, const float& t){
 
     if(outfiles.has_value()){
         if(infiles.size() != outfiles.value().size()){
@@ -168,7 +167,6 @@ int search_fmin(int argc, char** argv){
         ("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
         ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
         ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
-        //TODO t is useless now, default 0 and check
         ("t", "Threshold", cxxopts::value<float>()->default_value("0"))
         ("h,help", "Print usage")
     ;
@@ -212,15 +210,11 @@ int search_fmin(int argc, char** argv){
     float t = opts["t"].as<float>();
 
     cerr << "Loading index..." << endl;
-    FinimizerIndex index;
+    CompressedColoredFinimizers index; // TODO replace with CompressedColoredFinimizers
     index.load(index_prefix);
     cerr << "Index loaded" << endl;
 
-    //const int64_t k = index.sbwt->get_k();
-    //cerr << "k = "<< to_string(k);
-    //cerr << " SBWT nodes: "<< to_string(index.sbwt->number_of_subsets())<< " kmers: "<< to_string(index.sbwt->number_of_kmers())<< endl;
-
-    number_of_queries += run_fmin_queries(query_files, output_files, index, t);
+    number_of_queries += run_fmin_queries(query_files, output_files, index, t); // TODO: Implement this in ColoredFinimizers
     int64_t new_total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);
