@@ -7,7 +7,7 @@ int build_fmin(int argc, char** argv) {
 
     options.add_options()
         ("i,index-file", "ColloredFinimizers file.", cxxopts::value<string>())
-        //("o,out-file", "Output index filename prefix.", cxxopts::value<string>()) // as input
+        ("o,out-file", "Output index filename prefix.", cxxopts::value<string>()) // as input
         ("h,help", "Print usage");
     
     int64_t old_argc = argc; // Must store this because the parser modifies it
@@ -17,13 +17,15 @@ int build_fmin(int argc, char** argv) {
         std::cerr << options.help() << std::endl;
         exit(1);
     }
-    // string out_prefix = opts["out-file"].as<string>(); // TODO used this
+    string out_prefix = opts["out-file"].as<string>(); // TODO use this
 
     string indexfile = opts["index-file"].as<string>();
     ColoredFinimizers cf;
     ifstream in(indexfile);
     cf.load(in);
-    CompressedColoredFinimizers(std::move(cf), 10, 31);
+    CompressedColoredFinimizers ccf(std::move(cf), 10, 31);
+    
+    ccf.serialize(out_prefix);
     
     return 0;
 }

@@ -257,7 +257,7 @@ public:
         sdsl::load(color_sets_concat, colors_in);
         colors_in.close();
 
-        // Buckets
+        // buckets
         std::ifstream buckets_in(index_prefix + ".buckets.BIN", std::ios::binary);
         if (!buckets_in) {
             std::cerr << "Error: Could not open buckets file!" << std::endl;
