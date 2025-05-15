@@ -1,5 +1,4 @@
-#ifndef BUCKETS_HH
-#define BUCKETS_HH
+#pragma once
 
 class Bucket {
 public:
@@ -58,14 +57,13 @@ public:
         //color_set_ids.resize(B_tails.size()); 
 
         uint64_t total_bits = 0;
-        int tlen;
-        int cur_tlen = 0; // tlen cannot be 0 when compared to cur_tlen
         uint32_t ntails = 0;
         vector <int> tlens;
         unordered_map<int, uint8_t> m_ntails;
         
         // B_tails must be of length at least 0;
-        tlen = B_tails[0].tlen;
+        int tlen = B_tails[0].tlen;
+        int cur_tlen = tlen;
 
         if (tlen == 0){
             total_bits += 5; // tlen
@@ -73,17 +71,23 @@ public:
         else{
             for (size_t i = 0; i < B_tails.size(); ++i) {
                 tlen = B_tails[i].tlen;
-                ntails++;
+                
                 if (tlen != cur_tlen){ 
-                    tlens.push_back(tlen);
-                    m_ntails[tlen]=ntails;
-                    cur_tlen = tlen;
-                    total_bits += 5; // tlen
+                    m_ntails[cur_tlen]=ntails; // only at this point we know how many tails for the previous tlen
+                    total_bits += 5; // cur_tlen (previous tlen)
                     total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
-                    total_bits += ntails * tlen * 2; // each tail uses tlen*2 bits
+                    total_bits += ntails * cur_tlen * 2; // each tail uses cur_tlen*2 bits
                     ntails = 0;
+                    cur_tlen = tlen;
+
                 }
-            }
+                ntails++;
+            }     
+            // last tails
+            m_ntails[tlen]=ntails;
+            total_bits += 5; // tlen
+            total_bits += vbyte_encode(ntails).size() * 8;
+            total_bits += ntails * tlen * 2;
         }
         
         tail_data.resize(total_bits); 
@@ -107,7 +111,7 @@ public:
 
             for (size_t i=0; i < B_tails.size(); i++){
 
-                color_set_ids[i]=B_tails[i].color_set_id;
+                color_set_ids[i]=B_tails[i].color_set_id; // permute the vector of colors
 
                 tlen = B_tails[i].tlen;
 
@@ -162,4 +166,3 @@ public:
 
 
 };
-#endif // BUCKETS_HH
