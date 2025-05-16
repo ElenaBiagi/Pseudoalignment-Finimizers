@@ -137,9 +137,9 @@ public:
                 p_int = prefix2int(prefix, 0, prefix_len);
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
-                    cerr << "Accessing buckets (pos" << (int)p_int <<")...";
+                    //cerr << "Accessing buckets (pos" << (int)p_int <<")...";
                     buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
-                    cerr << " ok"<< endl;
+                    //cerr << " ok"<< endl;
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
@@ -151,9 +151,9 @@ public:
         }
 
         if(cur_tails.size() > 0){ // Last bucket
-            cerr << "Accessing buckets (pos" << (int)p_int <<")...";
+            //cerr << "Accessing buckets (pos" << (int)p_int <<")...";
             buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
-            cerr << " ok"<< endl;
+            //cerr << " ok"<< endl;
 
         }
         color_sets_concat = std::move(cf.color_sets_concat);
@@ -191,6 +191,7 @@ public:
     }
 
     void serialize(const string& index_prefix) const {
+        cerr << "Save the index"<< endl;
         // color_sets_concat
         std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
         if (!colors_out) {
@@ -245,6 +246,7 @@ public:
         meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
         meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
         meta_out.close();
+        cerr << "DONE"<< endl;
     }
 
     void load(const string& index_prefix) {

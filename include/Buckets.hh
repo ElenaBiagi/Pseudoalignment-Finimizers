@@ -40,11 +40,10 @@ public:
             color_set_ids[i]=B_tails[i].color_set_id;
         } */
 
+        //color_set_ids.reserve(unsorted_color_set_ids.size());
+        
         // This permutes the color_set_ids
-        color_set_ids.reserve(unsorted_color_set_ids.size());
-
         WriteTailsVector(B_tails);
-
     }
 
     void WriteTailsVector(const vector<Compact_tails>& B_tails){
@@ -54,7 +53,7 @@ public:
         
         // Color set ids for every tail
         //vector<uint32_t> color_set_ids;
-        //color_set_ids.resize(B_tails.size()); 
+        color_set_ids.reserve(B_tails.size()); 
 
         uint64_t total_bits = 0;
         uint32_t ntails = 0;
@@ -99,7 +98,7 @@ public:
         
         // if tlen changed it was never 0        
         if (tlen == 0){
-            color_set_ids[0]=B_tails[0].color_set_id; // nothing changed
+            color_set_ids.push_back(B_tails[0].color_set_id); // only one color id so nothing changed
 
             word_index = offset/64;
             w_offset = offset % 64;
@@ -111,7 +110,7 @@ public:
 
             for (size_t i=0; i < B_tails.size(); i++){
 
-                color_set_ids[i]=B_tails[i].color_set_id; // permute the vector of colors
+                color_set_ids.push_back(B_tails[i].color_set_id); // permute the vector of colors
 
                 tlen = B_tails[i].tlen;
 
