@@ -210,7 +210,7 @@ int search_fmin(int argc, char** argv){
     float t = opts["t"].as<float>();
 
     cerr << "Loading index..." << endl;
-    CompressedColoredFinimizers index; // TODO replace with CompressedColoredFinimizers
+    CompressedColoredFinimizers index;
     index.load(index_prefix);
     cerr << "Index loaded" << endl;
 
