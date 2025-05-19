@@ -23,7 +23,7 @@ public:
     // Color set ids for each tail
     vector<uint32_t> color_set_ids;
 
-    Bucket(vector<std::string_view> tails, vector<uint32_t>& unsorted_color_set_ids) {
+    Bucket(vector<std::string_view>& tails, vector<uint32_t>& unsorted_color_set_ids) {
         
         // Convert tails to Compact_tails
         vector<Compact_tails> B_tails;
@@ -73,8 +73,8 @@ public:
                 
                 if (tlen != cur_tlen){ 
                     m_ntails[cur_tlen]=ntails; // only at this point we know how many tails for the previous tlen
-                    total_bits += 5; // cur_tlen (previous tlen)
-                    total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
+                    total_bits += 5; // cur_tlen (previous tlen)   
+		            total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
                     total_bits += ntails * cur_tlen * 2; // each tail uses cur_tlen*2 bits
                     ntails = 0;
                     cur_tlen = tlen;
@@ -86,11 +86,17 @@ public:
             m_ntails[tlen]=ntails;
             total_bits += 5; // tlen
             total_bits += vbyte_encode(ntails).size() * 8;
-            total_bits += ntails * tlen * 2;
+ 
+           total_bits += ntails * tlen * 2;
         }
-        
-        tail_data.resize(total_bits); 
+        for (auto t:m_ntails){
+            cerr << t.first << ", "<< t.second << endl;
+        }
+//        cerr << "total_bits = "<< (int)total_bits << endl;
+        tail_data.resize(total_bits+128); 
         uint64_t* data = tail_data.data();
+
+  //      cerr << "tail_data.size() = "<< (int)tail_data.size() << endl;
         
         int64_t offset = 0;
         uint64_t word_index = 0;
@@ -100,8 +106,12 @@ public:
         if (tlen == 0){
             color_set_ids.push_back(B_tails[0].color_set_id); // only one color id so nothing changed
 
-            word_index = offset/64;
-            w_offset = offset % 64;
+   //         cerr << "Writing tlen... "<< endl;
+   //             cerr << "offset = " << (int)offset << endl;
+                word_index = offset/64;
+                w_offset = offset % 64;
+                //cerr << "w_offset = " << (int)w_offset << endl;
+                //cerr << "w_offset = " << (int)w_offset << endl;
             sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
             offset += 5;
         } 
@@ -120,24 +130,35 @@ public:
                     w_offset = offset % 64;
                     sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
                     offset += 5;
+//                    cerr << "TLEN = "<< tlen << endl;
                         
                     const uint32_t tnumber = m_ntails[tlen];
                     auto vb = vbyte_encode(tnumber);
                     for (uint8_t b : vb) {
+                        cerr << "Writing number of tails... "<< endl;
+                        cerr << "offset = " << (int)offset << endl;
                         word_index = offset/64;
                         w_offset = offset % 64;
+                        //cerr << "w_offset = " << (int)w_offset << endl;
+                        //cerr << "w_offset = " << (int)w_offset << endl;
+  //                      cerr << "# TAILS = "<< (int)b << endl;
                         sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
                         offset += 8;
                     }
                 } 
                 // tails
+    //            cerr << "Writing tail... "<< endl;
+    //            cerr << "offset = " << (int)offset << endl;
                 word_index = offset/64;
                 w_offset = offset % 64;
+                //cerr << "w_offset = " << (int)w_offset << endl;
+                //cerr << "w_offset = " << (int)w_offset << endl;
+     //           cerr << "TAIL = "<< B_tails[i].int_tail << endl;
                 sdsl::bits::write_int(&data[word_index], B_tails[i].int_tail, w_offset, tlen*2);
                 offset += (2 * tlen);
             }
         }
-
+       // cerr << tail_data << endl;
         return;
     }
 

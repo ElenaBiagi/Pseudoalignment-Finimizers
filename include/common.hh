@@ -121,7 +121,7 @@ inline uint64_t prefix2int(const std::string& s, uint64_t offset, char plen){ //
     return h;
 }
 
-inline uint64_t prefix2int(std::string_view s, uint64_t offset, char plen) {
+inline uint64_t prefix2int(const std::string_view s, uint64_t offset, char plen) {
     uint64_t h = 0;
     for (uint64_t i = 0; i < static_cast<uint64_t>(plen); ++i) {
         uint64_t b = get_char_idx(s[offset + i]);
@@ -285,15 +285,12 @@ void get_stats(std::unordered_map<std::string, std::set<int>>& hashTable){
         std::cout << c << ": " << f << std::endl;
     }
 
-    for (const auto& [cs, count] : fminFreqCount) {
+/*     for (const auto& [cs, count] : fminFreqCount) {
         //std::cout << cs << " " << count << std::endl; // number of finimizers that appear in x(count) genomes
     }
 
     for (const auto& [f, count] : fminFreq) {
         //std::cout << f << " " << count << std::endl; // number of genomes with count finimmizers
-    }
-
-    
+    } */
     return;
 }
-
