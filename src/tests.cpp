@@ -61,6 +61,8 @@ void test_tail_search(string& s, pair<int64_t, uint8_t>& correct_result, sdsl::i
     assert_equal(result, correct_result);
 }
 
+//void test_tail_search_2(string& s, vector<string>& T, ) 
+
 int main(int argc, char** argv){
     // Create test directory if does not exist
     if (!exists(temp_dir)){
@@ -97,6 +99,21 @@ int main(int argc, char** argv){
             cerr << "...ok" << endl << endl;
         }
     }
+
+    cerr << "New tail search testing..." << endl;
+
+vector<std::string_view> new_tails = {"AA","AC","GG", "CT", "CC","ATT","AGT", "TTA", "TCT","AGGAT","AGCGG","ATCTT", "GCCTT", "GACCT", "TTCGT", "TGTAC", "TTTAA", "TGAGT"};
+    vector<uint32_t> colors = {1,2,3,4, 5,6,7, 8, 9,10,11,12, 13, 14, 15, 16, 17, 18};
+    Bucket b(new_tails, colors);
+    std::cout << b.tail_data << std::endl;
+
+    uint64_t key = prefix2int((string)"AGGAT",0,5);
+    auto [pos,len]= bitMagicSearch(b.tail_data,key, 5);
+    assert(len == 5);
+    assert(pos >= 0);
+cerr << pos << endl;
+    cerr << b.color_set_ids[pos] << endl;
+    assert(b.color_set_ids[pos] == 10);
     cerr << "ALL TESTS PASSED" << endl;
 
 }
