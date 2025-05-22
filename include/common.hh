@@ -164,7 +164,7 @@ inline sdsl::int_vector<1> WriteTailsVector(vector<vector<string>>& tails,vector
     }
 
     sdsl::int_vector<1> T;
-    T.resize(total_bits); 
+    T.resize(total_bits+128); 
     uint64_t* data = T.data();
 
 

@@ -107,7 +107,6 @@ public:
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
         n_colors = cf.color_sets_concat.size() / n_finimizers;
 
-        vector<std::string_view> cur_bucket_nonnegative_tails;
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
         for(int64_t i = 0; i < n_finimizers; i++){
@@ -123,29 +122,48 @@ public:
         vector<std::string_view> cur_tails;
         vector<uint32_t> cur_color_set_ids;
 
-        uint64_t p_int;
+        uint64_t p_int = prefix2int(cur_prefix, 0, prefix_len);
+
+        f_start = 0; // Go back to zero
         for(int64_t i = 0; i < n_finimizers; i++) {
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
-                p_int = prefix2int(sprefix,0, cf.lengths[i]);
+                /* vector<string> vv={"TGGAAAGCG", "TGGAAAGC", "TGGAAAG", "TGGAAA", "TGGAA", "TGGA", "TGG", "TG", "T"};
+                if (std::find(vv.begin(), vv.end(), sprefix) != vv.end()){
+                    cerr << sprefix << " EXISTS !!"<< endl;
+                } */
+                uint64_t sp_int = prefix2int(sprefix,0, cf.lengths[i]);
                 //cerr << "Accessing sB (pos" << (int)p_int <<")...";
-                sB[p_int]= {cf.lengths[i],i}; // i= color_set_id
+                sB[sp_int]= {cf.lengths[i],i}; // i= color_set_id
                 //cerr << " ok"<< endl;
 
             } else {
                 std::string_view prefix(cf.concat.data() + f_start, prefix_len);
-                p_int = prefix2int(prefix, 0, prefix_len);
+                true_or_crash(f_start + prefix_len <= cf.concat.size(),
+                        "ERROR: out-of-bounds prefix access");
+                
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
                     //cerr << "Accessing buckets (pos" << (int)p_int <<")...";
                     buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
                     //cerr << " ok"<< endl;
+                    p_int = prefix2int(prefix, 0, prefix_len);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
                 cur_tails.push_back(std::string_view(cf.concat.data() + f_start + prefix_len, cf.lengths[i] - prefix_len));
                 cur_color_set_ids.push_back(i);
                 cur_prefix = prefix;
+                //vector<string> wrong_p = {"GCACAGCCGC","CACAGCCGCC","ACAGCCGCCA", "CAGCCGCCAT","AGCCGCCATC", "GCCGCCATCA", "CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA"};
+                //vector<string> wrong_p = {"CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA", "ATCAATGGAA", "TCAATGGAAA", "CAATGGAAAG", "AATGGAAAGC", "ATGGAAAGCG"};
+                //vector<string> wrong_p = {"GGAAAGCGCG", "GAAAGCGCGA", "AAAGCGCGAT", "AAGCGCGATG"};
+                /* if (std::find(wrong_p.begin(), wrong_p.end(), prefix) != wrong_p.end()){
+                    cerr << prefix << ": ";
+                    for (int j=0; j < cur_tails.size(); j++){
+                        cerr << cur_tails[j] << " ";
+                    } 
+                    cerr << endl;
+                } */
             }
             f_start += cf.lengths[i];
         }
@@ -316,16 +334,3 @@ public:
     }
 
 };
-
-    
-
-/*
-int main(){
-    UncompressedTails ut;
-    ifstream in("out.bin");
-    ut.load(in);
-    for(auto c : ut.concat) cout << c; cout << endl;
-    for(auto len : ut.lengths) cout << (int)len << " "; cout << endl;
-    cout << ut.color_sets_concat << endl;
-}
-*/

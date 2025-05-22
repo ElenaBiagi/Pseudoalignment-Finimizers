@@ -25,6 +25,13 @@ public:
 
     Bucket(vector<std::string_view>& tails, vector<uint32_t>& unsorted_color_set_ids) {
         
+        if (tails.empty()){
+            tail_data.resize(5);
+            uint64_t* data = tail_data.data();
+            color_set_ids.push_back(unsorted_color_set_ids[0]); // only one color id so nothing changed
+            sdsl::bits::write_int(&data[0], 0, 0, 5);
+            return;
+        }
         // Convert tails to Compact_tails
         vector<Compact_tails> B_tails;
         B_tails.reserve(tails.size());
@@ -60,7 +67,7 @@ public:
         vector <int> tlens;
         unordered_map<int, uint8_t> m_ntails;
         
-        // B_tails must be of length at least 0;
+        // B_tails must be of size at least 1;
         int tlen = B_tails[0].tlen;
         int cur_tlen = tlen;
 
@@ -89,9 +96,9 @@ public:
  
            total_bits += ntails * tlen * 2;
         }
-        for (auto t:m_ntails){
+/*         for (auto t:m_ntails){
             cerr << t.first << ", "<< t.second << endl;
-        }
+        } */
 //        cerr << "total_bits = "<< (int)total_bits << endl;
         tail_data.resize(total_bits+128); 
         uint64_t* data = tail_data.data();
@@ -113,7 +120,7 @@ public:
                 //cerr << "w_offset = " << (int)w_offset << endl;
                 //cerr << "w_offset = " << (int)w_offset << endl;
             sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
-            offset += 5;
+            //offset += 5;
         } 
         else {
             cur_tlen = 0; // tlen cannot be 0
@@ -135,8 +142,8 @@ public:
                     const uint32_t tnumber = m_ntails[tlen];
                     auto vb = vbyte_encode(tnumber);
                     for (uint8_t b : vb) {
-                        cerr << "Writing number of tails... "<< endl;
-                        cerr << "offset = " << (int)offset << endl;
+                        //cerr << "Writing number of tails... "<< endl;
+                        //cerr << "offset = " << (int)offset << endl;
                         word_index = offset/64;
                         w_offset = offset % 64;
                         //cerr << "w_offset = " << (int)w_offset << endl;
@@ -158,7 +165,6 @@ public:
                 offset += (2 * tlen);
             }
         }
-       // cerr << tail_data << endl;
         return;
     }
 
