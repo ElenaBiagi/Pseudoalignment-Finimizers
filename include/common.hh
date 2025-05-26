@@ -4,17 +4,44 @@
 #include <cstring>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <tuple>
+#include <set>
 
 #include <filesystem>
 #include <cstdio>
 #include <optional>
 #include <deque>
 
-#include "PackedStrings.hh"
+
+#include "sbwt/cxxopts.hpp"
+#include "sbwt/globals.hh"
+#include "sbwt/SBWT.hh"
+#include "sbwt/SubsetWT.hh"
+#include "sbwt/stdlib_printing.hh"
+#include "sbwt/SeqIO.hh"
+#include "sbwt/SubsetMatrixRank.hh"
+#include "sbwt/buffered_streams.hh"
+#include "sbwt/variants.hh"
+#include "sbwt/commands.hh" 
+
 #include "SeqIO.hh"
-//#include "BoundedDeque.hh"
 
+using namespace std;
+using namespace sbwt;
 
+set<string> get_substrings(const string& str) {
+    set<string> substrings;
+    int n = str.size();
+    for (int i = 0; i < n; ++i) {
+        for (int len = 1; len <= n - i; ++len) {
+            substrings.insert(str.substr(i, len));
+        }
+    }
+    return substrings;
+}
 
 inline void print_bit_vector(const std::unique_ptr<sdsl::bit_vector>& T) {
     if (!T) {

@@ -125,7 +125,14 @@ public:
         uint64_t p_int = prefix2int(cur_prefix, 0, prefix_len);
 
         f_start = 0; // Go back to zero
+
+        set<string> vv = get_substrings((string)"AGCACAGCCGCCATCAATGGAAAGCGCGATG");
+        vv.insert("AGCACAGCCGCCATCAATGGAAAGCGCGATG");
         for(int64_t i = 0; i < n_finimizers; i++) {
+            std::string_view fmin(cf.concat.data() + f_start, cf.lengths[i]);
+            if (std::find(vv.begin(), vv.end(), std::string(fmin)) != vv.end()){
+                cerr << fmin << " EXISTS !!"<< endl;
+            }
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
                 /* vector<string> vv={"TGGAAAGCG", "TGGAAAGC", "TGGAAAG", "TGGAAA", "TGGAA", "TGGA", "TGG", "TG", "T"};
