@@ -126,19 +126,21 @@ public:
 
         f_start = 0; // Go back to zero
 
-        set<string> vv = get_substrings((string)"AGCACAGCCGCCATCAATGGAAAGCGCGATG");
-        vv.insert("AGCACAGCCGCCATCAATGGAAAGCGCGATG");
+        //set<string> vv = get_substrings((string)"CGCCGTGTCGATGGAGGCGCATTATAGGGAG");
+        //set<string> vv = get_substrings((string)"AGTGGGTGCTCACCTTGACGGCTTTGCAGCG");
+        
+        
+        /* for (auto v: vv){
+            cerr << v << endl;
+        }
+        cerr << (int)vv.size()<< endl; */
         for(int64_t i = 0; i < n_finimizers; i++) {
             std::string_view fmin(cf.concat.data() + f_start, cf.lengths[i]);
-            if (std::find(vv.begin(), vv.end(), std::string(fmin)) != vv.end()){
+            /* if (std::find(vv.begin(), vv.end(), std::string(fmin)) != vv.end()){
                 cerr << fmin << " EXISTS !!"<< endl;
-            }
+            } */
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
-                /* vector<string> vv={"TGGAAAGCG", "TGGAAAGC", "TGGAAAG", "TGGAAA", "TGGAA", "TGGA", "TGG", "TG", "T"};
-                if (std::find(vv.begin(), vv.end(), sprefix) != vv.end()){
-                    cerr << sprefix << " EXISTS !!"<< endl;
-                } */
                 uint64_t sp_int = prefix2int(sprefix,0, cf.lengths[i]);
                 //cerr << "Accessing sB (pos" << (int)p_int <<")...";
                 sB[sp_int]= {cf.lengths[i],i}; // i= color_set_id
@@ -158,8 +160,19 @@ public:
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
+                
                 cur_tails.push_back(std::string_view(cf.concat.data() + f_start + prefix_len, cf.lengths[i] - prefix_len));
                 cur_color_set_ids.push_back(i);
+                /* if (prefix == "AGTGGGTGCT"){
+                    for (auto t: cur_tails){
+                        cerr << string(t)<< ", ";
+                    }
+                    cerr << endl;
+                    for (auto c: cur_color_set_ids){
+                        cerr << c << ", ";
+                    }
+                    cerr << endl;
+                } */
                 cur_prefix = prefix;
                 //vector<string> wrong_p = {"GCACAGCCGC","CACAGCCGCC","ACAGCCGCCA", "CAGCCGCCAT","AGCCGCCATC", "GCCGCCATCA", "CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA"};
                 //vector<string> wrong_p = {"CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA", "ATCAATGGAA", "TCAATGGAAA", "CAATGGAAAG", "AATGGAAAGC", "ATGGAAAGCG"};

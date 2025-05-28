@@ -93,13 +93,15 @@ uint64_t read_unaligned_64bits(const uint64_t* data, size_t total_bits, size_t o
    size_t word_index = offset_bits / 64;
    size_t bit_offset = offset_bits % 64;
 
+   if (bit_offset == 0) {
+        return data[word_index];
+   }
+
    uint64_t first_w = data[word_index] >> bit_offset;
    
    uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128 // TODO THIS SHOULD BE A RIGHT SHIFT
 
-   uint64_t new_w = first_w | second_w;
-
-    return new_w;
+    return first_w | second_w;
 }
 
 inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint16_t ntails){
@@ -186,6 +188,8 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
 
 // output: pos in T (to get colors), tlen
 pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, uint64_t s, char slen){ // we know the width of the query
+   //cerr << "slen = "<< (int)slen << endl;
+   //cerr << s << endl;
    // input: T, offset in T, string or substring after prefix
    // EVERY PREFIX HAS A DIFFERENT INT
    // T.size()= found prefixes THIS IS NOT TRUE!!
@@ -214,13 +218,17 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, uint64_t s, 
 //cerr << "word_index = "<< (int)word_index << endl;
 //cerr << "w_offset = "<< (int)w_offset << endl;
       //print_bit_vector(T, pos);
+      //uint64_t ww = read_unaligned_64bits(data, T.size(), w_offset); 
+      //printBinary(ww); cerr << " ww at w_offset=" << (int)w_offset << endl;      
+      //std::cerr << T << std::endl;
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
-      if (tlen > slen){return {-1,0};}
       //cerr << "tlen: " << (int)tlen << endl; 
+      if (tlen > slen){ return {-1,0};}
       if (tlen == 0){
-         if (slen == 0){return {0,0};}
+         return {0,0};
+         //if (slen == 0){return {0,0};}
          //if (firstTail){return {0,0};} This should be useless as we never read past set bits
-         return {-1,0};
+         //return {-1,0};
       }
       //firstTail = false; // be sure to report ) only if it's the first tail length read
 
@@ -245,7 +253,7 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, uint64_t s, 
          shift += 7;
          if (shift >= 64) throw std::runtime_error("Invalid vbyte: too long");
       }
-  //    cerr << "ntails: "<< ntails << endl;
+      //cerr << "ntails: "<< ntails << endl;
       
       // 3. Extract substring
       // TODO Satrting at pos (64 - slen*2) extract the first 2*tlen bits of s

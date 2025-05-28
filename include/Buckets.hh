@@ -25,12 +25,15 @@ public:
 
     Bucket(vector<std::string_view>& tails, vector<uint32_t>& unsorted_color_set_ids) {
         
-        if (tails.empty()){
-            tail_data.resize(5);
-            uint64_t* data = tail_data.data();
-            color_set_ids.push_back(unsorted_color_set_ids[0]); // only one color id so nothing changed
-            sdsl::bits::write_int(&data[0], 0, 0, 5);
-            return;
+        if (tails.size() == 1){
+            int tlen = tails[0].size();
+            if (tlen == 0){ // if tlen is not 0, just act normally
+                tail_data.resize(5);
+                uint64_t* data = tail_data.data();
+                color_set_ids.push_back(unsorted_color_set_ids[0]); // only one color id so nothing changed
+                sdsl::bits::write_int(&data[0], 0, 0, 5);
+                return;
+            }
         }
         // Convert tails to Compact_tails
         vector<Compact_tails> B_tails;
@@ -42,14 +45,12 @@ public:
             ct.color_set_id = unsorted_color_set_ids[i];
             B_tails.push_back(ct);
         }
+        // This permutes also the color_set_ids
         std::sort(B_tails.begin(), B_tails.end()); 
         /* for (size_t i = 0; i < B_tails; i++)
             color_set_ids[i]=B_tails[i].color_set_id;
         } */
-
-        //color_set_ids.reserve(unsorted_color_set_ids.size());
         
-        // This permutes the color_set_ids
         WriteTailsVector(B_tails);
     }
 
@@ -71,7 +72,9 @@ public:
         int tlen = B_tails[0].tlen;
         int cur_tlen = tlen;
 
+        //TODO REMOVE
         if (tlen == 0){
+            cerr << "ERROR: tlen == 0 should not be possible here" << endl;
             total_bits += 5; // tlen
         }
         else{
@@ -109,8 +112,10 @@ public:
         uint64_t word_index = 0;
         uint8_t w_offset = 0;
         
-        // if tlen changed it was never 0        
+        // if tlen changed it was never 0
+        //TODO REMOVE        
         if (tlen == 0){
+            cerr << "ERROR: tlen == 0 should not be possible here" << endl;
             color_set_ids.push_back(B_tails[0].color_set_id); // only one color id so nothing changed
 
    //         cerr << "Writing tlen... "<< endl;

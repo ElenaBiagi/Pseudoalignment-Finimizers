@@ -8,7 +8,7 @@
 #include <optional>
 #include <variant>
 
-#include "PackedStrings.hh"
+//#include "PackedStrings.hh"
 #include "SeqIO.hh"
 #include "ColoredFinimizers.hh"
 
@@ -40,7 +40,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     int i=0;
     while(true){
         
-
+        //cerr << "query: " << i<< endl;
         int64_t len = reader.get_next_read_to_buffer();
         if(len == 0) break;
         int64_t t0 = cur_time_micros();
