@@ -235,19 +235,17 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     //TODO: int for the number of colors, change if needed
     void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         // count the number of finimizers found
-        cerr << Fmin.size() << endl;
         results.assign(n_colors, 0);
         
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for(const auto& start : Fmin){
             cerr << start << endl;
             for (uint64_t i=0; i< n_colors; i++){
-                //#pragma omp atomic
-                results[i]+=color_sets_concat[start+i];
-                //cerr << color_sets_concat[start+i];
+                #pragma omp atomic
+                results[i]+=color_sets_concat[(n_colors*start)+i];
             }
         }
-        //cerr << endl;
+        
         return;
     }
 
@@ -255,7 +253,6 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         // count the number of finimizers found
         size_t found_fmin = Fmin.size(); // # total finimizers
         //size_t rm_fmin = 0; // finimizers not found in the index
-        //cerr << Fmin.size() << endl;
         
         vector<uint64_t> tot_res;
         tot_res.assign(n_colors, 0);
