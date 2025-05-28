@@ -57,61 +57,8 @@ inline void print_bit_vector(const std::unique_ptr<sdsl::bit_vector>& T) {
     std::cout << "]" << std::endl;
 }
 
-inline void print_bit_vector(const sdsl::bit_vector& T, int64_t pos) {
-    std::cerr << "T size = " << T.size() << std::endl;
-    std::cerr << "pos = " << pos << std::endl;
-    if (pos + 4 < (int64_t)T.size()) {
-        std::cerr << "T[pos] = " << T[pos] << " " << T[pos+1] << " " << T[pos+2] << " " << T[pos+3] << " " << T[pos+4] << std::endl;
-    } else {
-        std::cerr << "pos too close to end of vector for T[pos+4]" << std::endl;
-    }
 
-    std::cout << "bit_vector content from pos: ";
-    for (size_t i = pos; i < T.size() && i < (size_t)(pos + 64); ++i) {
-        std::cout << T[i] << " ";
-    }
-    std::cout << std::endl;
-}
-
-void print_B(const unordered_map<uint32_t, pair<int64_t,int64_t> >& B) {
-    std::cout << "B (prefix → offset): " << endl;
-    for (const auto& [prefix_hash, offset] : B) {
-        std::cout << prefix_hash << " → { " << offset.first << ", " << offset.second << " }" << endl;
-    }
-}
-
-void print_helperB(const std::unordered_map<uint32_t, std::map<char, std::set<std::pair<uint32_t, std::set<int>>>>>& helperB) {
-    std::cerr << "helperB:" << endl;
-    for (const auto& [prefix, tail_map] : helperB) {
-        std::cerr << "Prefix: " << prefix << endl;
-        for (const auto& [character, finimizer_set] : tail_map) {
-            std::cerr << "  └─ Tlen: '" << (int)character << "' → " << finimizer_set.size() << " finimizer(s)\n";
-            for (const auto& [tail, color_set] : finimizer_set) {
-                std::cerr << "      └─ Tail: " << tail << " → Colors: { ";
-                for (int color : color_set) {
-                    std::cerr << color << " ";
-                }
-                std::cerr << "}"<<endl;
-            }
-        }
-    }
-}
-
-void print_sB(const std::unordered_map<uint32_t, int64_t>& sB) {
-    std::cout << "sB (fmin → offset):\n";
-    for (const auto& [key, value] : sB) {
-        std::cout << key << " → " << value << endl;
-    }
-}
-
-void printHashTable(const std::unordered_map<std::string, std::set<int>>& hashTable) {
-    std::cerr << "HASH TABLE" << std::endl;
-    for (const auto& pair : hashTable) {
-        std::cerr << "Key: " << pair.first << ", Values: " << pair.second << std::endl;
-    }
-    std::cerr << "HASH TABLE done" << std::endl;
-}
-
+// TODO remove
 void print_results(const std::unordered_map<int, uint64_t>& results) {
     std::cout << "results (position → count):" << endl;
     for (const auto& [pos, count] : results) {
@@ -129,6 +76,7 @@ inline char get_char_idx(char c){
     }
 }
 
+// TODO remove
 uint64_t prefix2int_old(const string& s, uint64_t offset, char plen){ 
     uint64_t h = 0;
     for(uint64_t i=0; i<(uint64_t)plen; i++){
@@ -228,7 +176,7 @@ inline sdsl::int_vector<1> WriteTailsVector(vector<vector<string>>& tails,vector
 }
 
 
-//old
+// TODO REMOVE
 //used in build-verify
 vector<string> remove_ns(const string& unitig, const int64_t k){
     vector<string> new_unitigs;
@@ -255,9 +203,7 @@ vector<string> remove_ns(const string& unitig, const int64_t k){
 }
 
 //not used
-/* void remove_N_from_string(std::string &s) {
-    s.erase(std::remove(s.begin(), s.end(), 'N'), s.end());
-} */
+// TODO REMOVE
 const std::string remove_N_from_string(const std::string &input) {
     std::string result = input;
     std::transform(result.begin(), result.end(), result.begin(), ::toupper); // uppercase
@@ -265,6 +211,7 @@ const std::string remove_N_from_string(const std::string &input) {
     return result; // Return the resulting string as const
 }
 
+// TODO REMOVE
 vector< std::string> split_by_N(const std::string &input, const int64_t k) {
     std::vector<std::string> result;
     size_t start = 0;
@@ -289,8 +236,6 @@ vector< std::string> split_by_N(const std::string &input, const int64_t k) {
     return result;
 }
 
-//TODO we might want to print the stats of finimizers found in all the genomes
-void get_stats(std::unordered_map<std::string, std::set<int>>& hashTable){  
     //std::unordered_map<std::string, int> genomes;
     std::map<int, int> fminFreqCount;      
     std::map<int, int> fminFreq;

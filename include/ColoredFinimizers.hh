@@ -153,9 +153,7 @@ public:
                 
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
-                    //cerr << "Accessing buckets (pos" << (int)p_int <<")...";
                     buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
-                    //cerr << " ok"<< endl;
                     p_int = prefix2int(prefix, 0, prefix_len);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
@@ -163,35 +161,13 @@ public:
                 
                 cur_tails.push_back(std::string_view(cf.concat.data() + f_start + prefix_len, cf.lengths[i] - prefix_len));
                 cur_color_set_ids.push_back(i);
-                /* if (prefix == "AGTGGGTGCT"){
-                    for (auto t: cur_tails){
-                        cerr << string(t)<< ", ";
-                    }
-                    cerr << endl;
-                    for (auto c: cur_color_set_ids){
-                        cerr << c << ", ";
-                    }
-                    cerr << endl;
-                } */
                 cur_prefix = prefix;
-                //vector<string> wrong_p = {"GCACAGCCGC","CACAGCCGCC","ACAGCCGCCA", "CAGCCGCCAT","AGCCGCCATC", "GCCGCCATCA", "CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA"};
-                //vector<string> wrong_p = {"CCGCCATCAA", "CGCCATCAAT", "GCCATCAATG", "CCATCAATGG", "CATCAATGGA", "ATCAATGGAA", "TCAATGGAAA", "CAATGGAAAG", "AATGGAAAGC", "ATGGAAAGCG"};
-                //vector<string> wrong_p = {"GGAAAGCGCG", "GAAAGCGCGA", "AAAGCGCGAT", "AAGCGCGATG"};
-                /* if (std::find(wrong_p.begin(), wrong_p.end(), prefix) != wrong_p.end()){
-                    cerr << prefix << ": ";
-                    for (int j=0; j < cur_tails.size(); j++){
-                        cerr << cur_tails[j] << " ";
-                    } 
-                    cerr << endl;
-                } */
             }
             f_start += cf.lengths[i];
         }
 
         if(cur_tails.size() > 0){ // Last bucket
-            //cerr << "Accessing buckets (pos" << (int)p_int <<")...";
             buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
-            //cerr << " ok"<< endl;
 
         }
         color_sets_concat = std::move(cf.color_sets_concat);
@@ -211,7 +187,6 @@ public:
       
         // Check the colors for every finimizer found
         pseudoalignemnt_stats(Finimizers, this->color_sets_concat, this->n_colors, results);
-        //print_results(results);
         return;
     }
 

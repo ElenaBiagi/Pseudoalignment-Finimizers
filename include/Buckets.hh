@@ -72,103 +72,65 @@ public:
         int tlen = B_tails[0].tlen;
         int cur_tlen = tlen;
 
-        //TODO REMOVE
-        if (tlen == 0){
-            cerr << "ERROR: tlen == 0 should not be possible here" << endl;
-            total_bits += 5; // tlen
-        }
-        else{
-            for (size_t i = 0; i < B_tails.size(); ++i) {
-                tlen = B_tails[i].tlen;
-                
-                if (tlen != cur_tlen){ 
-                    m_ntails[cur_tlen]=ntails; // only at this point we know how many tails for the previous tlen
-                    total_bits += 5; // cur_tlen (previous tlen)   
-		            total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
-                    total_bits += ntails * cur_tlen * 2; // each tail uses cur_tlen*2 bits
-                    ntails = 0;
-                    cur_tlen = tlen;
+        for (size_t i = 0; i < B_tails.size(); ++i) {
+            tlen = B_tails[i].tlen;
+            
+            if (tlen != cur_tlen){ 
+                m_ntails[cur_tlen]=ntails; // only at this point we know how many tails for the previous tlen
+                total_bits += 5; // cur_tlen (previous tlen)   
+                total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
+                total_bits += ntails * cur_tlen * 2; // each tail uses cur_tlen*2 bits
+                ntails = 0;
+                cur_tlen = tlen;
 
-                }
-                ntails++;
-            }     
-            // last tails
-            m_ntails[tlen]=ntails;
-            total_bits += 5; // tlen
-            total_bits += vbyte_encode(ntails).size() * 8;
+            }
+            ntails++;
+        }     
+        // last tails
+        m_ntails[tlen]=ntails;
+        total_bits += 5; // tlen
+        total_bits += vbyte_encode(ntails).size() * 8;
  
-           total_bits += ntails * tlen * 2;
-        }
-/*         for (auto t:m_ntails){
-            cerr << t.first << ", "<< t.second << endl;
-        } */
-//        cerr << "total_bits = "<< (int)total_bits << endl;
+        total_bits += ntails * tlen * 2;
         tail_data.resize(total_bits+128); 
-        uint64_t* data = tail_data.data();
 
-  //      cerr << "tail_data.size() = "<< (int)tail_data.size() << endl;
-        
+        uint64_t* data = tail_data.data();        
         int64_t offset = 0;
         uint64_t word_index = 0;
         uint8_t w_offset = 0;
-        
-        // if tlen changed it was never 0
-        //TODO REMOVE        
-        if (tlen == 0){
-            cerr << "ERROR: tlen == 0 should not be possible here" << endl;
-            color_set_ids.push_back(B_tails[0].color_set_id); // only one color id so nothing changed
 
-   //         cerr << "Writing tlen... "<< endl;
-   //             cerr << "offset = " << (int)offset << endl;
+        cur_tlen = 0; // tlen cannot be 0
+
+        for (size_t i=0; i < B_tails.size(); i++){
+
+            color_set_ids.push_back(B_tails[i].color_set_id); // permute the vector of colors
+
+            tlen = B_tails[i].tlen;
+
+            if (tlen != cur_tlen){
+                cur_tlen = tlen;
                 word_index = offset/64;
                 w_offset = offset % 64;
-                //cerr << "w_offset = " << (int)w_offset << endl;
-                //cerr << "w_offset = " << (int)w_offset << endl;
-            sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
-            //offset += 5;
-        } 
-        else {
-            cur_tlen = 0; // tlen cannot be 0
-
-            for (size_t i=0; i < B_tails.size(); i++){
-
-                color_set_ids.push_back(B_tails[i].color_set_id); // permute the vector of colors
-
-                tlen = B_tails[i].tlen;
-
-                if (tlen != cur_tlen){
-                    cur_tlen = tlen;
+                
+                sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
+                offset += 5;
+                        
+                const uint32_t tnumber = m_ntails[tlen];
+                auto vb = vbyte_encode(tnumber);
+                for (uint8_t b : vb) {
                     word_index = offset/64;
                     w_offset = offset % 64;
-                    sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
-                    offset += 5;
-//                    cerr << "TLEN = "<< tlen << endl;
-                        
-                    const uint32_t tnumber = m_ntails[tlen];
-                    auto vb = vbyte_encode(tnumber);
-                    for (uint8_t b : vb) {
-                        //cerr << "Writing number of tails... "<< endl;
-                        //cerr << "offset = " << (int)offset << endl;
-                        word_index = offset/64;
-                        w_offset = offset % 64;
-                        //cerr << "w_offset = " << (int)w_offset << endl;
-                        //cerr << "w_offset = " << (int)w_offset << endl;
-  //                      cerr << "# TAILS = "<< (int)b << endl;
-                        sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
-                        offset += 8;
-                    }
-                } 
-                // tails
-    //            cerr << "Writing tail... "<< endl;
-    //            cerr << "offset = " << (int)offset << endl;
-                word_index = offset/64;
-                w_offset = offset % 64;
-                //cerr << "w_offset = " << (int)w_offset << endl;
-                //cerr << "w_offset = " << (int)w_offset << endl;
-     //           cerr << "TAIL = "<< B_tails[i].int_tail << endl;
-                sdsl::bits::write_int(&data[word_index], B_tails[i].int_tail, w_offset, tlen*2);
-                offset += (2 * tlen);
-            }
+
+                    sdsl::bits::write_int(&data[word_index], b, w_offset, 8);
+                    offset += 8;
+                }
+            } 
+            // tails
+            word_index = offset/64;
+            w_offset = offset % 64;
+
+            sdsl::bits::write_int(&data[word_index], B_tails[i].int_tail, w_offset, tlen*2);
+            offset += (2 * tlen);
         }
         return;
     }

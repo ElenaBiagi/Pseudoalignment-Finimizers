@@ -17,13 +17,13 @@ int build_fmin(int argc, char** argv) {
         std::cerr << options.help() << std::endl;
         exit(1);
     }
-    string out_prefix = opts["out-file"].as<string>(); // TODO use this
+    string out_prefix = opts["out-file"].as<string>();
 
     string indexfile = opts["index-file"].as<string>();
     ColoredFinimizers cf;
     ifstream in(indexfile);
     cf.load(in);
-    CompressedColoredFinimizers ccf(std::move(cf), 10, 31);
+    CompressedColoredFinimizers ccf(std::move(cf), 10, 31); // TODO do we need 31?
     
     ccf.serialize(out_prefix);
     
