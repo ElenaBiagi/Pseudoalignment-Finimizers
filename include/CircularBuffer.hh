@@ -3,10 +3,10 @@
 #include <cstdint>
 
 
-using MyTuple = std::tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
+using MyTuple = tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
 
 class CBuffer {
-    std::vector<MyTuple> buffer;
+    vector<MyTuple> buffer;
     size_t head = 0;
     size_t size = 0;
     size_t capacity;
