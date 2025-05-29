@@ -11,11 +11,14 @@
 #include <deque>
 
 #include "SeqIO.hh"
-#include "BoundedDeque.hh"
+//#include "BoundedDeque.hh"
+#include "CircularBuffer.hh"
 
 #include "common.hh"
 #include "bitsearch.hh"
 #include "Buckets.hh"
+
+using MyTuple = std::tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
 
 
 // TODO simplify this removing what is not necessary
@@ -27,21 +30,20 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
     uint64_t start = 0;
     uint64_t kmer_start = 0;
-    bool found;
     uint64_t s_int;
 
     uint8_t f_len;
     uint64_t f_int;
     uint32_t f_color; 
 
-    tuple<uint8_t, uint64_t, uint32_t, uint64_t> curr_substr;
-    tuple<uint8_t, uint64_t, uint32_t, uint64_t> k_fmin = {k+1, 0, 0, str_len};
-    BoundedDeque<tuple<uint8_t, uint64_t, uint32_t, uint64_t>> all_fmin(str_len);;
+    MyTuple curr_substr;
+    MyTuple k_fmin = std::make_tuple(k+1, 0, 0, str_len);
+    //vector<MyTuple> all_fmin(str_len);
+    CBuffer all_fmin(k);
     
 
     // iterate over input
     for (start = 0; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
-        found = false;
         uint64_t int_p = prefix2int(input, start, plen);
         // 1. prefix found
         if (buckets[int_p].has_value()){
@@ -54,10 +56,11 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             uint64_t int_s = prefix2int(input, start+plen, s_len); // tail
             auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
             if (pos > -1){
-                found = true;
                 f_len = plen + len;
                 f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); // TODO ADD PREFIX AND TLEN: shift p_int to the left by len*2, and int_s to the right to remove the unused chars
                 f_color = bucket_p.color_set_ids[pos];
+                all_fmin.insert(std::make_tuple(f_len, f_int, f_color, start));
+
             }
         }else{
             // 2. Prefix NOT found
@@ -72,10 +75,10 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
                 if (it != sB.end() ){
                     
                     if (sp_len == it->second.first){ // real match
-                    found = true;
                     f_len = sp_len;
                     f_int = int_sp;
                     f_color = it->second.second;
+                    all_fmin.insert(std::make_tuple(f_len, f_int, f_color, start));
                     break;
                 }
             }
@@ -85,44 +88,38 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             }
 
         }
-
-        if (found){
-            curr_substr = {f_len, f_int, f_color, start};
-            // check later if this is a good finimizer
-            all_fmin.push_back(curr_substr);
-        }
   
         if (start >= k-1){ // we have looked at all the characters of the kmer
             
             //1. check end and start are ok
             
-            tuple<uint8_t, uint64_t, uint32_t, uint64_t> curr_fmin = {k+1,0,0,kmer_start};
-            uint64_t i = 0;
+            MyTuple best_fmin = std::make_tuple(k+1,0,0,kmer_start);
             // if all_fmin is not empty and the while loop is not entered, k_fmin is the smallest fmin and is already ok
             // Ends after the kmer? (get<0>(k_fmin) + get<3>(k_fmin) >= kmer_start+k)
             // Starts before the k-mer? get<3>(k_fmin) < kmer_start
-            while ( i < all_fmin.size()){
-            //loop trough all_fmin
-                k_fmin = all_fmin[i]; // if this is ok it will be the smallest
-                // start is now the end of the k-mer
-                // len+ start of the finimizer -1 must be smaller or equal to the end of the current k-mer
+            // TODO IMPROVE THIS
+            // we could scann only the last k positions
+            // we could store only the last k pos
+            // LINKED LIST?? i do not want random access. I want to look at each of them
+            // use a circular buffer
+            
+            all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 // start of finimizer must be bigger or equal start of the current k-mer 
-                if ((get<0>(k_fmin) + get<3>(k_fmin) - 1 <= start) && (get<3>(k_fmin) >= kmer_start)){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
-                    if (curr_fmin > k_fmin){
-                        curr_fmin = k_fmin;
-                    }
-                }
-                
-                i++;
-            } //while loop ends here
+                if ((get<3>(k_fmin) >= kmer_start)){
+                    // start is now the end of the k-mer
+                    // len+ start of the finimizer -1 must be smaller or equal to the end of the current k-mer
+                    if ((get<0>(k_fmin) + get<3>(k_fmin) - 1 <= start) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
+                        best_fmin = k_fmin;
+                    } 
+                    return true;
+                } else{ return false; } 
+            });
 
-            if (get<0>(curr_fmin) + get<3>(curr_fmin) - 1 <= start and get<3>(curr_fmin) >= kmer_start){
-                Fmin.push_back(get<2>(curr_fmin));
-            } // Store only that start of the colors set ids in color_set_concat
-            else{
+            if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
+            /* else{
                 // TODO remove
                 cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, std::min((uint64_t)k, str_len - kmer_start)) << endl;
-            }
+            } */
             
             kmer_start++;
         }
@@ -140,10 +137,10 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
         while (sp_len < plen-1){ // sp_len must be < plen as the whole prefix was not found
             if (it != sB.end() && sp_len == it->second.first){ // real match
-                found = true;
                 f_len = sp_len;
                 f_int = int_sp;
                 f_color = it->second.second;
+                all_fmin.insert(std::make_tuple(f_len, f_int, f_color, ss));
                 break;
             }
             sp_len++;
@@ -151,37 +148,32 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             it = sB.find(int_sp);
         }
 
-        if (found){
-            curr_substr = {f_len, f_int, f_color, ss};
-            all_fmin.push_back(curr_substr);
-        }
+        
         if (ss >= k-1){ // we have looked at all the characters of the kmer
             //1. check end is ok
-            tuple<uint8_t, uint64_t, uint32_t, uint64_t> curr_fmin = {k+1,0,0,kmer_start};
-            uint64_t i = 0;
+            MyTuple best_fmin = std::make_tuple(k+1,0,0,kmer_start);
             // if all_fmin is not empty and the while loop is not entered, k_fmin is the smallest fmin and is already ok
             // Ends after the kmer? (get<0>(k_fmin) + get<3>(k_fmin) >= kmer_start+k)
             // Starts before the k-mer? get<3>(k_fmin) < kmer_start
-            while ( i < all_fmin.size()){
-            //loop trough all_fmin
-                k_fmin = all_fmin[i]; // if this is ok it will be the smallest
-                // start is now the end of the k-mer
-                // len+ start of the finimizer -1 must be smaller or equal to the end of the current k-mer
+            // TODO IMPROVE THIS
+            //for (auto k_fmin : all_fmin){
+            all_fmin.for_each_recent([&ss, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 // start of finimizer must be bigger or equal start of the current k-mer 
-                if ((get<0>(k_fmin) + get<3>(k_fmin) - 1 <= ss) && get<3>(k_fmin) >= kmer_start){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
-                    if (curr_fmin > k_fmin){
-                        curr_fmin = k_fmin;
-                    }
-                }
-                i++;
-            }
-            if (get<0>(curr_fmin) + get<3>(curr_fmin) - 1 <= ss and get<3>(curr_fmin) >= kmer_start){
-                Fmin.push_back(get<2>(curr_fmin));
-            }
-            else{
-                //TODO REMOVE
+                if ((get<3>(k_fmin) >= kmer_start)){
+                    // start is now the end of the k-mer
+                    // len+ start of the finimizer -1 must be smaller or equal to the end of the current k-mer
+                    if ((get<0>(k_fmin) + get<3>(k_fmin) - 1 <= ss) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
+                        best_fmin = k_fmin;
+                    } 
+                    return true;
+                } else{ return false; } 
+            });
+            
+            if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
+            /* else{
+                // TODO remove
                 cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, std::min((uint64_t)k, str_len - kmer_start)) << endl;
-            }
+            } */
             kmer_start++;
         }
     }
