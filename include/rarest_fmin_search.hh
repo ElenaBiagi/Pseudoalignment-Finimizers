@@ -102,14 +102,11 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 // start of finimizer must be bigger or equal start of the current k-mer 
                 const auto& [f_len, f_int, f_color, f_start] = k_fmin;
-                if (f_start >= kmer_start){
-                    // start is now the end of the k-mer
-                    // len+ start of the finimizer -1 must be smaller or equal to the end of the current k-mer
-                    if ((f_len + f_start - 1 <= start) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
+                if (f_start >= kmer_start && (f_len + f_start - 1 <= start) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
                         best_fmin = k_fmin;
-                    } 
+                    /* } 
                     return true;
-                } else{ return false; } 
+                } else{ return false;  */} 
             });
 
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
@@ -134,12 +131,11 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             MyTuple best_fmin = std::make_tuple(k+1,0,0,kmer_start);
             all_fmin.for_each_recent([&ss, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 const auto& [f_len, f_int, f_color, f_start] = k_fmin;
-                if ((f_start >= kmer_start)){
-                    if ((f_len + f_start - 1 <= ss) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
+                if ((f_start >= kmer_start) && (f_len + f_start - 1 <= ss) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
                         best_fmin = k_fmin;
-                    } 
+                    /* } 
                     return true;
-                } else{ return false; } 
+                } else{ return false; */ } 
             });
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
 
