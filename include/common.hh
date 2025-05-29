@@ -106,6 +106,15 @@ inline uint64_t prefix2int(const std::string_view s, uint64_t offset, char plen)
     return h;
 }
 
+inline uint64_t roll_kmer(uint64_t prev_hash, char new_char, char plen) {
+    uint64_t b = get_char_idx(new_char);
+    prev_hash <<= 2;              // shift by 2
+    prev_hash |= b;               // new char
+    prev_hash &= ((1ULL << (2 * plen)) - 1); // keep only plen bases (mask older bits)
+    return prev_hash;
+}
+
+// TODO REMOVE
 inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { // if fmin length = 31 we need 62 bits in total, 42 for the tail if plen=10
     uint64_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)slen; i++) {

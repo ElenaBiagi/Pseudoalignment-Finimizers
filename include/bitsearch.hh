@@ -187,7 +187,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, uint64_t s, char slen){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){ // we know the width of the query
    //cerr << "slen = "<< (int)slen << endl;
    //cerr << s << endl;
    // input: T, offset in T, string or substring after prefix
