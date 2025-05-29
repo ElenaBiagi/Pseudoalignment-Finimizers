@@ -30,12 +30,12 @@ void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const unorder
     // if you find a real match, stop
     uint8_t sp_len = int_sp_len; // plen is here plen-1: sp_len must be < plen as the whole prefix was not found  
     while (sp_len > 0){ 
-        int_sp >>= 2;
         auto it = sB.find(int_sp);
         if (it != sB.end() && sp_len == it->second.first){ // real match 
             all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
             return;
         }
+        int_sp >>= 2;
         sp_len--;
     }
 }
@@ -68,14 +68,15 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     CBuffer all_fmin(k);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
-    char s_len;
-    uint64_t int_s; // tail
+    const char s_len = k-plen;
+    char curr_s_len;
+    uint64_t int_s = prefix2int(input, start+plen, s_len);; // tail
     uint64_t int_sp;
 
     if (buckets[int_p].has_value()){
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-        s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
-        int_s = prefix2int(input, start+plen, s_len); // tail
+        // if the length of input is at leas tk , the slen = k-plen
+        // defined above int_s = prefix2int(input, start+plen, s_len); // tail
         FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
     }else{
         int_sp = int_p >> 2;
@@ -86,12 +87,20 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     for (start = 1; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
         // 1. prefix found
         int_p = roll_kmer(int_p, input[start + plen - 1], plen);
+        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration
+        if (str_len < start+k){
+            curr_s_len = str_len-start-plen;
+            int_s = prefix2int(input, start+plen, curr_s_len);
+                
+        } else {
+            curr_s_len = s_len;
+            int_s = roll_kmer(int_s, input[start + plen + s_len - 1], s_len);
+        }
+        
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-            s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
-            int_s = roll_kmer(int_s, input[start + plen + s_len - 1], s_len);
-
-            FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
+            //s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+            FindPrefix(buckets, plen, curr_s_len, int_s, int_p, start, all_fmin); 
         }else{
             int_sp = int_p >> 2;
             FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
@@ -116,10 +125,10 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             });
 
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
-            /* else{
+            else{
                 // TODO remove
                 cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
-            } */
+            }
             
             kmer_start++;
         }
@@ -145,7 +154,10 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
                 } else{ return false; } 
             });
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
-
+            else{
+                // TODO remove
+                cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
+            }
             kmer_start++;
         }
     }

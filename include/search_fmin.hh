@@ -19,19 +19,12 @@ using namespace std;
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
 
-    int64_t total_micros = 0;
-
-    // 1. Read all seq
-    vector<string> reads;
-    while (true) {
-        int64_t len = reader.get_next_read_to_buffer();
-        if (len == 0) break;
-        reads.push_back(reader.read_buf);  // Copy each read
-    }
-
-    const size_t n = reads.size();
-
+    //int k = index.get_k();
+    //int64_t total_micros = 0;
+    
+    //vector<vector<float>> result = {};
     using ResultType = variant<vector<vector<float>>, vector<vector<uint64_t>>>;
+    
     ResultType result;
 
     if (t > 0) {
@@ -39,29 +32,41 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     } else {
         result = vector<vector<uint64_t>>{};
     }
+    
+    int i=0;
+    while(true){
+        
+        //cerr << "query: " << i<< endl;
+        int64_t len = reader.get_next_read_to_buffer();
+        if(len == 0) break;
+        //int64_t t0 = cur_time_micros();
+        //string seq = remove_N_from_string(reader.read_buf);
+        string seq = reader.read_buf;
 
-    // 2. Parallel search
-    int64_t t0 = cur_time_micros();
-
-    #pragma omp parallel for schedule(dynamic)
-    for (size_t i = 0; i < n; ++i) {
-        const std::string& seq = reads[i];
-
-        if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
-            index.search(seq, (*res)[i], t);  // Safe because each thread writes to unique index
-        } else if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
-            index.search(seq, (*res)[i]);     // Safe for same reason
+        if (auto* res = get_if<vector<vector<float>>>(&result)) {
+            res->push_back({});
+            index.search(seq, (*res)[i], t);
+        } else if (auto* res = get_if<vector<vector<uint64_t>>>(&result)) {
+            res->push_back({});
+            index.search(seq, (*res)[i]);
         }
+
+        i++;
+        //total_micros += cur_time_micros() - t0;
     }
+    //write_log("k " + to_string(k), LogLevel::MAJOR);
+    //write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
+    //write_log("Found kmers: " + to_string(kmers_count), LogLevel::MAJOR);
+    //write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
+    //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
 
-    total_micros += cur_time_micros() - t0;
-
-    // 3. Sort output 
+    // Compare (genome id, # k-mer matched)
     if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
-        for (size_t j = 0; j < res->size(); ++j) {
+        // Handling case: vector<vector<uint64_t>>
+        for (int j = 0; j < i; ++j) {
             out << j << " ";
-            std::vector<std::pair<int, int64_t>> nonzero_entries;
 
+            std::vector<std::pair<int, int64_t>> nonzero_entries;
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
@@ -74,14 +79,15 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             for (const auto& [idx, count] : nonzero_entries) {
                 out << idx << ":" << count << " ";
             }
-            out << "\n";
+
+            out << std::endl;
         }
-
+    // Compare (genome id, (% k-mer matched) > t)
     } else if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
-        for (size_t j = 0; j < res->size(); ++j) {
+        for (int j = 0; j < i; ++j) {
             out << j << " ";
-            std::vector<std::pair<int, float>> nonzero_entries;
 
+            std::vector<std::pair<int, float>> nonzero_entries;
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
@@ -91,16 +97,16 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 return (a.second > b.second) || (a.second == b.second && a.first < b.first);
             });
 
-            for (const auto& [idx, score] : nonzero_entries) {
-                out << idx << ":" << score << " ";
+            for (const auto& [idx, count] : nonzero_entries) {
+                out << idx << ":" << count << " ";
             }
-            out << "\n";
+
+            out << std::endl;
         }
     }
-
-    write_log("us/query (excluding I/O): " + to_string((double)total_micros / n), LogLevel::MAJOR);
-    return static_cast<int64_t>(n);
+    return 1;
 }
+
 
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_file(const string& infile, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
