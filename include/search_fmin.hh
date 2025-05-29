@@ -31,7 +31,6 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
     const size_t n = reads.size();
 
-    // 2. Result:
     using ResultType = variant<vector<vector<float>>, vector<vector<uint64_t>>>;
     ResultType result;
 
@@ -41,57 +40,63 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
         result = vector<vector<uint64_t>>{};
     }
 
-    // 3. Parallel search (try)
+    // 2. Parallel search
     int64_t t0 = cur_time_micros();
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < n; ++i) {
-        const auto& seq = reads[i];
-        if (auto* res = get_if<vector<vector<float>>>(&result)) {
-            index.search(seq, (*res)[i], t);
-        } else if (auto* res = get_if<vector<vector<uint64_t>>>(&result)) {
-            index.search(seq, (*res)[i]);
+        const std::string& seq = reads[i];
+
+        if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
+            index.search(seq, (*res)[i], t);  // Safe because each thread writes to unique index
+        } else if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
+            index.search(seq, (*res)[i]);     // Safe for same reason
         }
     }
 
-    total_micros = cur_time_micros() - t0;
+    total_micros += cur_time_micros() - t0;
 
-    // 4. Sort output
-    // Compare (genome id, # k-mer matched)
+    // 3. Sort output 
     if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
-        for (size_t j = 0; j < n; ++j) {
+        for (size_t j = 0; j < res->size(); ++j) {
             out << j << " ";
-            std::vector<std::pair<int, uint64_t>> nonzero_entries;
+            std::vector<std::pair<int, int64_t>> nonzero_entries;
+
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
             }
+
             std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
                 return (a.second > b.second) || (a.second == b.second && a.first < b.first);
             });
+
             for (const auto& [idx, count] : nonzero_entries) {
                 out << idx << ":" << count << " ";
             }
-            out << std::endl;
+            out << "\n";
         }
+
     } else if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
-        for (size_t j = 0; j < n; ++j) {
+        for (size_t j = 0; j < res->size(); ++j) {
             out << j << " ";
             std::vector<std::pair<int, float>> nonzero_entries;
+
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
             }
+
             std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
                 return (a.second > b.second) || (a.second == b.second && a.first < b.first);
             });
-            for (const auto& [idx, count] : nonzero_entries) {
-                out << idx << ":" << count << " ";
+
+            for (const auto& [idx, score] : nonzero_entries) {
+                out << idx << ":" << score << " ";
             }
-            out << std::endl;
+            out << "\n";
         }
     }
-    
 
     write_log("us/query (excluding I/O): " + to_string((double)total_micros / n), LogLevel::MAJOR);
     return static_cast<int64_t>(n);
