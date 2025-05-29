@@ -68,9 +68,8 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     CBuffer all_fmin(k);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
-    const char s_len = k-plen;
-    char curr_s_len;
-    uint64_t int_s = prefix2int(input, start+plen, s_len);; // tail
+    char s_len = k-plen;
+    uint64_t int_s = prefix2int(input, start+plen, s_len); // tail
     uint64_t int_sp;
 
     if (buckets[int_p].has_value()){
@@ -87,20 +86,12 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     for (start = 1; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
         // 1. prefix found
         int_p = roll_kmer(int_p, input[start + plen - 1], plen);
-        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration
-        if (str_len < start+k){
-            curr_s_len = str_len-start-plen;
-            int_s = prefix2int(input, start+plen, curr_s_len);
-                
-        } else {
-            curr_s_len = s_len;
-            int_s = roll_kmer(int_s, input[start + plen + s_len - 1], s_len);
-        }
-        
+        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-            //s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
-            FindPrefix(buckets, plen, curr_s_len, int_s, int_p, start, all_fmin); 
+            s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+            int_s = prefix2int(input, start+plen, s_len);; // tail
+            FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
         }else{
             int_sp = int_p >> 2;
             FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
