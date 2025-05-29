@@ -10,6 +10,9 @@
 #include <optional>
 #include <deque>
 
+#include <omp.h>
+
+
 #include "SeqIO.hh"
 //#include "BoundedDeque.hh"
 #include "CircularBuffer.hh"
@@ -18,10 +21,10 @@
 #include "bitsearch.hh"
 #include "Buckets.hh"
 
-using MyTuple = std::tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
+using MyTuple = tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
 
 
-void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start, CBuffer& all_fmin){
+void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start, CBuffer& all_fmin){
     // 2. Prefix NOT found
     // Start from the longest possible prefix
     // if you find a real match, stop
@@ -30,7 +33,7 @@ void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const std::un
         int_sp >>= 2;
         auto it = sB.find(int_sp);
         if (it != sB.end() && sp_len == it->second.first){ // real match 
-            all_fmin.insert(std::make_tuple(sp_len, int_sp, it->second.second, start));
+            all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
             return;
         }
         sp_len--;
@@ -42,11 +45,11 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, con
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
     if (pos > -1){
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); // TODO ADD PREFIX AND TLEN: shift p_int to the left by len*2, and int_s to the right to remove the unused chars
-        all_fmin.insert(std::make_tuple(plen + len, f_int, bucket_p.color_set_ids[pos], start));
+        all_fmin.insert(make_tuple(plen + len, f_int, bucket_p.color_set_ids[pos], start));
     }
 }
             
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
     const int64_t str_len = input.size();
     if (str_len < k){return {};}
     vector<uint64_t> Fmin;// pointer to C
@@ -60,7 +63,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     uint32_t f_color; 
 
     MyTuple curr_substr;
-    MyTuple k_fmin = std::make_tuple(k+1, 0, 0, str_len);
+    MyTuple k_fmin = make_tuple(k+1, 0, 0, str_len);
     //vector<MyTuple> all_fmin(str_len);
     CBuffer all_fmin(k);
     
@@ -97,7 +100,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         if (start >= k-1){ // we have looked at all the characters of the kmer
             
             //1. check end and start are ok
-            MyTuple best_fmin = std::make_tuple(k+1,0,0,kmer_start);
+            MyTuple best_fmin = make_tuple(k+1,0,0,kmer_start);
             
             all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 // start of finimizer must be bigger or equal start of the current k-mer 
@@ -115,7 +118,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
             /* else{
                 // TODO remove
-                cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, std::min((uint64_t)k, str_len - kmer_start)) << endl;
+                cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
             } */
             
             kmer_start++;
@@ -131,7 +134,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         
         if (ss >= k-1){ // we have looked at all the characters of the kmer
             //1. check end is ok
-            MyTuple best_fmin = std::make_tuple(k+1,0,0,kmer_start);
+            MyTuple best_fmin = make_tuple(k+1,0,0,kmer_start);
             all_fmin.for_each_recent([&ss, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
                 const auto& [f_len, f_int, f_color, f_start] = k_fmin;
                 if ((f_start >= kmer_start)){
@@ -158,42 +161,61 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         // count the number of finimizers found
         results.assign(n_colors, 0);
         
-        #pragma omp parallel for
-        for(const auto& start : Fmin){
-            for (uint64_t i=0; i< n_colors; i++){
-                #pragma omp atomic
-                results[i]+=color_sets_concat[(n_colors*start)+i];
+        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            auto& local = local_results[tid];
+
+            #pragma omp for
+            for (size_t j = 0; j < Fmin.size(); ++j) {
+                uint64_t start = Fmin[j];
+                uint64_t base = n_colors * start;
+                for (uint64_t i = 0; i < n_colors; ++i) {
+                    local[i] += color_sets_concat[base + i];
+                }
             }
         }
-        
-        return;
+
+        // sum final results
+        for (int t = 0; t < local_results.size(); ++t) {
+            for (uint64_t i = 0; i < n_colors; ++i) {
+                results[i] += local_results[t][i];
+            }
+        }
     }
 
+
     void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
-        size_t found_fmin = Fmin.size(); // # total finimizers
+        size_t found_fmin = Fmin.size();
+        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
 
-        vector<uint64_t> tot_res;
-        tot_res.assign(n_colors, 0);
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            auto& local = local_results[tid];
 
-        #pragma omp parallel for
-        for(const auto& start : Fmin){
-            for (uint64_t i=0; i< n_colors; i++){
-                #pragma omp atomic
-                tot_res[i]+=color_sets_concat[start+i];
+            #pragma omp for
+            for (size_t j = 0; j < Fmin.size(); ++j) {
+                uint64_t start = Fmin[j];
+                for (uint64_t i = 0; i < n_colors; ++i) {
+                    local[i] += color_sets_concat[start + i];
+                }
             }
         }
-        results.assign(n_colors, 0);
-        
-        #pragma omp parallel for
-        for (uint64_t i=0; i< n_colors; i++){         
-            // For every color found, (#finimizers with that color)/(#tot finimizers)
-            float fraction = static_cast<float>(tot_res[i]/static_cast<float>(found_fmin));
-            
-            if (t==1 && fraction ==1){ 
-                results[i]=1;
-            } else if (fraction > t){
-                results[i]=fraction;
+
+        vector<uint64_t> tot_res(n_colors, 0);
+        for (const auto& local : local_results) {
+            for (uint64_t i = 0; i < n_colors; ++i) {
+                tot_res[i] += local[i];
             }
         }
-        return;
+
+        results.resize(n_colors);
+        #pragma omp parallel for
+        for (uint64_t i = 0; i < n_colors; ++i) {
+            float fraction = static_cast<float>(tot_res[i]) / found_fmin;
+            results[i] = (t == 1.0f && fraction == 1.0f) ? 1.0f : ((fraction > t) ? fraction : 0.0f);
+        }
     }
