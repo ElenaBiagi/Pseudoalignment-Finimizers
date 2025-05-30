@@ -85,7 +85,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     // iterate over input
     for (start = 1; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
         // 1. prefix found
-        int_p = roll_kmer(int_p, input[start + plen - 1], plen);
+        int_p = stream_kmer(int_p, input[start + plen - 1], plen);
         //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
