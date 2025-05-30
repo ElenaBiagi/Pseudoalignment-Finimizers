@@ -24,10 +24,10 @@ public:
     void for_each_recent(Func f) const {
         for (size_t i = 0; i < size; ++i) {
             size_t idx = (head + capacity - 1 - i) % capacity;
-            //f(buffer[idx]);
-            if (!f(buffer[idx])) {
+            f(buffer[idx]);
+            /* if (!f(buffer[idx])) {
                 break;
-            }
+            } */
         }
     }
 
