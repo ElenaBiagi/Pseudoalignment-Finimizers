@@ -106,7 +106,7 @@ inline uint64_t prefix2int(const std::string_view s, uint64_t offset, char plen)
     return h;
 }
 
-inline uint64_t roll_kmer(uint64_t prev_hash, char new_char, char plen) {
+inline uint64_t stream_kmer(uint64_t prev_hash, char new_char, char plen) {
     uint64_t b = get_char_idx(new_char);
     prev_hash <<= 2;              // shift by 2
     prev_hash |= b;               // new char
