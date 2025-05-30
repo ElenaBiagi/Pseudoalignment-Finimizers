@@ -111,9 +111,14 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
                     /* return true;
                 } else{ return false; }  */
             });
-
+            
             if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
             else{
+                /* all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
+                // start of finimizer must be bigger or equal start of the current k-mer 
+                const auto& [f_len, f_int, f_color, f_start] = k_fmin;
+                cerr << "{"<< (int)f_len << ", "<< f_start << " }" << endl;
+            }); */
                 // TODO remove
                 cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
             }
