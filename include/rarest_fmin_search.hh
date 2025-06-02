@@ -137,10 +137,8 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
     }
 
-    //if (start >= k-1){ // we have looked at all the characters of the kmer
-        PickFinimizer(Fmin, kmer_start, all_fmin, k);
-        kmer_start++;
-    //}
+    PickFinimizer(Fmin, kmer_start, all_fmin, k);
+    kmer_start++;
 
     }
     // Check the last plen-1 values
@@ -162,65 +160,39 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
    // BITMAPS SETS INSTEAD OF COLORS
 
     //TODO: int for the number of colors, change if needed
-    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
-        // count the number of finimizers found
+void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         results.assign(n_colors, 0);
-        
-        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
 
-        #pragma omp parallel
-        {
-            int tid = omp_get_thread_num();
-            auto& local = local_results[tid];
-
-            #pragma omp for
-            for (size_t j = 0; j < Fmin.size(); ++j) {
-                uint64_t start = Fmin[j];
-                uint64_t base = n_colors * start;
-                for (uint64_t i = 0; i < n_colors; ++i) {
-                    local[i] += color_sets_concat[base + i];
-                }
+        for(const auto& start : Fmin){
+            for (uint64_t i=0; i< n_colors; i++){
+                results[i]+=color_sets_concat[(n_colors*start)+i];
             }
         }
 
-        // sum final results
-        for (int t = 0; t < local_results.size(); ++t) {
-            for (uint64_t i = 0; i < n_colors; ++i) {
-                results[i] += local_results[t][i];
-            }
-        }
+        return;
     }
+    
+void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
+        size_t found_fmin = Fmin.size(); // # total finimizers
 
+        vector<uint64_t> tot_res;
+        tot_res.assign(n_colors, 0);
 
-    void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
-        size_t found_fmin = Fmin.size();
-        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
-
-        #pragma omp parallel
-        {
-            int tid = omp_get_thread_num();
-            auto& local = local_results[tid];
-
-            #pragma omp for
-            for (size_t j = 0; j < Fmin.size(); ++j) {
-                uint64_t start = Fmin[j];
-                for (uint64_t i = 0; i < n_colors; ++i) {
-                    local[i] += color_sets_concat[start + i];
-                }
+        for(const auto& start : Fmin){
+            for (uint64_t i=0; i< n_colors; i++){
+                tot_res[i]+=color_sets_concat[start+i];
             }
         }
+        results.assign(n_colors, 0);
 
-        vector<uint64_t> tot_res(n_colors, 0);
-        for (const auto& local : local_results) {
-            for (uint64_t i = 0; i < n_colors; ++i) {
-                tot_res[i] += local[i];
+        for (uint64_t i=0; i< n_colors; i++){         
+            // For every color found, (#finimizers with that color)/(#tot finimizers)
+            float fraction = static_cast<float>(tot_res[i]/static_cast<float>(found_fmin));
+
+            if (t==1 && fraction ==1){
+                results[i]=1;
+            } else if (fraction > t){
+                results[i]=fraction;
             }
         }
-
-        results.resize(n_colors);
-        #pragma omp parallel for
-        for (uint64_t i = 0; i < n_colors; ++i) {
-            float fraction = static_cast<float>(tot_res[i]) / found_fmin;
-            results[i] = (t == 1.0f && fraction == 1.0f) ? 1.0f : ((fraction > t) ? fraction : 0.0f);
-        }
-    }
+        return;
