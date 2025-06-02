@@ -161,6 +161,65 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
     //TODO: int for the number of colors, change if needed
 void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
+        // count the number of finimizers found
+        results.assign(n_colors, 0);
+        
+        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            auto& local = local_results[tid];
+
+            #pragma omp for
+            for (size_t j = 0; j < Fmin.size(); ++j) {
+                uint64_t start = Fmin[j];
+                uint64_t base = n_colors * start;
+                for (uint64_t i = 0; i < n_colors; ++i) {
+                    local[i] += color_sets_concat[base + i];
+                }
+            }
+        }
+
+        // sum final results
+        for (int t = 0; t < local_results.size(); ++t) {
+            for (uint64_t i = 0; i < n_colors; ++i) {
+                results[i] += local_results[t][i];
+            }
+        }
+    }
+
+
+void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
+        size_t found_fmin = Fmin.size();
+        vector<vector<uint64_t>> local_results(omp_get_max_threads(), vector<uint64_t>(n_colors, 0));
+
+        #pragma omp parallelAdd commentMore actions
+        {
+            int tid = omp_get_thread_num();
+            auto& local = local_results[tid];
+            #pragma omp forAdd commentMore actions
+            for (size_t j = 0; j < Fmin.size(); ++j) {
+                uint64_t start = Fmin[j];
+                for (uint64_t i = 0; i < n_colors; ++i) {
+                    local[i] += color_sets_concat[start + i];
+                }
+            }
+        }
+    vector<uint64_t> tot_res(n_colors, 0);
+        for (const auto& local : local_results) {
+            for (uint64_t i = 0; i < n_colors; ++i) {
+                tot_res[i] += local[i];
+            }
+        }
+    results.resize(n_colors);
+        #pragma omp parallel for
+        for (uint64_t i = 0; i < n_colors; ++i) {
+            float fraction = static_cast<float>(tot_res[i]) / found_fmin;
+            results[i] = (t == 1.0f && fraction == 1.0f) ? 1.0f : ((fraction > t) ? fraction : 0.0f);
+        }
+    }
+/* void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         results.assign(n_colors, 0);
 
         for(const auto& start : Fmin){
@@ -171,7 +230,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
 
         return;
     }
-    
+
 void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
         size_t found_fmin = Fmin.size(); // # total finimizers
 
@@ -196,3 +255,5 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             }
         }
         return;
+    }
+   */  
