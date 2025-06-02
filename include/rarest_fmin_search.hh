@@ -160,7 +160,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
    // BITMAPS SETS INSTEAD OF COLORS
 
     //TODO: int for the number of colors, change if needed
-void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
+/* void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         // count the number of finimizers found
         results.assign(n_colors, 0);
         
@@ -219,7 +219,8 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             results[i] = (t == 1.0f && fraction == 1.0f) ? 1.0f : ((fraction > t) ? fraction : 0.0f);
         }
     }
-/* void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
+ */
+void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
         results.assign(n_colors, 0);
 
         for(const auto& start : Fmin){
@@ -256,4 +257,4 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         }
         return;
     }
-   */  
+ 
