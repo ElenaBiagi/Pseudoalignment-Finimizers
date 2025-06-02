@@ -110,11 +110,11 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     for (ss = 1; ss < k-1; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
         // 1. prefix found
         int_p = stream_kmer(int_p, input[ss + plen - 1], plen);
-        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
+        //int_p = prefix2int(input, ss, plen); // shorten by 1 at every loop iteration    
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
             s_len = (str_len >= ss+k) ? k-plen : str_len-ss-plen;
-            int_s = prefix2int(input, start+plen, s_len);; // tail
+            int_s = prefix2int(input, ss+plen, s_len);; // tail
             FindPrefix(buckets, plen, s_len, int_s, int_p, ss, all_fmin); 
         }else{
             int_sp = int_p >> 2;
@@ -136,10 +136,8 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         int_sp = int_p >> 2;
         FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
     }
-
     PickFinimizer(Fmin, kmer_start, all_fmin, k);
     kmer_start++;
-
     }
     // Check the last plen-1 values
     uint8_t s_plen = plen;
