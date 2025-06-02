@@ -48,7 +48,30 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, con
         all_fmin.insert(make_tuple(plen + len, f_int, bucket_p.color_set_ids[pos], start));
     }
 }
-            
+
+void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, CBuffer& all_fmin,const uint8_t k){
+    MyTuple best_fmin = make_tuple(k+1,0,0,kmer_start);
+    all_fmin.for_each_recent([&k, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
+    // start of finimizer must be bigger or equal start of the current k-mer 
+    const auto& [f_len, f_int, f_color, f_start] = k_fmin;
+    if ((f_start >= kmer_start) && (f_len + f_start - 1 <= (kmer_start+k-1)) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
+            best_fmin = k_fmin;
+        } 
+        /* return true;
+    } else{ return false; }  */
+    });
+
+    if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
+    else{
+        /* all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
+        // start of finimizer must be bigger or equal start of the current k-mer 
+        const auto& [f_len, f_int, f_color, f_start] = k_fmin;
+        cerr << "{"<< (int)f_len << ", "<< f_start << " }" << endl;
+    }); */
+        // TODO remove
+        cerr << "finimizer not found for kmer "<< endl;// << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
+    }
+}
 vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
     const int64_t str_len = input.size();
     if (str_len < k){return {};}
@@ -72,6 +95,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     uint64_t int_s = prefix2int(input, start+plen, s_len); // tail
     uint64_t int_sp;
 
+    // Check the first k-2 characters
     if (buckets[int_p].has_value()){
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
         // if the length of input is at leas tk , the slen = k-plen
@@ -81,79 +105,56 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         int_sp = int_p >> 2;
         FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
     }
-
-    // iterate over input
-    for (start = 1; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
+    
+    uint64_t ss = 1; 
+    for (ss = 1; ss < k-1; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
         // 1. prefix found
-        int_p = stream_kmer(int_p, input[start + plen - 1], plen);
+        int_p = stream_kmer(int_p, input[ss + plen - 1], plen);
         //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-            s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+            s_len = (str_len >= ss+k) ? k-plen : str_len-ss-plen;
             int_s = prefix2int(input, start+plen, s_len);; // tail
-            FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
+            FindPrefix(buckets, plen, s_len, int_s, int_p, ss, all_fmin); 
         }else{
             int_sp = int_p >> 2;
-            FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
+            FindShortFinimizer(plen-1, int_sp, sB, ss, all_fmin);
         }
-  
-        if (start >= k-1){ // we have looked at all the characters of the kmer
-            
-            //1. check end and start are ok
-            MyTuple best_fmin = make_tuple(k+1,0,0,kmer_start);
-            
-            all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
-                // start of finimizer must be bigger or equal start of the current k-mer 
-                const auto& [f_len, f_int, f_color, f_start] = k_fmin;
-                if ((f_start >= kmer_start) && (f_len + f_start - 1 <= start) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
-                        best_fmin = k_fmin;
-                    } 
-                    /* return true;
-                } else{ return false; }  */
-            });
 
-            if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
-            else{
-                /* all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
-                // start of finimizer must be bigger or equal start of the current k-mer 
-                const auto& [f_len, f_int, f_color, f_start] = k_fmin;
-                cerr << "{"<< (int)f_len << ", "<< f_start << " }" << endl;
-            }); */
-                // TODO remove
-                cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
-            }
-            
-            kmer_start++;
-        }
+    }
+
+    for (start = ss ; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
+    // 1. prefix found
+    int_p = stream_kmer(int_p, input[start + plen - 1], plen);
+    //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
+    if (buckets[int_p].has_value()){
+        // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
+        s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+        int_s = prefix2int(input, start+plen, s_len);; // tail
+        FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
+    }else{
+        int_sp = int_p >> 2;
+        FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
+    }
+
+    //if (start >= k-1){ // we have looked at all the characters of the kmer
+        PickFinimizer(Fmin, kmer_start, all_fmin, k);
+        kmer_start++;
+    //}
 
     }
     // Check the last plen-1 values
     uint8_t s_plen = plen;
-    for (uint64_t ss = start; ss < str_len; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
+    for (ss = start; ss < str_len; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
         s_plen--;
         int_p = prefix2int(input, ss, s_plen); // shorten by 1 at every loop iteration
         FindShortFinimizer(s_plen, int_p, sB, ss, all_fmin);// this shortens s_plen by 1 internally
         
         if (ss >= k-1){ // we have looked at all the characters of the kmer
-            //1. check end is ok
-            MyTuple best_fmin = make_tuple(k+1,0,0,kmer_start);
-            all_fmin.for_each_recent([&ss, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
-                const auto& [f_len, f_int, f_color, f_start] = k_fmin;
-                if ((f_start >= kmer_start) && (f_len + f_start - 1 <= ss) && (best_fmin > k_fmin) ){ // {length, fmin, C_offset, start} // if start comes before the kmer_start that it must be discarded
-                        best_fmin = k_fmin;
-                    } 
-                /*     return true;
-                } else{ return false; } */ 
-            });
-            if (get<0>(best_fmin) < k+1){Fmin.push_back(get<2>(best_fmin));} // Store only the start of the color set ids in color_set_concat
-            else{
-                // TODO remove
-                cerr << "finimizer not found for kmer " << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
-            }
+            PickFinimizer(Fmin, kmer_start, all_fmin, k);
             kmer_start++;
         }
     }
-    
     return Fmin;
 }
  
