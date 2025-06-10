@@ -85,7 +85,7 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, CBuffer& a
         cerr << "finimizer not found for kmer "<< endl;// << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
     }
 }
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k, const sdsl::bit_vector& color_sets_concat){ 
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
     //vector<uint64_t> tailsSoFar;
     const int64_t str_len = input.size();
     if (str_len < k){return {};}

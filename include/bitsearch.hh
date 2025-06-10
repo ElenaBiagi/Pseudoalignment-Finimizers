@@ -93,6 +93,11 @@ uint64_t read_unaligned_64bits(const uint64_t* data, size_t total_bits, size_t o
    size_t word_index = offset_bits / 64;
    size_t bit_offset = offset_bits % 64;
 
+  // std::cerr << "offset_bits: " << offset_bits << "\n";
+  // std::cerr << "word_index: " << word_index << "\n";
+  // std::cerr << "accessing: data[" << word_index + 1 << "]\n";
+
+
    if (bit_offset == 0) {
         return data[word_index];
    }
@@ -123,8 +128,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
    for (uint64_t i = 0; i < total_groups; ++i) {
       size_t bit_offset = offset + i * tails_per_word * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64; // size_t bit_offset = offset + i * W; //
 
-
-      uint64_t w = read_unaligned_64bits(data, T.size()-128, bit_offset); 
+      uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset); 
       //printBinary(w); cerr << " w at bit_offset=" << bit_offset << endl;      
 
       uint64_t tails_in_this_group = std::min(tails_per_word, ntails - i * tails_per_word);
@@ -187,7 +191,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
 
 
 // output: pos in T (to get colors), tlen
-pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
    //cerr << "slen = "<< (int)slen << endl;
    //cerr << s << endl;
    // input: T, offset in T, string or substring after prefix
@@ -261,12 +265,15 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
 
       // 4. Look for substring where the tails of that length start 
       int64_t res = slam (T,data, pos, tlen*2, key, ntails); // bitwise operations 
-      if (res!=-1) {return {res+tails_so_far, tlen};}
+      if (res!=-1) {
+         //tailsSoFar.push_back(tails_so_far);
+         return {res+tails_so_far, tlen};}
       pos+= (tlen*ntails*2);
     //  cerr << "pos = " << pos<< endl;
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
       //cerr << "tails_so_far = " << tails_so_far << endl;
+      //if (tlen ==21){break;}
    }
    // TODO add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
    return {-1,0};

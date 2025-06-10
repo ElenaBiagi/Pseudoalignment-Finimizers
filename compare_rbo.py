@@ -1,11 +1,32 @@
 import sys
 
-import rbo
+#import rbo
 
 from sigir2024_rbo import *
 
 import numpy as np
 
+def parse_file_t(file_path):
+    data = {}
+    
+    r=0
+    with open(file_path, 'r') as file:
+        for line in file:
+            before_colon = []
+            after_colon = []
+            
+            parts = line.strip().split()  # Split line by spaces
+            row_num = r #int(parts[0])  # First number is the row index
+            r += 1
+            
+            for pair in parts[1:]:  # Process the remaining elements
+                before, after = map(int, pair.split(":"))
+                before_colon.append(str(before))
+                after_colon.append(after)
+            
+            data[row_num] = (before_colon, after_colon)  # Store as tuple of lists
+    
+    return data
 
 def parse_file(file_path):
     data = {}
@@ -79,7 +100,7 @@ print(S)
 
 # compares genomes ids as strings 
 def compare_files(file1_path, file2_path, genomes):
-    file1_data = parse_file(file1_path)
+    file1_data = parse_file_t(file1_path) #themisto
     file2_data = parse_file(file2_path)
         
     num_rows = len(file1_data)

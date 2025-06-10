@@ -114,15 +114,6 @@ inline uint64_t stream_kmer(uint64_t prev_hash, char new_char, char plen) {
     return prev_hash;
 }
 
-// TODO REMOVE
-inline uint64_t suffix2int(const std::string& s, uint64_t offset, char slen) { // if fmin length = 31 we need 62 bits in total, 42 for the tail if plen=10
-    uint64_t h = 0;
-    for (uint64_t i = 0; i < (uint64_t)slen; i++) {
-        uint64_t b = get_char_idx(s[offset + slen - 1 - i]);
-        h |= (b << (i << 1)); 
-    }
-    return h;
-}
 
 vector<uint8_t> vbyte_encode(uint64_t x) {
     vector<uint8_t> bytes;
@@ -243,4 +234,63 @@ vector< std::string> split_by_N(const std::string &input, const int64_t k) {
     }
 
     return result;
+}
+
+string print_finimizer_stats(const vector<tuple<int64_t, int64_t, int64_t>>& finimizers, int64_t n_kmers, int64_t t, const sdsl::bit_vector& color_sets_concat){
+    // len, int, colors
+    int64_t new_number_of_fmin = finimizers.size();
+    set<tuple<int64_t, int64_t, int64_t>> set_fmin = set(finimizers.begin(), finimizers.end());
+    int64_t d_number_of_fmin = set_fmin.size();
+    
+    vector<uint64_t> lengths;
+    lengths.resize(31);
+
+    uint64_t n_colors = 1990;
+    uint64_t sum_colors = 0;
+    uint64_t s_colors = 0;
+
+    vector<uint64_t> v_colors;
+    v_colors.resize(1990);
+
+    //int64_t sum_freq = 0;
+
+    int64_t sum_len = 0;
+    for (auto x : finimizers){
+        s_colors = 0;
+        //sum_freq += get<1>(x);
+        auto start = get<2>(x);
+        for (uint64_t i=0; i< n_colors; i++){
+            s_colors+=color_sets_concat[(n_colors*start)+i];
+        }
+        sum_colors += s_colors;
+        v_colors[s_colors] += 1;
+        lengths[get<0>(x)] += 1;
+        sum_len += get<0>(x);
+    }
+
+    string result = to_string(new_number_of_fmin) + "," + to_string(d_number_of_fmin) + "," + to_string(static_cast<float>(sum_colors) / static_cast<float>(new_number_of_fmin)) + "," + to_string(static_cast<float>(sum_len) / static_cast<float>(new_number_of_fmin));
+
+    write_log(to_string(t) + "," + result, LogLevel::MAJOR);
+    write_log("#total finimizers: " + to_string(new_number_of_fmin) , LogLevel::MAJOR);
+
+    write_log("#Distinct finimizers: " + to_string(d_number_of_fmin) , LogLevel::MAJOR);
+
+    //write_log("Sum of frequencies: " + to_string(sum_freq) , LogLevel::MAJOR);
+    //write_log("Avg frequency: " + to_string(static_cast<float>(sum_freq)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
+    write_log("Avg colors: " + to_string(static_cast<float>(sum_colors)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
+
+    write_log("Avg length: " + to_string(static_cast<float>(sum_len)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
+    return result;
+}
+
+    std::ostream& operator<<(std::ostream& os, const std::set<int>& set) {
+    os << "{";
+    for (auto it = set.begin(); it != set.end(); ++it) {
+        os << *it;
+        if (std::next(it) != set.end()) {
+            os << ", ";
+        }
+    }
+    os << "}";
+    return os;
 }
