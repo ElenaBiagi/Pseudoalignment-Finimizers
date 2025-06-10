@@ -10,8 +10,6 @@
 #include <optional>
 #include <deque>
 
-#include <omp.h>
-
 
 //#include "SeqIO.hh"
 //#include "BoundedDeque.hh"
@@ -205,15 +203,9 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
 
         // 1. Read the first word
         uint64_t first_w = data[word_index] >> w_offset;
-        /* if (first_w != 0){
-            for (uint64_t i=0; i< bits_read; i++){
-                //results[i]+=color_sets_concat[(n_colors*start)+i];
-                if ((first_w >> i) & 1) {results[i]++;} 
-            }
-        } */
+        
         while (first_w != 0) {
             uint8_t lowest_set_bit = __builtin_ctzll(first_w);
-            //cerr << "first : " << (int)lowest_set_bit << endl;
             results[lowest_set_bit]++;
             first_w &= first_w - 1;
         }
@@ -227,12 +219,6 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         for (size_t j=1; j < n_words-1; j++){
             word_index++;
             uint64_t w = data[word_index];
-            /* if (w != 0){
-                for (uint64_t i=0; i< 64; i++){
-                    //results[color_id +i]+=color_sets_concat[(n_colors*start)+color_id +i];
-                    if ((w >> i) & 1) {results[color_id + i]++;} 
-                }
-            } */
            while (w != 0) {
                 uint8_t lowest_set_bit = __builtin_ctzll(w);
                 results[color_id + lowest_set_bit]++;
@@ -245,12 +231,6 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         const uint64_t bits_left = n_colors - color_id;
         if (bits_left>0){
             uint64_t last_w = data[word_index+1]; 
-            /* if (last_w != 0){
-                for (uint64_t i=0; i<bits_left; i++){
-                    //results[color_id +i]+=color_sets_concat[(n_colors*start)+color_id +i];
-                    if ((last_w >> i) & 1) {results[color_id + i]++;} 
-                }
-            } */
             while (last_w != 0) {
                 uint8_t lowest_set_bit = __builtin_ctzll(last_w);
                 results[color_id + lowest_set_bit]++;
