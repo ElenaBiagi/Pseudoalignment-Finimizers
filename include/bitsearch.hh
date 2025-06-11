@@ -93,11 +93,6 @@ uint64_t read_unaligned_64bits(const uint64_t* data, size_t total_bits, size_t o
    size_t word_index = offset_bits / 64;
    size_t bit_offset = offset_bits % 64;
 
-  // std::cerr << "offset_bits: " << offset_bits << "\n";
-  // std::cerr << "word_index: " << word_index << "\n";
-  // std::cerr << "accessing: data[" << word_index + 1 << "]\n";
-
-
    if (bit_offset == 0) {
         return data[word_index];
    }
@@ -138,39 +133,7 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
       if(found){
          uint64_t lz = __builtin_clzll(found);
          bool needsCorrection = (found>>(63-lz-W))&1;
-         int64_t result = (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
-
-         /* cerr << "width = "<< (int)W << endl;
-         cerr << "key = "<< key << endl;
-         cerr << "ntails = " << ntails << endl;
-         printBinary(w); cerr << " w" << endl;
-         printBinary(mask); cerr << " mask for the key" << endl;
-
-         printBinary((w) ^ mask); cerr << " (w) ^ mask" << endl;
-         printBinary(mask2); cerr << " mask2" << endl;
-
-         printBinary(((w ) ^ mask) - mask2); cerr << " (w ^ mask)- (mask2)" << endl;
-         printBinary(~(w ^ mask)); cerr << " ~(w ^ mask)" << endl;
-
-         printBinary(((w ^ mask) - mask2) & ~(w  ^ mask)); cerr << "((w  ^ mask) - (mask2) & ~(w ^ mask)" << endl;
-         printBinary(mask3); cerr << " mask3" << endl;
-         printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3)); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3)" << endl;
-
-         printBinary(Wmask); cerr << " mask wrong width" << endl;
-
-         printBinary(((w  ^ mask) - mask2 & ~(w  ^ mask) & mask3) & (~Wmask)); cerr << " ((w ^ mask)- mask2) & ~(w  ^ mask) & mask3) & (Wmask)" << endl;
-
-         printBinary(found); cerr << " found" << endl;
-         
-         cerr << "j = "<< j << endl;
-         cerr << "lz = "<< lz<< endl;
-
-         
-         if (needsCorrection) cerr << "needsCorrection: " << needsCorrection << '\n';
-                  
-         cerr << "ok result = "<< result << endl;
-         cerr << endl; */
-         return result;
+         return (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
       }
       j++; 
    // 1. I'm only looking at words that start at 0 -> no need to shift masks [OK]
