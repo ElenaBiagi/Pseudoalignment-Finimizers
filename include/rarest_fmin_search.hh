@@ -38,9 +38,9 @@ void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const unorder
     }
 }
 
-void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, CBuffer& all_fmin){//, vector<uint64_t>& tailsSoFar ){
+void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, CBuffer& all_fmin){
     const Bucket& bucket_p = *buckets[int_p];
-    auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);//, tailsSoFar); // input: sdsl::bit_vector &T, int64_t pointer, string S    
+    auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
     if (pos > -1){
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); // TODO ADD PREFIX AND TLEN: shift p_int to the left by len*2, and int_s to the right to remove the unused chars
         all_fmin.insert(make_tuple(plen + len, f_int, bucket_p.color_set_ids[pos], start));
@@ -74,17 +74,17 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, CBuffer& a
         }
     }
     else{
+        // TODO remove this branch
         /* all_fmin.for_each_recent([&start, &kmer_start, &best_fmin](const MyTuple& k_fmin) {            
         // start of finimizer must be bigger or equal start of the current k-mer 
         const auto& [f_len, f_int, f_color, f_start] = k_fmin;
         cerr << "{"<< (int)f_len << ", "<< f_start << " }" << endl;
         }); */
-        // TODO remove
         cerr << "finimizer not found for kmer "<< endl;// << kmer_start << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
     }
 }
 vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
-    //vector<uint64_t> tailsSoFar;
+
     const int64_t str_len = input.size();
     if (str_len < k){return {};}
     vector<uint64_t> Fmin;// pointer to C
@@ -111,82 +111,67 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     // Check the first k-2 characters
     if (buckets[int_p].has_value()){
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-        // if the length of input is at leas tk , the slen = k-plen
+        // if the length of input is at leas k, slen = k-plen
         // defined above int_s = prefix2int(input, start+plen, s_len); // tail
-        FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin);//, tailsSoFar); 
+        FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin); 
     }else{
         int_sp = int_p >> 2;
         FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
     }
     
-    uint64_t ss = 1; 
-    for (ss = 1; ss < k-1; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
+     
+    // The first k-1 characters do not contail all possible finimizers for the first k-mer
+    for (start = 1; start < k-1; start++ ){ 
         // 1. prefix found
-        int_p = stream_kmer(int_p, input[ss + plen - 1], plen);
-        //int_p = prefix2int(input, ss, plen); // shorten by 1 at every loop iteration    
+        int_p = stream_kmer(int_p, input[start + plen - 1], plen);
+        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
         if (buckets[int_p].has_value()){
             // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-            s_len = (str_len >= ss+k) ? k-plen : str_len-ss-plen;
-            int_s = prefix2int(input, ss+plen, s_len);; // tail
-            FindPrefix(buckets, plen, s_len, int_s, int_p, ss, all_fmin);//, tailsSoFar); 
+            s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+            int_s = prefix2int(input, start+plen, s_len);; // tail
+            FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin);
         }else{
             int_sp = int_p >> 2;
-            FindShortFinimizer(plen-1, int_sp, sB, ss, all_fmin);
+            FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
         }
+    }
+    uint64_t ss = start;
+    for (start = ss ; start < str_len-plen+1; start++ ){ // TODO end this loop earlier so that s_len is constant 
+        // 1. prefix found
+        int_p = stream_kmer(int_p, input[start + plen - 1], plen);
+        //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
+        if (buckets[int_p].has_value()){
+            // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
+            s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
+            int_s = prefix2int(input, start+plen, s_len);; // tail
+            FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin);
+        }else{
+            int_sp = int_p >> 2;
+            FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
+        }
+        PickFinimizer(Fmin, kmer_start, all_fmin, k, finimizers);
+        kmer_start++;
+    }
+    // TODO Check the lenght of the string and add another loop for shorter s_len and stream s_int
 
-    }
-
-    for (start = ss ; start < str_len-plen+1; start++ ){ //TODO the last k-plen characters cannot contain a prefix
-    // 1. prefix found
-    int_p = stream_kmer(int_p, input[start + plen - 1], plen);
-    //int_p = prefix2int(input, start, plen); // shorten by 1 at every loop iteration    
-    if (buckets[int_p].has_value()){
-        // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
-        s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
-        int_s = prefix2int(input, start+plen, s_len);; // tail
-        FindPrefix(buckets, plen, s_len, int_s, int_p, start, all_fmin);//, tailsSoFar); 
-    }else{
-        int_sp = int_p >> 2;
-        FindShortFinimizer(plen-1, int_sp, sB, start, all_fmin);
-    }
-    PickFinimizer(Fmin, kmer_start, all_fmin, k, finimizers);
-    kmer_start++;
-    }
     // Check the last plen-1 values
+    //The last k-plen characters cannot contain a prefix
+    ss = start;
     uint8_t s_plen = plen;
-    for (ss = start; ss < str_len; ss++ ){ //TODO the last k-plen characters cannot contain a prefix
+    for (start = ss; start < str_len; start++ ){ 
         s_plen--;
-        int_p = prefix2int(input, ss, s_plen); // shorten by 1 at every loop iteration
-        FindShortFinimizer(s_plen, int_p, sB, ss, all_fmin);// this shortens s_plen by 1 internally
+        int_p = prefix2int(input, start, s_plen); // shorten by 1 at every loop iteration
+        FindShortFinimizer(s_plen, int_p, sB, start, all_fmin);// this shortens s_plen by 1 internally
         
-        if (ss >= k-1){ // we have looked at all the characters of the kmer
+        if (start >= k-1){ // we have looked at all the characters of the kmer
             PickFinimizer(Fmin, kmer_start, all_fmin, k, finimizers);
             kmer_start++;
         }
     }
-    /* uint64_t s_tails = reduce(tailsSoFar.begin(), tailsSoFar.end(), 0);
-    cout << (float)s_tails /  tailsSoFar.size() << endl;
-    // TODO PRINT STATS
-    string res = print_finimizer_stats(finimizers,Fmin.size(), 1, color_sets_concat);
-     */
+    
     return Fmin;
 }
- 
-   // TODO: FOUND COLORS: vector of bits and flip found and store in a vector, then flip back
-   // BITMAPS SETS INSTEAD OF COLORS
 
-    //TODO: int for the number of colors, change if needed
-/* void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
-    results.assign(n_colors, 0);
-
-    for(const auto& start : Fmin){
-        for (uint64_t i=0; i< n_colors; i++){
-            results[i]+=color_sets_concat[(n_colors*start)+i];
-        }
-    }
-
-    return;
-} */
 
 void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
     
@@ -202,7 +187,8 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         uint64_t color_id = 0;
 
         // 1. Read the first word
-        uint64_t first_w = data[word_index] >> w_offset;
+        uint64_t mask = (bits_read == 64) ? ~0ULL : ((1ULL << bits_read) - 1);
+        uint64_t first_w = (data[word_index] >> w_offset) & mask;
         
         while (first_w != 0) {
             uint8_t lowest_set_bit = __builtin_ctzll(first_w);
@@ -215,11 +201,11 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         // 2. Read aligned words in btw
         w_offset = 0;
         // Check how many words we will have to read
-        const uint64_t n_words = (n_colors/64)+1;
-        for (size_t j=1; j < n_words-1; j++){
+        uint64_t bits_left = n_colors - color_id;
+        while (color_id + 64 <= n_colors - bits_left) {
             word_index++;
             uint64_t w = data[word_index];
-           while (w != 0) {
+            while (w != 0) {
                 uint8_t lowest_set_bit = __builtin_ctzll(w);
                 results[color_id + lowest_set_bit]++;
                 w &= w - 1;
@@ -227,10 +213,12 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             color_id += 64;
         }
 
-        // 3. Read the last word (could be of length 64)
-        const uint64_t bits_left = n_colors - color_id;
-        if (bits_left>0){
-            uint64_t last_w = data[word_index+1]; 
+        // 3. Read the last word (if any)
+        bits_left = n_colors - color_id;
+        if (bits_left > 0){
+            uint64_t mask = (bits_left == 64) ? ~0ULL : ((1ULL << bits_left) - 1);
+            uint64_t last_w = data[word_index + 1] & mask;
+
             while (last_w != 0) {
                 uint8_t lowest_set_bit = __builtin_ctzll(last_w);
                 results[color_id + lowest_set_bit]++;
