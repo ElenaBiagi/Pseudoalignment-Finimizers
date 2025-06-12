@@ -14,10 +14,11 @@ public:
     };
     
     // Compressed tail data
-    // Bit layout: [tail length: u8][#tails: vbyte][concat of bitpacked tails]
-    //             [tail length: u8][#tails: vbyte][concat of bitpacked tails] 
-    //             [tail length: u8][#tails: vbyte][concat of bitpacked tails] 
-    //             ...
+    // tail length = tlen
+    // Bit layout for evry prefix:  [tlen: 5bits][#tails: vbyte][concat of bitpacked tails: #tails * tlen * 2]
+    //                              [tlen: 5bits][#tails: vbyte][concat of bitpacked tails: #tails * tlen * 2] 
+    //                              [tlen: 5bits][#tails: vbyte][concat of bitpacked tails: #tails * tlen * 2] 
+    //                                  ...
     sdsl::int_vector<1> tail_data;
 
     // Color set ids for each tail
@@ -45,11 +46,8 @@ public:
             ct.color_set_id = unsorted_color_set_ids[i];
             B_tails.push_back(ct);
         }
-        // This permutes also the color_set_ids
+        // This permutes also the color_set_ids (later)
         std::sort(B_tails.begin(), B_tails.end()); 
-        /* for (size_t i = 0; i < B_tails; i++)
-            color_set_ids[i]=B_tails[i].color_set_id;
-        } */
         
         WriteTailsVector(B_tails);
     }

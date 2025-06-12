@@ -126,19 +126,8 @@ public:
 
         f_start = 0; // Go back to zero
 
-        //set<string> vv = get_substrings((string)"CGCCGTGTCGATGGAGGCGCATTATAGGGAG");
-        //set<string> vv = get_substrings((string)"AGTGGGTGCTCACCTTGACGGCTTTGCAGCG");
-        
-        
-        /* for (auto v: vv){
-            cerr << v << endl;
-        }
-        cerr << (int)vv.size()<< endl; */
         for(int64_t i = 0; i < n_finimizers; i++) {
-            std::string_view fmin(cf.concat.data() + f_start, cf.lengths[i]);
-            /* if (std::find(vv.begin(), vv.end(), std::string(fmin)) != vv.end()){
-                cerr << fmin << " EXISTS !!"<< endl;
-            } */
+            
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
                 uint64_t sp_int = prefix2int(sprefix,0, cf.lengths[i]);
