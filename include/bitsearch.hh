@@ -21,6 +21,7 @@
 
 using namespace std;
 
+// TODO remove
 void printBinary(uint64_t v){ // prints in the reverse order
    for(int i=0;i<64;i++){
       cerr << ((v>>i)&1);
@@ -29,17 +30,15 @@ void printBinary(uint64_t v){ // prints in the reverse order
    //cerr << '\n';
 }
 
-#define hasless(x,n) (((x)-~0UL/255*(n))&~(x)&~0UL/255*128)
-
-#define haszero(v, W, mask2, mask3, Wmask) ((((v) - mask2) & ~(v) & mask3)&(~Wmask))
+#define haszero(v, mask2, mask3, Wmask) ((((v) - mask2) & ~(v) & mask3)&(~Wmask))
 
 
-#define hasvaluesupply(x,W,mask, mask2, mask3, Wmask) \
-(haszero((x ^ mask), W, mask2, mask3, Wmask))
+#define hasvaluesupply(w, mask, mask2, mask3, Wmask) \
+(haszero((w ^ mask), mask2, mask3, Wmask))
 
 
 // TODO: this now works only for k=31 and plen=10
- constexpr uint64_t masks23[43][2] = {
+static constexpr uint64_t masks23[43][2] = {
    {0x0000000000000000, 0x0000000000000000}, // W = 0 (unused)
    {0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF}, // 1-bit
    {0x5555555555555555, 0xAAAAAAAAAAAAAAAA}, // 2-bit
@@ -99,10 +98,10 @@ void printBinary(uint64_t v){ // prints in the reverse order
    
    const uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128 // ERROR heap-buffer-overflow
 
-    return first_w | second_w;
+   return first_w | second_w;
 }
 
-inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint16_t ntails){
+inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint16_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
 
    // Look at 64 bits at a time starting from offset (skip tlen and ntail (5+8+?))
@@ -118,18 +117,18 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
    uint64_t j = 0;
    for (uint64_t i = 0; i < ntails; i+=tails_per_word) {
       size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
-      uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset); 
+      const uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset);
 
       uint64_t tails_in_this_group = std::min(tails_per_word, ntails - i);
 
       uint64_t bits_used = tails_in_this_group * W;
-      uint64_t Wmask = (bits_used < 64) ? (~0ULL << bits_used) : 0;
+      uint64_t Wmask = (~0ULL << bits_used) & -(bits_used < 64);
 
-      uint64_t found = hasvaluesupply(w,W,mask,mask2, mask3, Wmask);
+      uint64_t found = hasvaluesupply(w,mask,mask2, mask3, Wmask);
       
       if(found){
          uint64_t lz = __builtin_clzll(found);
-         bool needsCorrection = (found>>(63-lz-W))&1;
+         int needsCorrection = (found>>(63-lz-W))&1;
          return (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
       }
       j++; 
@@ -186,7 +185,7 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
       uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
 
       // 4. Look for substring where the tails of that length start 
-      int64_t res = slam (T,data, pos, tlen*2, key, ntails); // bitwise operations 
+      int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
       if (res!=-1) {
          // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
          return {res+tails_so_far, tlen};}
