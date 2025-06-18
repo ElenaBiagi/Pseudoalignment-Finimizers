@@ -95,9 +95,9 @@ void printBinary(uint64_t v){ // prints in the reverse order
         return data[word_index];
    }
 
-   uint64_t first_w = data[word_index] >> bit_offset;
+   const uint64_t first_w = data[word_index] >> bit_offset;
    
-   uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128 // ERROR heap-buffer-overflow
+   const uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128 // ERROR heap-buffer-overflow
 
     return first_w | second_w;
 }
@@ -109,11 +109,11 @@ inline int64_t slam(const sdsl::int_vector<1> &T, const uint64_t* data, const in
    // Look at tlen*ntail*2 bits
    // Mask all the bits after that
 
-   uint64_t mask2 = masks23[W][0];
-   uint64_t mask3 = masks23[W][1];
-   uint64_t mask = mask2*key; //~0ULL/255 * key;
+   const uint64_t mask2 = masks23[W][0];
+   const uint64_t mask3 = masks23[W][1];
+   const uint64_t mask = mask2*key; //~0ULL/255 * key;
 
-   uint64_t tails_per_word = std::min<uint64_t>(64 / W, ntails);
+   const uint64_t tails_per_word = std::min<uint64_t>(64 / W, ntails);
 
    uint64_t j = 0;
    for (uint64_t i = 0; i < ntails; i+=tails_per_word) {
