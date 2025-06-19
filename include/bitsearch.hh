@@ -38,7 +38,7 @@ void printBinary(uint64_t v){ // prints in the reverse order
 
 
 // TODO: this now works only for k=31 and plen=10
-static constexpr uint64_t masks23[43][2] = {
+static constexpr uint64_t old_masks23[43][2] = {
    {0x0000000000000000, 0x0000000000000000}, // W = 0 (unused)
    {0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF}, // 1-bit
    {0x5555555555555555, 0xAAAAAAAAAAAAAAAA}, // 2-bit
@@ -83,6 +83,54 @@ static constexpr uint64_t masks23[43][2] = {
    {0x0000000000000001, 0x0000010000000000}, // 41-bit
    {0x0000000000000001, 0x0000020000000000}, // 42-bit
 };
+static constexpr uint64_t masks23[21][2] = {
+   {0x5555555555555555, 0xAAAAAAAAAAAAAAAA}, // 2-bit
+   {0x1111111111111111, 0x8888888888888888}, // 4-bit
+   {0x0041041041041041, 0x0820820820820820}, // 6-bit
+   {0x0101010101010101, 0x8080808080808080}, // 8-bit
+   {0x0004010040100401, 0x0802008020080200}, // 10-bit
+   {0x0001001001001001, 0x0800800800800800}, // 12-bit
+   {0x0000040010004001, 0x0080020008002000}, // 14-bit
+   {0x0001000100010001, 0x8000800080008000}, // 16-bit
+   {0x0000001000040001, 0x0020000800020000}, // 18-bit
+   {0x0000010000100001, 0x0800008000080000}, // 20-bit
+   {0x0000000000400001, 0x0000080000200000}, // 22-bit
+   {0x0000000001000001, 0x0000800000800000}, // 24-bit
+   {0x0000000004000001, 0x0008000002000000}, // 26-bit
+   {0x0000000010000001, 0x0080000008000000}, // 28-bit
+   {0x0000000040000001, 0x0800000020000000}, // 30-bit
+   {0x0000000100000001, 0x8000000080000000}, // 32-bit
+   {0x0000000000000001, 0x0000000200000000}, // 34-bit
+   {0x0000000000000001, 0x0000000800000000}, // 36-bit
+   {0x0000000000000001, 0x0000002000000000}, // 38-bit
+   {0x0000000000000001, 0x0000008000000000}, // 40-bit
+   {0x0000000000000001, 0x0000020000000000}, // 42-bit
+};
+
+static constexpr uint16_t tails[] = {
+    32, // 2 
+    16, // 4
+    10, // 6
+     8, // 8
+     6, // 10
+     5, // 12
+     4, // 14
+     4, // 16
+     3, // 18
+     3, // 20
+     2, // 22
+     2, // 24
+     2, // 26
+     2, // 28
+     2, // 30
+     2, // 32
+     1, // 34
+     1, // 36
+     1, // 38
+     1, // 40
+     1 // 42
+};
+
 
  uint64_t read_unaligned_64bits(const uint64_t* data, size_t total_bits, size_t offset_bits) {
    //assert(offset_bits + 64 <= total_bits); // total_bits is useless
@@ -108,18 +156,19 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
    // Look at tlen*ntail*2 bits
    // Mask all the bits after that
 
-   const uint64_t mask2 = masks23[W][0];
-   const uint64_t mask3 = masks23[W][1];
+   const uint64_t mask2 = masks23[(W/2)-1][0];
+   const uint64_t mask3 = masks23[(W/2)-1][1];
    const uint64_t mask = mask2*key; //~0ULL/255 * key;
 
-   const uint64_t tails_per_word = std::min<uint64_t>(64 / W, ntails);
+   const uint16_t tails_per_word = std::min<uint16_t>(tails[(W/2)-1], ntails);
+
 
    uint64_t j = 0;
-   for (uint64_t i = 0; i < ntails; i+=tails_per_word) {
+   for (uint16_t i = 0; i < ntails; i+=tails_per_word) {
       size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
       const uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset);
 
-      uint64_t tails_in_this_group = std::min(tails_per_word, ntails - i);
+      uint16_t tails_in_this_group = std::min<uint16_t>(tails_per_word, ntails - i);
 
       uint64_t bits_used = tails_in_this_group * W;
       uint64_t Wmask = (~0ULL << bits_used) & -(bits_used < 64);
