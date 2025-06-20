@@ -52,8 +52,7 @@ public:
         WriteTailsVector(B_tails);
     }
 
-    void WriteTailsVector(const vector<Compact_tails>& B_tails){
-        // tlen == 0 is a special case -> B_tails.size() == 1
+    void WriteTailsVector(const vector<Compact_tails>& B_tails){        
         // Compressed tails
         //sdsl::int_vector<1> tail_data;
         
@@ -64,17 +63,18 @@ public:
         uint64_t total_bits = 0;
         uint32_t ntails = 0;
         vector <int> tlens;
-        unordered_map<int, uint8_t> m_ntails;
-        
+        vector<uint64_t> v_ntails;
+
+
+        // tlen == 0 is a special case -> B_tails.size() == 1
         // B_tails must be of size at least 1;
         int tlen = B_tails[0].tlen;
         int cur_tlen = tlen;
 
         for (size_t i = 0; i < B_tails.size(); ++i) {
             tlen = B_tails[i].tlen;
-            
             if (tlen != cur_tlen){ 
-                m_ntails[cur_tlen]=ntails; // only at this point we know how many tails for the previous tlen
+                v_ntails.push_back(ntails);
                 total_bits += 5; // cur_tlen (previous tlen)   
                 total_bits += vbyte_encode(ntails).size() * 8; // vbyte encoded tail count
                 total_bits += ntails * cur_tlen * 2; // each tail uses cur_tlen*2 bits
@@ -85,12 +85,13 @@ public:
             ntails++;
         }     
         // last tails
-        m_ntails[tlen]=ntails;
+        v_ntails.push_back(ntails);
+
         total_bits += 5; // tlen
         total_bits += vbyte_encode(ntails).size() * 8;
  
         total_bits += ntails * tlen * 2;
-        tail_data.resize(total_bits+128); 
+        tail_data.resize(total_bits+128);// same a bit_resize
 
         uint64_t* data = tail_data.data();        
         int64_t offset = 0;
@@ -99,6 +100,7 @@ public:
 
         cur_tlen = 0; // tlen cannot be 0
 
+        int t=0; // tlen index
         for (size_t i=0; i < B_tails.size(); i++){
 
             color_set_ids.push_back(B_tails[i].color_set_id); // permute the vector of colors
@@ -113,7 +115,9 @@ public:
                 sdsl::bits::write_int(&data[word_index], tlen, w_offset, 5);
                 offset += 5;
                         
-                const uint32_t tnumber = m_ntails[tlen];
+                const uint32_t tnumber = v_ntails[t];
+                t++;
+
                 auto vb = vbyte_encode(tnumber);
                 for (uint8_t b : vb) {
                     word_index = offset/64;
