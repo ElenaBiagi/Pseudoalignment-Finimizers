@@ -19,30 +19,28 @@
 #include "bitsearch.hh"
 #include "Buckets.hh"
 
-using MyTuple = tuple<uint8_t, uint64_t, uint32_t, uint64_t>; // {f_len, f_int, f_color, start}
 
-
-void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint8_t, uint64_t, uint32_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint32_t, uint64_t>>& next_candidates, tuple<uint8_t, uint64_t, uint32_t, uint64_t>& k_fmin){
+void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     // 2. Prefix NOT found
     // Start from the longest possible prefix
     // if you find a real match, stop
-    uint8_t sp_len = int_sp_len; // plen is here plen-1: sp_len must be < plen as the whole prefix was not found  
+    uint64_t sp_len = int_sp_len; // plen is here plen-1: sp_len must be < plen as the whole prefix was not found  
     while (sp_len > 0){ 
         auto it = sB.find(int_sp);
         if (it != sB.end() && sp_len == it->second.first){ // real match 
             //all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
             if ((start + sp_len -1) > end) { next_candidates.push_back(make_tuple(sp_len+start-1, int_sp, it->second.second, start)); } // Sorted based on END
             else { 
-                tuple<uint8_t, uint64_t, uint32_t, uint64_t> nek_fmin = {sp_len, int_sp, it->second.second, start};
-                //tuple<uint8_t, uint64_t, uint32_t, uint64_t> k_fmin = curr_candidates.front();
-                if (nek_fmin < k_fmin) {
+                tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {sp_len, int_sp, it->second.second, start};
+                //tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = curr_candidates.front();
+                if (new_fmin < k_fmin) {
                     curr_candidates.clear();
-                    k_fmin = nek_fmin;
+                    k_fmin = new_fmin;
                 }
                 else{
-                    while (curr_candidates.back()> nek_fmin) {curr_candidates.pop_back();}
+                    while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
                 }
-                curr_candidates.push_back(nek_fmin); 
+                curr_candidates.push_back(new_fmin); 
             }
             return;
         }
@@ -51,7 +49,7 @@ void FindShortFinimizer(const uint8_t int_sp_len, uint64_t int_sp, const unorder
     }
 }
 
-void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint8_t, uint64_t, uint32_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint32_t, uint64_t>>& next_candidates, tuple<uint8_t, uint64_t, uint32_t, uint64_t>& k_fmin){
+void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len); // input: sdsl::bit_vector &T, int64_t pointer, string S    
     if (pos > -1){
@@ -59,62 +57,54 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint8_t plen, con
         //all_fmin.insert(make_tuple(plen + len, f_int, bucket_p.color_set_ids[pos], start));
         if ((start + plen+len -1) > end) { next_candidates.push_back(make_tuple(plen+len+start-1, f_int, bucket_p.color_set_ids[pos], start)); } // Sorted based on END
         else { 
-            tuple<uint8_t, uint64_t, uint32_t, uint64_t> nek_fmin = {plen + len, f_int, bucket_p.color_set_ids[pos], start};
-            //tuple<uint8_t, uint64_t, uint32_t, uint64_t> k_fmin = curr_candidates.front();
-            if (nek_fmin < k_fmin) {
+            tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {plen + len, f_int, bucket_p.color_set_ids[pos], start};
+            //tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = curr_candidates.front();
+            if (new_fmin < k_fmin) {
                 curr_candidates.clear();
-                k_fmin = nek_fmin;
+                k_fmin = new_fmin;
             }
             else{
-                while (curr_candidates.back()> nek_fmin) {curr_candidates.pop_back();}
+                while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
             }
-            curr_candidates.push_back(nek_fmin); 
+            curr_candidates.push_back(new_fmin); 
         }
     }
 }
 
-void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint8_t k, BoundedDeque<tuple<uint8_t, uint64_t, uint32_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint32_t, uint64_t>>& next_candidates, tuple<uint8_t, uint64_t, uint32_t, uint64_t>& k_fmin){
-    /*  cerr << "CURRENT "<< endl;
-    for (int i=0; i< curr_candidates.size(); i++){
-       cerr << get<3>(curr_candidates[i]) << ", "<< get<0>(curr_candidates[i])+get<3>(curr_candidates[i])-1 << ": ("<< (int)get<0>(curr_candidates[i])<< ", "<< (int)get<2>(curr_candidates[i]) <<") [" << kmer_start<<" " <<kmer_start+k-1<< "]"<< endl;
-    }
-    cerr << "NEXT "<< endl;
-    for (int i=0; i< next_candidates.size(); i++){
-       cerr << get<3>(next_candidates[i]) << ", "<< get<0>(next_candidates[i]) << ": ("<< (int)get<0>(next_candidates[i])-get<3>(next_candidates[i])+1<< ", "<< (int)get<2>(next_candidates[i]) <<") " << kmer_start+k-1<< endl;
-    } */
-    if (curr_candidates.size()!=0){
+void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+    if (!curr_candidates.empty()){
         k_fmin= curr_candidates.front();
         Fmin.push_back(get<2>(k_fmin));
     }
-    else{
+/*     else{
         // TODO remove this branch
         cerr << "finimizer not found for kmer " << kmer_start << endl;//<< " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
-    }
+    } */
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
     if (get<3>(k_fmin) == kmer_start){ // this is never true if curr_size is empty
         curr_candidates.pop_front();
-        k_fmin = (curr_candidates.size()==0) ? static_cast<tuple<uint8_t, uint64_t, uint32_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1)) : curr_candidates.front();
+        k_fmin = (curr_candidates.empty()) ? static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1)) : curr_candidates.front();
     }
 
     // 2. Check if the NEXT finimizer would be good for the next k-mer
-    if (next_candidates.size()!=0){
-        const auto& next_fmin = next_candidates.front(); // tuple<uint64_t, uint64_t, uint32_t, uint64_t>
-        tuple<uint8_t, uint64_t, uint32_t, uint64_t> nek_fmin = {(uint8_t)get<0>(next_fmin)-get<3>(next_fmin)+1, get<1>(next_fmin), get<2>(next_fmin), get<3>(next_fmin)};
+    if (!next_candidates.empty()){
+        const auto& next_fmin = next_candidates.front(); // tuple<uint64_t, uint64_t, uint64_t, uint64_t>
+        tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {get<0>(next_fmin)-get<3>(next_fmin)+1, get<1>(next_fmin), get<2>(next_fmin), get<3>(next_fmin)};
         if (get<0>(next_fmin) <= kmer_start + k){ // end of the fmin is before end of next kmer
-            if (nek_fmin < k_fmin) { // always true if curr_candidates is empty
+            if (new_fmin < k_fmin) { // always true if curr_candidates is empty
                 curr_candidates.clear();
-                k_fmin = nek_fmin;
+                k_fmin = new_fmin;
             }
             else{
-                while (curr_candidates.back()> nek_fmin) {curr_candidates.pop_back();}
+                while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
             }
-            curr_candidates.push_back(nek_fmin);
+            curr_candidates.push_back(new_fmin);
             next_candidates.pop_front();
         }
     }
 }
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint8_t plen, const uint8_t k){ 
+vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k){ 
 
     const int64_t str_len = input.size();
     if (str_len < k){return {};}
@@ -123,9 +113,9 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
     uint64_t start = 0;
     uint64_t kmer_start = 0;
 
-    BoundedDeque<tuple<uint8_t, uint64_t, uint32_t, uint64_t>> curr_candidates(k); // sort based on len, int (color, start)
-    BoundedDeque<tuple<uint64_t, uint64_t, uint32_t, uint64_t>> next_candidates(k); // sort by end (start+len-1)
-    tuple<uint8_t, uint64_t, uint32_t, uint64_t> k_fmin = {k+1,0,0,kmer_start};
+    BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> curr_candidates(k); // sort based on len, int (color, start)
+    BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> next_candidates(k); // sort by end (start+len-1)
+    tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = {k+1,0,0,kmer_start};
     curr_candidates.push_back(k_fmin);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
@@ -194,7 +184,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 
     //The last plen-1 characters cannot contain a prefix
     ss = start;
-    uint8_t s_plen = plen;
+    uint64_t s_plen = plen;
     for (start = ss; start < str_len; start++ ){ 
         s_plen--;
         int_p &= ((1ULL << (2 * s_plen)) - 1); // Shorten int_p by 2 
@@ -217,7 +207,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         size_t offset_bits = n_colors*start;
         size_t word_index = offset_bits / 64;
         size_t w_offset = offset_bits % 64;
-        const uint8_t bits_read = std::min(64 - w_offset, n_colors);
+        const uint64_t bits_read = std::min(64 - w_offset, n_colors);
 
         uint64_t color_id = 0;
 
@@ -226,7 +216,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         uint64_t first_w = (data[word_index] >> w_offset) & mask;
         
         while (first_w != 0) {
-            uint8_t lowest_set_bit = __builtin_ctzll(first_w);
+            uint64_t lowest_set_bit = __builtin_ctzll(first_w);
             results[lowest_set_bit]++;
             first_w &= first_w - 1;
         }
@@ -241,7 +231,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             word_index++;
             uint64_t w = data[word_index];
             while (w != 0) {
-                uint8_t lowest_set_bit = __builtin_ctzll(w);
+                uint64_t lowest_set_bit = __builtin_ctzll(w);
                 results[color_id + lowest_set_bit]++;
                 w &= w - 1;
             }
@@ -255,7 +245,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             uint64_t last_w = data[word_index + 1] & mask;
 
             while (last_w != 0) {
-                uint8_t lowest_set_bit = __builtin_ctzll(last_w);
+                uint64_t lowest_set_bit = __builtin_ctzll(last_w);
                 results[color_id + lowest_set_bit]++;
                 last_w &= last_w - 1;
             }

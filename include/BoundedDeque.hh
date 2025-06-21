@@ -41,6 +41,10 @@ public:
         return n_elements;
     }
 
+    bool empty() const {
+        return n_elements == 0;
+    }
+
     void push_back(const T& x) {
         buf[back_idx] = x;
         back_idx = mod_increment(back_idx);

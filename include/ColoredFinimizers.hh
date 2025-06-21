@@ -131,9 +131,7 @@ public:
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
                 uint64_t sp_int = prefix2int(sprefix,0, cf.lengths[i]);
-                //cerr << "Accessing sB (pos" << (int)p_int <<")...";
                 sB[sp_int]= {cf.lengths[i],i}; // i= color_set_id
-                //cerr << " ok"<< endl;
 
             } else {
                 std::string_view prefix(cf.concat.data() + f_start, prefix_len);
