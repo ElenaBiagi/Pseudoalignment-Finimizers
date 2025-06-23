@@ -173,7 +173,7 @@ public:
         vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k);
       
         // Check the colors for every finimizer found
-        pseudoalignemnt_stats(Finimizers, this->color_sets_concat, this->n_colors, results);
+        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, results);
         return;
     }
 
@@ -186,7 +186,7 @@ public:
         vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k);
 
         // Check the colors for every finimizer found
-        pseudoalignemnt_stats(Finimizers, this->color_sets_concat, this->n_colors, results, t);
+        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, results, t);
         return;
     }
 

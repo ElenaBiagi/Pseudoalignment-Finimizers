@@ -107,7 +107,7 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
 vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k){ 
 
     const int64_t str_len = input.size();
-    if (str_len < k){return {};}
+    //if (str_len < k){return {};} // This is checked before already
     vector<uint64_t> Fmin;// pointer to C
 
     uint64_t start = 0;
@@ -198,8 +198,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 }
 
 
-void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
-    
+void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
     results.assign(n_colors, 0);
     const uint64_t* data = color_sets_concat.data();
 
@@ -254,7 +253,7 @@ void pseudoalignemnt_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
     return;
 }
 
-void pseudoalignemnt_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
+void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
     std::sort(Fmin.begin(), Fmin.end());    
     size_t found_fmin = Fmin.size(); // # total finimizers
 
