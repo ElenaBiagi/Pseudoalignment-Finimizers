@@ -3,11 +3,13 @@
 #include "ColoredFinimizers.hh"
 
 int build_fmin(int argc, char** argv) {
-    cxxopts::Options options(argv[0], "Find all Finimizers of all input reads.");
+    cxxopts::Options options(argv[0], "Compress colored Finimizers.");
 
     options.add_options()
         ("i,index-file", "ColloredFinimizers file.", cxxopts::value<string>())
         ("o,out-file", "Output index filename prefix.", cxxopts::value<string>()) // as input
+        ("p,p_len", "Finimizers prefix length.", cxxopts::value<int64_t>()->default_value(std::to_string(10)))
+        ("k", "k-mer length.", cxxopts::value<int64_t>()->default_value(std::to_string(31)))
         ("h,help", "Print usage");
     
     int64_t old_argc = argc; // Must store this because the parser modifies it
@@ -23,7 +25,9 @@ int build_fmin(int argc, char** argv) {
     ColoredFinimizers cf;
     ifstream in(indexfile);
     cf.load(in);
-    CompressedColoredFinimizers ccf(std::move(cf), 10, 31); // TODO do we need 31?
+    int64_t prefix_len = opts["p"].as<int64_t>();
+    int64_t k = opts["k"].as<int64_t>();
+    CompressedColoredFinimizers ccf(std::move(cf), prefix_len, k); // Search currently works only with 31
     
     ccf.serialize(out_prefix);
     

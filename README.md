@@ -6,11 +6,17 @@ Let $G$ be the de Bruijn graph of a set of $k$-mers $R$, $t \geq 1$ be an intege
 
 
 ## Building
-First, pull the submodules with:
+First clone the repository with:
+```
+git clone --recursive https://github.com/ElenaBiagi/Pseudoalignment-Finimizers.git 
+```
+
+If you forgot the flag ```--recursive```, pull the submodules with:
 ```
 git submodule update --init --recursive
 ```
-Then, go the SBWT submodule and build it using the instructions in the submodule. And compile the experiments with:
+
+Then, go the [SBWT](https://github.com/algbio/SBWT/tree/eb7f54165d38bb7c9aa2ab418b7d17a1113a9977) submodule and build it using the instructions in the submodule. And compile the experiments with:
 ```
 cd SBWT/build
 
@@ -19,46 +25,46 @@ make -j4
 
 cd ../..
 ```
-Select the desired branch: *main*: single index, *double*: double index (+reverse complements).
-The following instructions are for the main branch.
+Then, go to the [finimizer_matrix](https://github.com/jnalanko/finimizer_matrix/tree/2d0127710d8eb6093b43c097de83aaa809da2f6c) submodule and follow the instructions there.
+
+
+You are now ready to compile the main project!
 ```
 make benchmark --always-make CXX=g++-10
 ```
-## Single index construction
+## Index construction
 
-The code takes a plain-matrix SBWT file as input generated from canonical unitigs. You can generate one by running:
 
-```
-./SBWT/build/bin/sbwt build -i <unitigs.fna> -o <index.sbwt> -k <31> 
-```
-
-Then, you can build the Finimizers index with:
+First ypu should build a finimizer matrix. The code takes as input a list of files.
+Here is a example:
+# Fix example
 
 ```
-./benchmark build-fmin -o <finimizer-index>  -i <index.sbwt> -u <unitigs.fna> [--lcs LCS.sdsl] [-t 1] [--type rarest] 
+cd Pseudoalignment-Finimizers/finimizer_matrix
+./target/release/finimizer_matrix build -i <files_list.txt> --reverse -k 31 -t 12 -o Salmonella.cfm -d ./temp -m 250
+
+```
+
+Then, you can compact the Finimizers index with:
+
+```
+./finimap build-fmin -o <colored-finimizer-index>  -i Salmonella.cfm -k 31 -p 10
 ```
 ```
 Usage:
-build-fmin [OPTION...]
+  build-fmin [OPTION...]
 
+  -i, --index-file arg  ColloredFinimizers file.
   -o, --out-file arg    Output index filename prefix.
-  -i, --index-file arg  SBWT file. This has to be a binary matrix.
-  -u, --in-file arg     The unitigs in FASTA or FASTQ format, possibly gzipped.
-                        Multi-line FASTQ is not supported.
-      --type arg        Decide which streaming search type you prefer. 
-                        Available types:  rarest shortest verify.
-                        The latter two only provide some stats. (default: rarest)
-  -t arg                Maximum finimizer frequency (default: 1)
-      --lcs arg         Provide in input the LCS file if available. 
-                        (default: "")
+  -p, --p_len arg       Finimizers prefix length. (default: 10)
+  -k arg                k-mer length. (default: 31)
   -h, --help            Print usage
 ```
 
-## k-mer localization queries
+## Queries
 
-You can query $k$-mer in the unitigs with:
 ```
-./benchmark search-fmin -o <out-file>  -i <finimizer-index> -q <query-file.fa> 
+./finimap search-fmin -o <out-file>  -i <colored-finimizer-index> -q <query-file.fa> -t <threshold>
 ```
 ```
 Usage:
@@ -66,27 +72,20 @@ Usage:
 
   -o, --out-file arg    Output filename, or stdout if not given.
   -i, --index-file arg  Index filename prefix.
-  -q, --query-file arg  The query in FASTA or FASTQ format, possibly gzipped.
-                        Multi-line FASTQ is not supported.
+  -q, --query-file arg  The query in FASTA or FASTQ format, possibly 
+                        gzipped. Multi-line FASTQ is not supported. If the 
+                        file extension is .txt, this is interpreted as a 
+                        list of query files, one per line. In this case, 
+                        --out-file is also interpreted as a list of output 
+                        files in the same manner, one line for each input 
+                        file.
+  -t arg                Threshold (default: 0)
   -h, --help            Print usage
 ```
-Support for localization queries is currently available only for "rarest".
-The output for each kmer is a pair (unitig id, index) or (-1,-1) if not found.
+The result of a query will be the number or percentage (t > 0) of finimizers observed per color, expressed in pairs of (color:#matches).
+
+## RBO
+
 
 ## Additional info
 The code works with the DNA alphabet = {A,C,G,T}.
-
-### Disjoint Spectrum Preserving String Set (DSPSS)
-A DSPSS is required as input to build the SBWT index. You can obtain canonical unitigs or eulertigs using [ggcat](https://github.com/algbio/ggcat).
-
-```
-ggcat build --min-multiplicity 1 -k <k> --output-file <unitigs.fna> --threads-count 48 <input.fna>
-```
-
-### Unitigs flipping
-To reduce the space usage it is advisable to flip the unitigs with [unitig-flipper](https://github.com/jnalanko/unitig_flipper).
-
-```
-unitig_flipper --input <unitigs.fna> --output <flipped_unitigs.fna> -k <k>
-
-```
