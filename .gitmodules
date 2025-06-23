@@ -4,3 +4,6 @@
 [submodule "kmer-lcs"]
 	path = kmer-lcs
 	url = https://github.com/jnalanko/kmer-lcs.git
+[submodule "finimizer_matrix"]
+	path = finimizer_matrix
+	url = https://github.com/jnalanko/finimizer_matrix.git
