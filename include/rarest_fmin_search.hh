@@ -226,7 +226,7 @@ void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         w_offset = 0;
         // Check how many words we will have to read
         uint64_t bits_left = n_colors - color_id;
-        while (color_id + 64 <= n_colors - bits_left) {
+        while (color_id + 64 <= n_colors) {
             word_index++;
             uint64_t w = data[word_index];
             while (w != 0) {
