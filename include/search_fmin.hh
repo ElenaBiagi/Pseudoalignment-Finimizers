@@ -23,12 +23,12 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     //int64_t total_micros = 0;
     
     //vector<vector<float>> result = {};
-    using ResultType = variant<vector<vector<float>>, vector<vector<uint64_t>>>;
+    using ResultType = variant<vector<vector<pair<uint64_t, uint64_t>>>, vector<vector<uint64_t>>>;
     
     ResultType result;
 
     if (t > 0) {
-        result = vector<vector<float>>{};
+        result = vector<vector<pair<uint64_t, uint64_t>>>{};
     } else {
         result = vector<vector<uint64_t>>{};
     }
@@ -43,7 +43,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
         //string seq = remove_N_from_string(reader.read_buf);
         string seq = reader.read_buf;
 
-        if (auto* res = get_if<vector<vector<float>>>(&result)) {
+        if (auto* res = get_if<vector<vector<pair<uint64_t, uint64_t>>>>(&result)) {
             res->push_back({});
             index.search(seq, (*res)[i], t);
         } else if (auto* res = get_if<vector<vector<uint64_t>>>(&result)) {
@@ -71,7 +71,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
             }
-
+            // TODO sort this before and not now ??
             std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
                 return (a.second > b.second) || (a.second == b.second && a.first < b.first);
             });
@@ -83,24 +83,14 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             out << std::endl;
         }
     // Compare (genome id, (% k-mer matched) > t)
-    } else if (auto* res = std::get_if<std::vector<std::vector<float>>>(&result)) {
+    } else if (auto* res = std::get_if<std::vector<std::vector<pair<uint64_t, uint64_t>>>>(&result)) {
         for (int j = 0; j < i; ++j) {
             out << j << " ";
-
-            std::vector<std::pair<int, float>> nonzero_entries;
+            
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
-                if ((*res)[j][idx] > 0)
-                    nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
+                out << (*res)[j][idx].first << ":" << (*res)[j][idx].second << " ";
             }
-
-            std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
-                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
-            });
-
-            for (const auto& [idx, count] : nonzero_entries) {
-                out << idx << ":" << count << " ";
-            }
-
+        
             out << std::endl;
         }
     }
@@ -207,8 +197,13 @@ int search_fmin(int argc, char** argv){
     float t = opts["t"].as<float>();
 
     cerr << "Loading index..." << endl;
+    /* int64_t total_micros = 0; 
+    int64_t t0 = cur_time_micros();
+    */
     CompressedColoredFinimizers index;
     index.load(index_prefix);
+    /* total_micros += cur_time_micros() - t0;
+    cerr << total_micros << endl; */
     cerr << "Index loaded" << endl;
 
     number_of_queries += run_fmin_queries(query_files, output_files, index, t); // TODO: Implement this in ColoredFinimizers

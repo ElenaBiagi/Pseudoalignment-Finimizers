@@ -71,15 +71,22 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, co
     }
 }
 
-void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
+    //size_t str_len = input.size();
     if (!curr_candidates.empty()){
         k_fmin= curr_candidates.front();
         Fmin.push_back(get<2>(k_fmin));
-    }
-/*     else{
+    } else{
+        k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
         // TODO remove this branch
-        cerr << "finimizer not found for kmer " << kmer_start << endl;//<< " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
-    } */
+        /* cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
+        
+        cerr << "NEXT "<< endl;
+            for (int i=0; i< next_candidates.size(); i++){
+        cerr << get<3>(next_candidates[i]) << ", "<< get<0>(next_candidates[i]) << ": ("<< (int)get<0>(next_candidates[i])-get<3>(next_candidates[i])+1<< ", "<< (int)get<2>(next_candidates[i]) <<") " << endl;
+        }
+        cerr << endl; */
+    }
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
     if (get<3>(k_fmin) == kmer_start){ // this is never true if curr_size is empty
@@ -102,6 +109,12 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
             curr_candidates.push_back(new_fmin);
             next_candidates.pop_front();
         }
+        /* cerr << "CURRENT "<< endl;
+        for (int i=0; i< curr_candidates.size(); i++){
+            cerr << get<3>(curr_candidates[i]) << ", "<< get<0>(curr_candidates[i])+get<3>(curr_candidates[i])-1 << ": ("<< (int)get<0>(curr_candidates[i])<< ", "<< (int)get<2>(curr_candidates[i]) <<") [" << kmer_start<<" " <<kmer_start+k-1<< "]"<< endl;
+        }
+        cerr << endl;
+        cerr << endl; */
     }
 }
 vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k){ 
@@ -161,7 +174,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             int_sp = int_p >> 2;
             FindShortFinimizer(plen-1, int_sp, sB, start, kmer_start+k-1, curr_candidates, next_candidates, k_fmin);  
         }
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin); 
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin);//, input); 
         kmer_start++;
     }
     // Shorter s_len
@@ -178,7 +191,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
             int_sp = int_p >> 2;
             FindShortFinimizer(plen-1, int_sp, sB, start, kmer_start+k-1, curr_candidates, next_candidates, k_fmin);  
         }
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin); 
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin);//, input); 
         kmer_start++;
     }
 
@@ -190,7 +203,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         int_p &= ((1ULL << (2 * s_plen)) - 1); // Shorten int_p by 2 
         FindShortFinimizer(s_plen, int_p, sB, start, kmer_start+k-1, curr_candidates, next_candidates, k_fmin); // this shortens s_plen by 1 internally
         
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin); 
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin);//, input); 
         kmer_start++;
     }
     
@@ -198,8 +211,83 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
 }
 
 
-void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
+void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
     results.assign(n_colors, 0);
+    //std::sort(Fmin.begin(), Fmin.end());    
+    const uint64_t* data = color_sets_concat.data();
+
+    /* uint64_t last_start = Fmin[0]-1;
+    vector<uint64_t> colors_found = {}; // TODO this could be a bitvector if we don't have many colors (n_colors is small)
+    colors_found.reserve(n_colors); */
+    for(const auto& start : Fmin){
+        /* if (start != last_start){
+            colors_found = {}; */
+        size_t offset_bits = n_colors*start;
+        size_t word_index = offset_bits / 64;
+        size_t w_offset = offset_bits % 64;
+        const uint64_t bits_read = std::min(64 - w_offset, n_colors);
+
+        uint64_t color_id = 0;
+
+        // 1. Read the first word
+        uint64_t mask = (bits_read == 64) ? ~0ULL : ((1ULL << bits_read) - 1);
+        uint64_t first_w = (data[word_index] >> w_offset) & mask;
+        
+        while (first_w != 0) {
+            uint64_t lowest_set_bit = __builtin_ctzll(first_w);
+            results[lowest_set_bit]++;
+            //colors_found.push_back(lowest_set_bit);
+            first_w &= first_w - 1;
+        }
+        color_id += bits_read;
+
+
+        // 2. Read aligned words in btw
+        w_offset = 0;
+        // Check how many words we will have to read
+        uint64_t bits_left = n_colors - color_id;
+        while (color_id + 64 <= n_colors) {
+            word_index++;
+            uint64_t w = data[word_index];
+            while (w != 0) {
+                uint64_t lowest_set_bit = __builtin_ctzll(w);
+                results[color_id + lowest_set_bit]++;
+                //colors_found.push_back(color_id + lowest_set_bit);
+                w &= w - 1;
+            }
+            color_id += 64;
+        }
+
+        // 3. Read the last word (if any)
+        bits_left = n_colors - color_id;
+        if (bits_left > 0){
+            uint64_t mask = (bits_left == 64) ? ~0ULL : ((1ULL << bits_left) - 1);
+            uint64_t last_w = data[word_index + 1] & mask;
+
+            while (last_w != 0) {
+                uint64_t lowest_set_bit = __builtin_ctzll(last_w);
+                results[color_id + lowest_set_bit]++;
+                //colors_found.push_back(color_id + lowest_set_bit);
+                last_w &= last_w - 1;
+            }
+        }
+/*         last_start=start;
+    }
+        for (auto c: colors_found){
+            results[c]++;
+        } */
+    }
+    return;
+}
+
+void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint64_t, uint64_t>>& results, const float& t){ 
+    //std::sort(Fmin.begin(), Fmin.end());    
+    const size_t found_fmin = Fmin.size(); // # total finimizers
+
+    vector<uint64_t> tot_res;
+    tot_res.assign(n_colors, 0);
+    results.reserve(n_colors);
+
     const uint64_t* data = color_sets_concat.data();
 
     for(const auto& start : Fmin){
@@ -216,7 +304,7 @@ void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
         
         while (first_w != 0) {
             uint64_t lowest_set_bit = __builtin_ctzll(first_w);
-            results[lowest_set_bit]++;
+            tot_res[lowest_set_bit]++;
             first_w &= first_w - 1;
         }
         color_id += bits_read;
@@ -231,7 +319,7 @@ void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
             uint64_t w = data[word_index];
             while (w != 0) {
                 uint64_t lowest_set_bit = __builtin_ctzll(w);
-                results[color_id + lowest_set_bit]++;
+                tot_res[color_id + lowest_set_bit]++;
                 w &= w - 1;
             }
             color_id += 64;
@@ -245,36 +333,24 @@ void pseudoalignment_stats(const vector<uint64_t>& Fmin, const sdsl::bit_vector&
 
             while (last_w != 0) {
                 uint64_t lowest_set_bit = __builtin_ctzll(last_w);
-                results[color_id + lowest_set_bit]++;
+                tot_res[color_id + lowest_set_bit]++;
                 last_w &= last_w - 1;
             }
         }
     }
+    
+    // Check the values above the minimum
+    uint64_t min_value = found_fmin * t;
+
+    for (uint64_t i = 0; i < n_colors; ++i) {
+        if (tot_res[i] > min_value) {
+            results.emplace_back(i, tot_res[i]);
+        }
+    }
+
+    std::sort(results.begin(), results.end(), [](const auto& a, const auto& b) {
+        return (a.second > b.second) || (a.second == b.second && a.first < b.first);
+    });
     return;
 }
-
-void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<float>& results, const float& t){ 
-    std::sort(Fmin.begin(), Fmin.end());    
-    size_t found_fmin = Fmin.size(); // # total finimizers
-
-    vector<uint64_t> tot_res;
-    tot_res.assign(n_colors, 0);
-
-    for(const auto& start : Fmin){
-        for (uint64_t i=0; i< n_colors; i++){
-            tot_res[i]+=color_sets_concat[start+i];
-        }
-    }
-    results.assign(n_colors, 0);
-
-    for (uint64_t i=0; i< n_colors; i++){         
-        // For every color found, (#finimizers with that color)/(#tot finimizers)
-        float fraction = static_cast<float>(tot_res[i]/static_cast<float>(found_fmin));
-
-            if (fraction >= t){
-                results[i]=fraction;
-            }
-        }
-        return;
-    }
  
