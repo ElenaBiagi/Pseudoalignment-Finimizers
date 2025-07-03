@@ -86,6 +86,10 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     } else if (auto* res = std::get_if<std::vector<std::vector<pair<uint64_t, uint64_t>>>>(&result)) {
         for (int j = 0; j < i; ++j) {
             out << j << " ";
+
+            std::sort((*res)[j].begin(), (*res)[j].end(), [](const auto& a, const auto& b) {
+                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
+            });
             
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 out << (*res)[j][idx].first << ":" << (*res)[j][idx].second << " ";
