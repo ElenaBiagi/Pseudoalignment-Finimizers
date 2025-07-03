@@ -160,10 +160,6 @@ public:
         color_sets_concat = std::move(cf.color_sets_concat);
     }
 
-/*     // Transfer ownership of the index out of the builder
-    unique_ptr<CompressedColoredFinimizers> get_index(){
-        return std::move(this->index);
-    } */
     void search(const std::string& query, vector<uint64_t>& results) const {
   
         const int64_t query_len = query.length();
@@ -177,7 +173,7 @@ public:
         return;
     }
 
-    void search(const std::string& query, vector<float>& results, const float& t) const {
+    void search(const std::string& query, vector<pair<uint64_t, uint64_t>>& results, const float& t) const {
         
         const int64_t query_len = query.length();
 
