@@ -208,10 +208,8 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
       w_offset = pos %64;
 
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
-      if (tlen > slen){ return {-1,0};}
-      if (tlen == 0){
-         return {0,0};
-      }
+      //if (tlen > slen){ return {-1,0};}
+      if (tlen == 0){return {0,0};}
       pos += 5;
 
       // 2. check how many tails, vbyte #tails

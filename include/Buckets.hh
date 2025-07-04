@@ -9,7 +9,7 @@ public:
         uint32_t color_set_id;
 
         bool operator<(const Compact_tails& other) const {
-            return tlen < other.tlen;  // sort by tlen // No need for them to be in lexicographic order
+            return tlen > other.tlen;  // DESCENDING order by tlen // No need for them to be in lexicographic order
         }
     };
     
@@ -58,7 +58,7 @@ public:
         
         // Color set ids for every tail
         //vector<uint32_t> color_set_ids;
-        color_set_ids.reserve(B_tails.size()); 
+        color_set_ids.resize(B_tails.size()); 
 
         uint64_t total_bits = 0;
         uint32_t ntails = 0;
@@ -103,7 +103,7 @@ public:
         int t=0; // tlen index
         for (size_t i=0; i < B_tails.size(); i++){
 
-            color_set_ids.push_back(B_tails[i].color_set_id); // permute the vector of colors
+            color_set_ids[i]=(B_tails[i].color_set_id); // permute the vector of colors
 
             tlen = B_tails[i].tlen;
 
