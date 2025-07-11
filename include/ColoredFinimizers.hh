@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <optional>
+#include <bit>
+#include <bitset>
 
 #include "sdsl/bit_vectors.hpp"
 #include "common.hh"
@@ -20,6 +22,7 @@ public:
     vector<char> concat; // Finimizers concatenated in lexicographic order (ASCII characters).
     vector<uint8_t> lengths;
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors.
+    vector<uint8_t> lengths_by_freq;
 
     // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
     // That format has colexicographically sorted reverse finimizers. We reverse them to
@@ -50,6 +53,11 @@ public:
             color_sets_concat.set_int(i*64, words[i]);
         }
 
+        uint64_t lengths_by_freq_size;
+        in.read(reinterpret_cast<char*>(&lengths_by_freq_size), sizeof(lengths_by_freq_size));
+        lengths_by_freq.resize(lengths_by_freq_size);
+        in.read(reinterpret_cast<char*>(lengths_by_freq.data()), lengths_by_freq_size * sizeof(uint8_t));
+
         cerr << "Reversing finimizer strings" << endl;
         int64_t start_in_concat = 0;
         for(int64_t f_idx = 0; f_idx < lengths.size(); f_idx++) {
@@ -72,7 +80,79 @@ void true_or_crash(bool b, char* error_message){
     }
 }
 
+inline void hash_combine(std::size_t& seed, std::size_t value) {
+    seed ^= value + 0x517cc1b727220a95 + (seed << 6) + (seed >> 2);
+}
+
+template <typename Range>
+std::size_t hash_range(const Range& range) {
+    std::size_t seed = 0;
+    for (const auto& item : range) {
+        hash_combine(seed, std::hash<std::decay_t<decltype(item)>>{}(item));
+    }
+    return seed;
+}
+
 class CompressedColoredFinimizers {
+private:
+
+    void subtract_and_filter(std::vector<uint8_t>& vec, uint64_t plen) {
+        auto new_end = std::remove_if(vec.begin(), vec.end(), [plen](uint8_t& val) {
+            if (val < plen) {return true;}     
+            val -= plen;                    
+            return false;// keep
+        });
+    }
+
+    using PackedColorSet = std::vector<uint64_t>;
+
+    struct PackedColorSetHasher {
+        size_t operator()(const std::vector<uint64_t>& v) const {
+        return hash_range(v);
+    }
+    };
+
+    std::vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
+        std::vector<bit_vector> binary_colors;
+        size_t total_blocks = C.size() / n_colors;
+
+        for (size_t i = 0; i < total_blocks; ++i) {
+            bit_vector block(n_colors);
+            for (size_t j = 0; j < n_colors; ++j) {
+                block[j] = C[i * n_colors + j];
+            }
+            binary_colors.push_back(std::move(block));
+        }
+
+        return binary_colors;
+    }
+
+    size_t count_ones(const sdsl::bit_vector& bv) {
+        size_t count = 0;
+        size_t n_bits = bv.size();
+        size_t n_words = (n_bits + 63) / 64;
+
+        const uint64_t* data = bv.data();
+
+        // all full 64-bit words (except the last)
+        for (size_t i = 0; i + 1 < n_words; ++i) {
+            count += sdsl::bits::cnt(data[i]);
+        }
+
+        // last word
+        if (n_bits % 64 != 0) {
+            size_t last_bits = n_bits % 64;
+            uint64_t mask = (uint64_t(1) << last_bits) - 1;
+            uint64_t last_word = data[n_words - 1] & mask;
+            count += sdsl::bits::cnt(last_word);
+        } else if (n_words > 0) {
+            // the last word can be full
+            count += sdsl::bits::cnt(data[n_words - 1]);
+        }
+
+        return count;
+    }
+
 
 public:
 
@@ -107,6 +187,93 @@ public:
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
         n_colors = cf.color_sets_concat.size() / n_finimizers;
 
+        subtract_and_filter(cf.lengths_by_freq, plen);
+
+        // tlen frequency
+        //Salmonella
+        //vector<uint8_t> tlen_freq = {2, 3, 1, 4, 5,6,0,7,21,19,10,16,13,8,20,9,18,12,15,17,11,14};
+        //Ecoli
+        //vector<uint8_t> tlen_freq = {21, 19, 20, 16, 18, 17, 13, 15, 5, 4, 14, 6, 10, 12, 7, 11, 9, 8, 3, 2, 1};
+        //TE
+        //vector<uint8_t> tlen_freq = {4,3,5,19,21,16,20,6,13,18,7,17,10,15,14,2,12,11,9,8,1,0};
+
+
+
+        // 1. Deduplicate color_sets
+        std::unordered_map<PackedColorSet, uint32_t, PackedColorSetHasher> color_set_map;
+
+        size_t n_words = (n_colors + 63) / 64;
+        //if (n_words==color_sets_concat.size()/64){cerr << "n_words==color_sets_concat.size()/64"<< endl;}
+        
+        auto colors_list = split_bitvector(cf.color_sets_concat, n_colors);
+        
+        std::vector<bit_vector> unique_color_sets;
+
+        std::vector<uint32_t> color_set_ids; // One per finimizer: index into unique_color_sets
+        color_set_ids.resize(n_finimizers);
+
+        for (size_t i = 0; i < n_finimizers; ++i) {
+            const bit_vector& c_set_id = colors_list[i];
+            PackedColorSet packed(n_words, 0);
+
+            // Pack bits into uint64_t
+            for (size_t j = 0; j < n_colors; ++j) {
+                if (c_set_id[j]) {
+                    packed[j / 64] |= uint64_t(1) << (j % 64);
+                }
+            }
+
+            auto [it, inserted] = color_set_map.try_emplace(packed, unique_color_sets.size());
+            if (inserted) {
+                // 2. Store only unique color sets
+                unique_color_sets.push_back(c_set_id); // Store bitvector
+            }
+            // 3. Store for each finimizer a color_set_id
+            color_set_ids[i] = it->second;
+        }
+
+        
+
+        // 4. Sort unique_color_sets by number of bits set (descending = denser first)
+        std::vector<std::pair<size_t, size_t>> colors_density;
+        colors_density.reserve(unique_color_sets.size());
+
+
+        for (size_t i = 0; i < unique_color_sets.size(); ++i) {
+            colors_density.emplace_back(i, count_ones(unique_color_sets[i]));
+        }
+
+        std::sort(colors_density.begin(), colors_density.end(), [](const auto& a, const auto& b) {
+            return (a.second > b.second);
+        });
+
+        std::vector<size_t> remap(unique_color_sets.size());
+        std::vector<bit_vector> sorted_unique_color_sets;
+        sorted_unique_color_sets.resize(unique_color_sets.size());
+
+
+        for (auto i=0; i<colors_density.size(); i++){
+            size_t old_i = colors_density[i].first;
+            remap[old_i] = i;
+            sorted_unique_color_sets[i] = std::move(unique_color_sets[old_i]);
+        }
+
+        // 5 Update color_set_ids
+        for (size_t i = 0; i < n_finimizers; ++i) {
+            color_set_ids[i] = remap[color_set_ids[i]];
+        }
+
+        // 6. Store color sets in a bitvector
+        bit_vector dedup_concat(unique_color_sets.size() * n_colors);
+
+        for (size_t i = 0; i < sorted_unique_color_sets.size(); ++i) {
+            size_t offset = i * n_colors;
+            for (size_t j = 0; j < n_colors; ++j) {
+                dedup_concat[offset + j] = sorted_unique_color_sets[i][j];
+            }
+        }
+        this->color_sets_concat = std::move(dedup_concat);
+
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
         for(int64_t i = 0; i < n_finimizers; i++){
@@ -131,7 +298,7 @@ public:
             if(cf.lengths[i] < prefix_len){
                 std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
                 uint64_t sp_int = prefix2int(sprefix,0, cf.lengths[i]);
-                sB[sp_int]= {cf.lengths[i],i}; // i= color_set_id
+                sB[sp_int]= {cf.lengths[i],color_set_ids[i]}; // i= color_set_id
 
             } else {
                 std::string_view prefix(cf.concat.data() + f_start, prefix_len);
@@ -140,24 +307,24 @@ public:
                 
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
-                    buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
+                    buckets[p_int]=Bucket(cur_tails, cur_color_set_ids, cf.lengths_by_freq);
                     p_int = prefix2int(prefix, 0, prefix_len);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
                 }
                 
                 cur_tails.push_back(std::string_view(cf.concat.data() + f_start + prefix_len, cf.lengths[i] - prefix_len));
-                cur_color_set_ids.push_back(i);
+                cur_color_set_ids.push_back(color_set_ids[i]);
                 cur_prefix = prefix;
             }
             f_start += cf.lengths[i];
         }
 
         if(cur_tails.size() > 0){ // Last bucket
-            buckets[p_int]=Bucket(cur_tails, cur_color_set_ids);
+            buckets[p_int]=Bucket(cur_tails, cur_color_set_ids, cf.lengths_by_freq);
 
         }
-        color_sets_concat = std::move(cf.color_sets_concat);
+        //color_sets_concat = std::move(cf.color_sets_concat);
     }
 
     void search(const std::string& query, vector<uint64_t>& results) const {

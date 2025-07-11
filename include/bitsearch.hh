@@ -192,6 +192,63 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
 // output: {pos in T (to get colors), tlen}
 pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
    // input: T, offset in T, len substring after prefix
+   // const char slen = k - plen; 
+   int64_t pos = 0;// start from 0 now that we have a single vector
+
+   int64_t tails_so_far = 0;
+
+   uint64_t word_index = 0;
+   uint8_t w_offset = 0;
+
+   const uint64_t* data = T.data();
+   // Check first the LONGER lengths.
+   while (pos < T.size()-128-4){ // break the loop once something is found
+      // 1. check the length of the first tail, 5‐bit tlen
+      word_index = pos/64;
+      w_offset = pos %64;
+
+      uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
+      //if (tlen > slen){ return {-1,0};}
+      if (tlen == 0){return {0,0};}
+      pos += 5;
+
+      // 2. check how many tails, vbyte #tails
+      uint64_t ntails = 0;
+      int shift = 0; 
+      uint8_t byte;
+      do {
+         //if (shift >= 64) { throw std::runtime_error("Invalid VByte: too long");}
+         word_index = pos/64; // >> 6
+         w_offset = pos %64; // & 63
+         
+         byte = sdsl::bits::read_int(&data[word_index], w_offset, 8);
+         pos += 8;
+         ntails |= uint64_t(byte & 0x7F) << shift;
+         shift += 7;
+      } while (byte & 0x80);       
+      
+      // 3. Extract substring
+      // Starting at pos (64 - slen*2) extract the first 2*tlen bits of s
+      uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
+         
+      // 4. Look for substring where the tails of that length start 
+      int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+      if (res!=-1) {
+         // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
+         return {res+tails_so_far, tlen};
+      }
+
+      pos+= (tlen*ntails*2);
+      // 5. if fmin not found, add the tails seen so far
+      tails_so_far += ntails;
+   }
+   return {-1,0};
+}
+
+// output: {pos in T (to get colors), tlen}
+// The query is shorter than (k - plen)
+pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){
+   // input: T, offset in T, len substring after prefix
    
    int64_t pos = 0;// start from 0 now that we have a single vector
 
@@ -201,14 +258,13 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
    uint8_t w_offset = 0;
 
    const uint64_t* data = T.data();
-   // Check first the shorter lengths. stop once a match is found
+   // Check first the longer lengths.
    while (pos < T.size()-128-4){ // break the loop once something is found
       // 1. check the length of the first tail, 5‐bit tlen
       word_index = pos/64;
       w_offset = pos %64;
 
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
-      //if (tlen > slen){ return {-1,0};}
       if (tlen == 0){return {0,0};}
       pos += 5;
 
@@ -244,3 +300,4 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
    }
    return {-1,0};
 }
+

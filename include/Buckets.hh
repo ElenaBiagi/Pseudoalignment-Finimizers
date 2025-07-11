@@ -1,17 +1,45 @@
 #pragma once
+struct Compact_tails{
+        int tlen;
+        uint64_t int_tail;
+        uint32_t color_set_id;
+    };
 
 class Bucket {
 public:
     Bucket() = default;
-    struct Compact_tails{
+
+    std::unordered_map<int, int> tlen_rank_map;
+
+    void set_tlen_order(const std::vector<uint8_t>& ordered_tlens) {
+        tlen_rank_map.clear();
+        for (size_t i = 0; i < ordered_tlens.size(); ++i) {
+            tlen_rank_map[ordered_tlens[i]] = static_cast<int>(i);
+        }
+    }
+
+    /* struct Compact_tails{
         int tlen;
         uint64_t int_tail;
         uint32_t color_set_id;
 
+        // bool operator<(const Compact_tails& other) const {
+        //     if (tlen != other.tlen){
+        //         return tlen > other.tlen; // LONGER tails first
+        //     }
+        //     return color_set_id < other.color_set_id; // DENSER colors first
+        //     //return (tlen > other.tlen) || (color_set_id < other.color_set_id);  // DESCENDING order by tlen // No need for them to be in lexicographic order
+        // }
         bool operator<(const Compact_tails& other) const {
-            return tlen > other.tlen;  // DESCENDING order by tlen // No need for them to be in lexicographic order
+            int rank_this = tlen_rank_map.count(tlen) ? tlen_rank_map[tlen] : INT_MAX;
+            int rank_other = tlen_rank_map.count(other.tlen) ? tlen_rank_map[other.tlen] : INT_MAX;
+
+            if (rank_this != rank_other) {
+                return rank_this < rank_other;  // smaller rank = higher priority
+            }
+            return color_set_id < other.color_set_id; // break ties by color_set_id
         }
-    };
+    }; */
     
     // Compressed tail data
     // tail length = tlen
@@ -24,7 +52,7 @@ public:
     // Color set ids for each tail
     vector<uint32_t> color_set_ids;
 
-    Bucket(vector<std::string_view>& tails, vector<uint32_t>& unsorted_color_set_ids) {
+    Bucket(vector<std::string_view>& tails, vector<uint32_t>& unsorted_color_set_ids, vector<uint8_t>& tlen_freq) {
         
         if (tails.size() == 1){
             int tlen = tails[0].size();
@@ -46,8 +74,18 @@ public:
             ct.color_set_id = unsorted_color_set_ids[i];
             B_tails.push_back(ct);
         }
+        set_tlen_order(tlen_freq);
+
         // This permutes also the color_set_ids (later)
-        std::sort(B_tails.begin(), B_tails.end()); 
+        //std::sort(B_tails.begin(), B_tails.end()); 
+        // Sort using lambda comparator with tlen_rank_map
+        std::sort(B_tails.begin(), B_tails.end(), [this](const Compact_tails& a, const Compact_tails& b) {
+            int rank_a = tlen_rank_map.count(a.tlen) ? tlen_rank_map[a.tlen] : INT_MAX;
+            int rank_b = tlen_rank_map.count(b.tlen) ? tlen_rank_map[b.tlen] : INT_MAX;
+
+            if (rank_a != rank_b) return rank_a < rank_b;
+            return a.color_set_id < b.color_set_id;
+        });
         
         WriteTailsVector(B_tails);
     }
