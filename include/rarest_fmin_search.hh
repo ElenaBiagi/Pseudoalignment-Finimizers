@@ -315,7 +315,7 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
 
     results.reserve(n_colors);
     for (uint64_t i = 0; i < n_colors; ++i) {
-        if (tot_res[i] > min_value) {
+        if (tot_res[i] >= min_value) {
             results.emplace_back(i, tot_res[i]);
         }
     }
