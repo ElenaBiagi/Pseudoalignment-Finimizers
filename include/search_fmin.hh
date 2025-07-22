@@ -67,6 +67,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             out << j << " ";
 
             std::vector<std::pair<int, int64_t>> nonzero_entries;
+            nonzero_entries.reserve((*res)[j].size());
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 if ((*res)[j][idx] > 0)
                     nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
@@ -80,7 +81,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 out << idx << ":" << count << " ";
             }
 
-            out << std::endl;
+            out << '\n';
         }
     // Compare (genome id, (% k-mer matched) > t)
     } else if (auto* res = std::get_if<std::vector<std::vector<pair<uint64_t, uint64_t>>>>(&result)) {
@@ -90,12 +91,11 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             std::sort((*res)[j].begin(), (*res)[j].end(), [](const auto& a, const auto& b) {
                 return (a.second > b.second) || (a.second == b.second && a.first < b.first);
             });
-            
             for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
                 out << (*res)[j][idx].first << ":" << (*res)[j][idx].second << " ";
             }
         
-            out << std::endl;
+            out << '\n';
         }
     }
     return 1;
