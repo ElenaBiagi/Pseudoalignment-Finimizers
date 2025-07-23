@@ -271,20 +271,102 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
     }
 }
 
-void counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+//slower than counting sort
+void bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+    // the range of ok values goes from min_value to found_fmin
+
     vector<uint16_t> counts;
-    counts.resize(found_fmin+1); 
-    for (size_t idx = 0; idx < n_colors; ++idx) {
+    counts.resize(found_fmin+1);
+
+    for (size_t idx = 0; idx < n_colors; idx++) {
         counts[results[idx]]++;
     }
 
     // Cumulative Sums
-    for (size_t c = 1; c < counts.size(); ++c) {
+    for (size_t c = 1; c < counts.size(); c++) {
         counts[c]+=counts[c-1];
     }
 
     ans.resize(n_colors);
-    for (size_t idx = 0; idx < n_colors; ++idx) {
+    for (size_t idx = 0; idx < n_colors; idx++) {
+        const int64_t new_idx = results[idx] - min_value;
+        if (new_idx >=0) {
+            ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+            counts[results[idx]]--;
+        } 
+    }
+}
+
+//slower than counting sort
+void new_bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+    // Store only the colors with #matches >= min_value
+
+    vector<uint16_t> counts;
+    counts.resize(found_fmin-min_value+1);
+
+    for (size_t idx = 0; idx < n_colors; idx++) {
+        if (results[idx] >= min_value) {
+            const int64_t new_idx = results[idx] - min_value;
+            counts[new_idx]++;
+        }
+    }
+
+    // Cumulative Sums
+    for (size_t c = 1; c < counts.size(); c++) {
+        counts[c]+=counts[c-1];
+    }
+
+    ans.resize(counts.back()); // only store some colors
+    for (size_t idx = 0; idx < n_colors; idx++) {
+
+        const int64_t new_idx = results[idx] - min_value;
+        if (results[idx]>=min_value) {
+            ans[counts[new_idx] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+            counts[new_idx]--;
+        } 
+    }
+}
+
+//slower than counting sort
+void newnew_bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+    // Store only the colors with #matches >= min_value
+
+    vector<uint16_t> counts;
+    counts.resize(found_fmin+1);
+
+    for (size_t idx = 0; idx < n_colors; idx++) {
+        counts[results[idx]]++;
+    }
+
+    // Cumulative Sums
+    for (size_t c = min_value +1; c < counts.size(); c++) {
+        counts[c]+=counts[c-1];
+    }
+
+    ans.resize(counts.back()); // only store some colors
+    for (size_t idx = 0; idx < n_colors; idx++) {
+        if (results[idx]>=min_value) {
+            ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+            counts[results[idx]]--;
+        } 
+    }
+}
+
+
+void counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+    vector<uint16_t> counts;
+    counts.resize(found_fmin+1); 
+    for (size_t idx = 0; idx < n_colors; idx++) {
+        counts[results[idx]]++;
+    }
+
+    // Cumulative Sums
+    for (size_t c = 1; c < counts.size(); c++) {
+        counts[c]+=counts[c-1];
+    }
+
+    ans.resize(n_colors);
+    for (size_t idx = 0; idx < n_colors; idx++) {
         ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
         counts[results[idx]]--;
     }
@@ -303,7 +385,7 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
         fmin_counts[v]++;
     }
 
-    // vector for sorted output so that it is possible to scan color_set_concat
+    // vector for sorted output so that it is possible to scan color_set_concat ????
     std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end());
     read_colors(data, n_colors, results, fmin_v);
@@ -326,6 +408,7 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     }
 
     // vector for sorted output so that it is possible to scan color_set_concat
+
     std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end());
 
@@ -336,6 +419,7 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     const uint64_t min_value = found_fmin * t;
 
     // TODO IMPROVE
+    //newnew_bounded_counting_sort(tot_res, ans, found_fmin, n_colors, min_value);
     counting_sort(tot_res, ans, found_fmin, n_colors);
 
     /* vector<uint64_t> results;
