@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <optional>
 #include <variant>
+#include <sstream>
 
 //#include "PackedStrings.hh"
 #include "SeqIO.hh"
@@ -21,12 +22,21 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     //int64_t total_micros = 0;
     
     int i=0;
+    const size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
+
     if (t > 0){
+        std::ostringstream buffer;
+        size_t buffer_size = 0;
+        
         while(true){
             int64_t len = reader.get_next_read_to_buffer();
 
             if(len == 0) break;
-            out << i << " ";
+            //out << i << " ";
+            string i_str = to_string(i);
+
+            buffer << i_str << " " ;
+            buffer_size += i_str.size()+1;
 
             //int64_t t0 = cur_time_micros();
             //string seq = remove_N_from_string(reader.read_buf);
@@ -38,14 +48,30 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
 
-            const auto& [idx, count] = ans[a];
+                const auto& [idx, count] = ans[a];
                 if (count < min_value){break;}
-                out << idx << ":" << count << " ";
+                //out << idx << ":" << count << " ";
+                string pair_str = std::to_string(idx) + ":" + std::to_string(count) + " ";
+                buffer << pair_str;
+                buffer_size += pair_str.size();
+
             }
-            out << '\n';
+            //out << '\n';
+            string end = "\n";
+            buffer << end;
+            buffer_size += end.size();
+
+            if (buffer_size >= flush_t) {
+                out << buffer.str();
+                buffer.str("");
+                buffer.clear();
+                buffer_size = 0;
+            }
             i++;
         }
-    
+        if (buffer_size > 0) {
+            out << buffer.str();
+        }
     } else {
         while(true){
             // TODO PRINT OUTPUT ONLY AT THE END?
