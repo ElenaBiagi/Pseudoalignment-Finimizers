@@ -134,10 +134,9 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
         }
     }
 }
-vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k){ 
+void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<uint64_t>& Fmin){ 
 
     const int64_t str_len = input.size();
-    vector<uint64_t> Fmin;// pointer to C
 
     uint64_t start = 0;
     uint64_t kmer_start = 0;
@@ -222,7 +221,7 @@ vector<uint64_t> rarest_fmin_streaming_search(const string& input, const vector<
         PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin); // , input); 
         kmer_start++;
     }
-    return Fmin;
+    return;
 }
 
 void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<uint64_t, uint64_t>> fmin_v){
@@ -272,9 +271,30 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
     }
 }
 
-void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<uint64_t>& results){ 
+void counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+    vector<uint16_t> counts;
+    counts.resize(found_fmin+1); 
+    for (size_t idx = 0; idx < n_colors; ++idx) {
+        counts[results[idx]]++;
+    }
+
+    // Cumulative Sums
+    for (size_t c = 1; c < counts.size(); ++c) {
+        counts[c]+=counts[c-1];
+    }
+
+    ans.resize(n_colors);
+    for (size_t idx = 0; idx < n_colors; ++idx) {
+        ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+        counts[results[idx]]--;
+    }
+}
+
+
+void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    vector<uint64_t> results;
     results.resize(n_colors, 0);
-     
+
     const uint64_t* data = color_sets_concat.data();
 
     // Count freq of each fmin
@@ -286,12 +306,14 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
     // vector for sorted output so that it is possible to scan color_set_concat
     std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end());
-
     read_colors(data, n_colors, results, fmin_v);
+
+    const size_t found_fmin = Fmin.size(); // # total finimizers
+    counting_sort(results, ans, found_fmin, n_colors);
     return;
 }
 
-void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint64_t, uint64_t>>& results, const float& t){ 
+uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){ 
     vector<uint64_t> tot_res;
     tot_res.resize(n_colors, 0);
 
@@ -313,12 +335,19 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
     const size_t found_fmin = Fmin.size(); // # total finimizers
     const uint64_t min_value = found_fmin * t;
 
+    // TODO IMPROVE
+    counting_sort(tot_res, ans, found_fmin, n_colors);
+
+    /* vector<uint64_t> results;
     results.reserve(n_colors);
+    // TODO DO NOT REMOVE VALUES HERE YET
     for (uint64_t i = 0; i < n_colors; ++i) {
-        if (tot_res[i] >= min_value) {
+        if (tot_res[i] > min_value) {
             results.emplace_back(i, tot_res[i]);
         }
-    }
-    return;
+    } */
+
+    
+    return min_value;
 }
  

@@ -18,86 +18,66 @@ using namespace std;
 
 template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
-
-    //int k = index.get_k();
     //int64_t total_micros = 0;
     
-    //vector<vector<float>> result = {};
-    using ResultType = variant<vector<vector<pair<uint64_t, uint64_t>>>, vector<vector<uint64_t>>>;
-    
-    ResultType result;
-
-    if (t > 0) {
-        result = vector<vector<pair<uint64_t, uint64_t>>>{};
-    } else {
-        result = vector<vector<uint64_t>>{};
-    }
-    
     int i=0;
-    while(true){
-        
-        //cerr << "query: " << i<< endl;
-        int64_t len = reader.get_next_read_to_buffer();
-        if(len == 0) break;
-        //int64_t t0 = cur_time_micros();
-        //string seq = remove_N_from_string(reader.read_buf);
-        string seq = reader.read_buf;
+    if (t > 0){
+        while(true){
+            int64_t len = reader.get_next_read_to_buffer();
 
-        if (auto* res = get_if<vector<vector<pair<uint64_t, uint64_t>>>>(&result)) {
-            res->push_back({});
-            index.search(seq, (*res)[i], t);
-        } else if (auto* res = get_if<vector<vector<uint64_t>>>(&result)) {
-            res->push_back({});
-            index.search(seq, (*res)[i]);
-        }
+            if(len == 0) break;
+            out << i << " ";
 
-        i++;
-        //total_micros += cur_time_micros() - t0;
-    }
-    //write_log("k " + to_string(k), LogLevel::MAJOR);
-    //write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
-    //write_log("Found kmers: " + to_string(kmers_count), LogLevel::MAJOR);
-    //write_log("Found kmers reverse : " + to_string(kmers_count_rev), LogLevel::MAJOR);
-    //write_log("Total found kmers: " + to_string(total_positive), LogLevel::MAJOR);
+            //int64_t t0 = cur_time_micros();
+            //string seq = remove_N_from_string(reader.read_buf);
+            string seq = reader.read_buf;
 
-    // Compare (genome id, # k-mer matched)
-    if (auto* res = std::get_if<std::vector<std::vector<uint64_t>>>(&result)) {
-        // Handling case: vector<vector<uint64_t>>
-        for (int j = 0; j < i; ++j) {
-            out << j << " ";
+            vector<pair<uint16_t, uint16_t>> ans;
 
-            std::vector<std::pair<int, int64_t>> nonzero_entries;
-            nonzero_entries.reserve((*res)[j].size());
-            for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
-                if ((*res)[j][idx] > 0)
-                    nonzero_entries.emplace_back(static_cast<int>(idx), (*res)[j][idx]);
-            }
-            // TODO sort this before and not now ??
-            std::sort(nonzero_entries.begin(), nonzero_entries.end(), [](const auto& a, const auto& b) {
-                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
-            });
+            const uint16_t min_value = index.search(seq, ans, t );
 
-            for (const auto& [idx, count] : nonzero_entries) {
+            for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
+
+            const auto& [idx, count] = ans[a];
+                if (count < min_value){break;}
                 out << idx << ":" << count << " ";
             }
-
             out << '\n';
+            i++;
         }
-    // Compare (genome id, (% k-mer matched) > t)
-    } else if (auto* res = std::get_if<std::vector<std::vector<pair<uint64_t, uint64_t>>>>(&result)) {
-        for (int j = 0; j < i; ++j) {
-            out << j << " ";
+    
+    } else {
+        while(true){
+            // TODO PRINT OUTPUT ONLY AT THE END?
 
-            std::sort((*res)[j].begin(), (*res)[j].end(), [](const auto& a, const auto& b) {
-                return (a.second > b.second) || (a.second == b.second && a.first < b.first);
-            });
-            for (size_t idx = 0; idx < (*res)[j].size(); ++idx) {
-                out << (*res)[j][idx].first << ":" << (*res)[j][idx].second << " ";
-            }
+            int64_t len = reader.get_next_read_to_buffer();
+
+            if(len == 0) break;
+            out << i << " ";
+
+            //int64_t t0 = cur_time_micros();
+            //string seq = remove_N_from_string(reader.read_buf);
+            string seq = reader.read_buf;
+
+            vector<pair<uint16_t, uint16_t>> ans;
+            index.search(seq, ans);
         
+            for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
+
+                const auto& [idx, count] = ans[a];
+                if (count == 0){break;}
+                out << idx << ":" << count << " ";
+            }
             out << '\n';
+            i++;
         }
+
     }
+
+    //total_micros += cur_time_micros() - t0;
+    //write_log("k " + to_string(k), LogLevel::MAJOR);
+    //write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
+
     return 1;
 }
 

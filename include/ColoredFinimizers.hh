@@ -327,30 +327,32 @@ public:
         //color_sets_concat = std::move(cf.color_sets_concat);
     }
 
-    void search(const std::string& query, vector<uint64_t>& results) const {
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans ) const{
   
         const int64_t query_len = query.length();
       
         if (query.size() < this->k) return; 
 
-        vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k);
+        vector<uint64_t> Finimizers;
+        rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
       
         // Check the colors for every finimizer found
-        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, results);
+        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// wrong
         return;
     }
 
-    void search(const std::string& query, vector<pair<uint64_t, uint64_t>>& results, const float& t) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
         
         const int64_t query_len = query.length();
 
-        if (query.size() < this->k) return; 
+        if (query.size() < this->k) return 0; 
 
-        vector<uint64_t> Finimizers = rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k);
+        vector<uint64_t> Finimizers;
+        rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
 
         // Check the colors for every finimizer found
-        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, results, t);
-        return;
+        uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
+        return min_value;
     }
 
     void serialize(const string& index_prefix) const {
