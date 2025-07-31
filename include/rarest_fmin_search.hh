@@ -112,10 +112,10 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
     }
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
-    if (get<3>(k_fmin) == kmer_start){ // this is never true if curr_size is empty
+    while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start){
         curr_candidates.pop_front();
-        k_fmin = (curr_candidates.empty()) ? static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1)) : curr_candidates.front();
     }
+    k_fmin = (curr_candidates.empty()) ? static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1)) : curr_candidates.front();
 
     // 2. Check if the NEXT finimizer would be good for the next k-mer
     if (!next_candidates.empty()){
@@ -381,13 +381,14 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
 
     // Count freq of each fmin
     std::unordered_map<uint64_t, uint64_t> fmin_counts;
-    for (auto v : Fmin) {
+    fmin_counts.reserve(Fmin.size());
+    for (const auto& v: Fmin) {
         fmin_counts[v]++;
     }
 
     // vector for sorted output so that it is possible to scan color_set_concat ????
     std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end());
+    std::sort(fmin_v.begin(), fmin_v.end()); 
     read_colors(data, n_colors, results, fmin_v);
 
     const size_t found_fmin = Fmin.size(); // # total finimizers
@@ -434,4 +435,3 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     
     return min_value;
 }
- 
