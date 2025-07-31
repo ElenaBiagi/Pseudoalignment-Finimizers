@@ -419,19 +419,8 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     const size_t found_fmin = Fmin.size(); // # total finimizers
     const uint64_t min_value = found_fmin * t;
 
-    // TODO IMPROVE
-    //newnew_bounded_counting_sort(tot_res, ans, found_fmin, n_colors, min_value);
+    // TODO IMPROVE?
     counting_sort(tot_res, ans, found_fmin, n_colors);
-
-    /* vector<uint64_t> results;
-    results.reserve(n_colors);
-    // TODO DO NOT REMOVE VALUES HERE YET
-    for (uint64_t i = 0; i < n_colors; ++i) {
-        if (tot_res[i] > min_value) {
-            results.emplace_back(i, tot_res[i]);
-        }
-    } */
-
     
     return min_value;
 }
