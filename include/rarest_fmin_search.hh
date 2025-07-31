@@ -10,10 +10,7 @@
 #include <optional>
 #include <deque>
 
-
-//#include "SeqIO.hh"
 #include "BoundedDeque.hh"
-#include "CircularBuffer.hh"
 
 #include "common.hh"
 #include "bitsearch.hh"
@@ -32,7 +29,6 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
             if ((start + sp_len -1) > end) { next_candidates.push_back(make_tuple(sp_len+start-1, int_sp, it->second.second, start));} // Sorted based on END
             else { 
                 tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {sp_len, int_sp, it->second.second, start};
-                //tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = curr_candidates.front();
                 if (new_fmin < k_fmin) {
                     curr_candidates.clear();
                     k_fmin = new_fmin;
@@ -93,18 +89,10 @@ void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t pl
 }
 
 void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
-    //size_t str_len = input.size();
     if (!curr_candidates.empty()){
         k_fmin= curr_candidates.front();
-        /* if (!Fmin.empty()){
-            if( get<2>(k_fmin) == Fmin[Fmin.size()-1]){
-            cout;}
-        } else {
-        cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
-        if (get<0>(k_fmin)==32){
-            cerr << "ERROR LENGTH =32!!!" << endl;
-        }
-        }  */
+        
+        // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
     } else{
         k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
