@@ -410,5 +410,22 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     // TODO IMPROVE?
     counting_sort(tot_res, ans, found_fmin, n_colors);
     
+    // TODO use min value here?
+
     return min_value;
+}
+
+void combine_f_rc(vector<uint64_t>& Fmin, vector<uint64_t>& r_Fmin ){
+    // for now assume they have the same size
+
+    // TODO got through them one by one and 
+    const int n_fmin = Fmin.size();
+    for (auto i = 0; i<n_fmin; i++){
+        if (Fmin[i]!=r_Fmin[n_fmin-i-1]){
+           // write the correct value in Fmin 
+           // TODO: read colors here as we only have color_ids and we cannot get those back after &
+        }
+        // else if they are the same, do nothing, keep Fmin[i] as correct 
+    }
+
 }

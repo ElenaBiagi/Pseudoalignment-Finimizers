@@ -40,7 +40,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
             //int64_t t0 = cur_time_micros();
             //string seq = remove_N_from_string(reader.read_buf);
-            string seq = reader.read_buf;
+            const string seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
 
