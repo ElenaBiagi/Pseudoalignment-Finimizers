@@ -335,20 +335,22 @@ public:
 
         // TODO: How to mark in Finimizers and r_Finimizers if a finimizer is not found????
 
-        vector<uint64_t> Finimizers;
+        vector<int64_t> Finimizers;
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
         
         // reverse complement
-        vector<uint64_t> r_Finimizers;
+        vector<int64_t> r_Finimizers;
         const string reverse = sbwt::get_rc(query);
         //const string reverse = get_rc(query);
-        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, Finimizers);
+        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
 
         // TODO Combine the results of finimizers color ids for forward and reverse
 
 
         // Check the colors for every finimizer found
-        pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// wrong
+        //pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// old
+        combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans);// wrong
+
         return;
     }
 
@@ -359,11 +361,11 @@ public:
 
         if (query.size() < this->k) return 0; 
 
-        vector<uint64_t> Finimizers;
+        vector<int64_t> Finimizers;
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
 
         // reverse complement
-        vector<uint64_t> r_Finimizers;
+        vector<int64_t> r_Finimizers;
         const string reverse = sbwt::get_rc(query);
         //const string reverse = get_rc(query);
         rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, Finimizers);

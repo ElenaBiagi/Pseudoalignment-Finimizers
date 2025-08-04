@@ -10,6 +10,9 @@
 #include <optional>
 #include <deque>
 
+#include <boost/dynamic_bitset.hpp>
+
+
 #include "BoundedDeque.hh"
 
 #include "common.hh"
@@ -88,14 +91,15 @@ void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t pl
     }
 }
 
-void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
+void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
     if (!curr_candidates.empty()){
         k_fmin= curr_candidates.front();
         
         // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
     } else{
-        k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
+        Fmin.push_back(-1); // This ensures that Fmin and r_Fmin have the same length
+        //k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
         cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << endl;// " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
     }
 
@@ -122,7 +126,7 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
         }
     }
 }
-void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<uint64_t>& Fmin){ 
+void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<int64_t>& Fmin){ 
 
     const int64_t str_len = input.size();
 
@@ -212,7 +216,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     return;
 }
 
-void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<uint64_t, uint64_t>> fmin_v){
+void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<int64_t, uint64_t>>& fmin_v){
     for (const auto& [start,freq] : fmin_v) {
         const uint64_t* ptr = data + (start * n_colors) / 64;
         uint64_t bit_offset = (start * n_colors) % 64;
@@ -260,7 +264,7 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
 }
 
 //slower than counting sort
-void bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+void bounded_counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
     // the range of ok values goes from min_value to found_fmin
 
     vector<uint16_t> counts;
@@ -286,7 +290,7 @@ void bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<ui
 }
 
 //slower than counting sort
-void new_bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+void new_bounded_counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
     // Store only the colors with #matches >= min_value
 
     vector<uint16_t> counts;
@@ -316,7 +320,7 @@ void new_bounded_counting_sort (const std::vector<uint64_t>& results, vector<pai
 }
 
 //slower than counting sort
-void newnew_bounded_counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
+void newnew_bounded_counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors, const uint64_t min_value){    
     // Store only the colors with #matches >= min_value
 
     vector<uint16_t> counts;
@@ -341,7 +345,7 @@ void newnew_bounded_counting_sort (const std::vector<uint64_t>& results, vector<
 }
 
 
-void counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
     vector<uint16_t> counts;
     counts.resize(found_fmin+1); 
     for (size_t idx = 0; idx < n_colors; idx++) {
@@ -361,7 +365,7 @@ void counting_sort (const std::vector<uint64_t>& results, vector<pair<uint16_t, 
 }
 
 
-void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
     vector<uint64_t> results;
     results.resize(n_colors, 0);
 
@@ -375,16 +379,16 @@ void pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color
     }
 
     // vector for sorted output so that it is possible to scan color_set_concat ????
-    std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    vector<pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end()); 
-    read_colors(data, n_colors, results, fmin_v);
+    //read_colors(data, n_colors, results, fmin_v);
 
     const size_t found_fmin = Fmin.size(); // # total finimizers
     counting_sort(results, ans, found_fmin, n_colors);
     return;
 }
 
-uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){ 
+uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){ 
     vector<uint64_t> tot_res;
     tot_res.resize(n_colors, 0);
 
@@ -398,10 +402,10 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
 
     // vector for sorted output so that it is possible to scan color_set_concat
 
-    std::vector<std::pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    vector<pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end());
 
-    read_colors(data, n_colors, tot_res, fmin_v);
+    //read_colors(data, n_colors, tot_res, fmin_v);
 
     // Check the values above the minimum
     const size_t found_fmin = Fmin.size(); // # total finimizers
@@ -415,17 +419,152 @@ uint16_t pseudoalignment_stats(vector<uint64_t>& Fmin, const sdsl::bit_vector& c
     return min_value;
 }
 
-void combine_f_rc(vector<uint64_t>& Fmin, vector<uint64_t>& r_Fmin ){
-    // for now assume they have the same size
 
-    // TODO got through them one by one and 
-    const int n_fmin = Fmin.size();
-    for (auto i = 0; i<n_fmin; i++){
-        if (Fmin[i]!=r_Fmin[n_fmin-i-1]){
-           // write the correct value in Fmin 
-           // TODO: read colors here as we only have color_ids and we cannot get those back after &
-        }
-        // else if they are the same, do nothing, keep Fmin[i] as correct 
+dynamic_bitset<> create_bitset(const uint64_t* data, const uint64_t n_colors, const int64_t start){
+    dynamic_bitset<> colorset_id(n_colors);
+    const uint64_t* ptr = data + (start * n_colors) / 64;
+    uint64_t bit_offset = (start * n_colors) % 64;
+
+    uint64_t color_id = 0;
+
+    // 1. Read the first word of the forward kmer
+    uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+    uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+    uint64_t word = (*ptr >> bit_offset) & mask;
+
+    while (word != 0) {
+        uint64_t bit = __builtin_ctzll(word);
+        //colorset_id.set(position_t(bit), true);
+        colorset_id.set(bit);
+
+        word &= word - 1;
     }
 
+    ++ptr;
+    color_id += bits_to_read;
+
+    // 2. Read aligned words in btw
+    while (color_id + 64 <= n_colors) {
+        uint64_t word = *ptr++;
+        for (uint64_t w = word; w != 0;) {
+            uint64_t bit = __builtin_ctzll(w);
+            colorset_id.set(bit);
+            w &= w - 1;
+        }
+        color_id += 64;
+    }
+
+    // 3. Read the last word (if any)
+    uint64_t bits_left = n_colors - color_id;
+    if (bits_left > 0) {
+        uint64_t mask = ((1ULL << bits_left) - 1);
+        uint64_t word = *ptr & mask;
+
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            colorset_id.set(bit);
+            word &= word - 1;
+        }
+    }
+    return colorset_id;
 }
+
+void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<pair<int64_t, uint64_t>, int64_t>>& p_fmin_v){
+    // option 1: compare f and r as you go
+    // option 2: store f and r in 2 bitvectors and compare at the end
+    //for (const auto& [[start, r_start], freq] : p_fmin_v) {
+    for (const auto& p : p_fmin_v) {
+        const auto& key = p.first;
+        const auto& freq = p.second;
+        int64_t start = key.first;
+        uint64_t r_start = key.second;
+
+        // read first color
+        dynamic_bitset<> f_bitset = create_bitset(data, n_colors, start);
+        dynamic_bitset<> r_bitset = create_bitset(data, n_colors, r_start);
+
+        dynamic_bitset<> result = f_bitset | r_bitset;
+        
+        for (size_t i = result.find_first(); i != dynamic_bitset<>::npos; i = result.find_next(i)) {
+            tot_res[i] += freq;
+        }
+    }
+}
+
+// TODO: how to sort these or exploit identical ones still keeping the pairs?
+// two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
+// This should anyways keep the number of false pos low
+void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    // NEW pseudoaligment_stats
+    vector<uint64_t> results;
+    results.resize(n_colors, 0);
+
+    const uint64_t* data = color_sets_concat.data();
+    // for now assume they have the same size
+
+    //option1 
+    // check the ones that are the same and deal with only the others later
+    // store the diff ones in a separate vector??
+    // you can still sort Fmin -> correct results
+    // How to deal with the reverse??? sort r_Fmin based on Fmin sorting
+    // xor? 11=0 10=0
+
+
+    // TODO got through them one by one and 
+    const int n_fmin = Fmin.size(); // now this is input_len -k +1
+    // 1. Make a vector of pairs and a vector of int64_t
+    vector<pair<int64_t, int64_t>> p_Fmin;
+    p_Fmin.reserve(n_fmin);
+
+    vector<int64_t> i_Fmin; // if colorset id is the same for forward and reverse
+    i_Fmin.reserve(n_fmin);
+
+    for (auto i = 0; i<n_fmin; i++){
+        // TODO this is ok only if the rc does not reverse but only complements the string
+        if (Fmin[i] != r_Fmin[n_fmin-i-1] && Fmin[i] != -1 && r_Fmin[n_fmin-i-1] != -1){
+            p_Fmin.push_back({Fmin[i], r_Fmin[n_fmin-i-1]});
+        }
+        else if (Fmin[i] != -1){
+            i_Fmin.push_back(Fmin[i]);
+        } else{
+            i_Fmin.push_back(r_Fmin[n_fmin-i-1]);
+        }
+    }
+    // 2. Deal with the vector of int64_t: i_Fmin
+        // 2a. Keep frequency 
+        // Count freq of each i_fmin
+    std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+    i_fmin_counts.reserve(i_Fmin.size());
+    for (const auto& v: i_Fmin) {
+        i_fmin_counts[v]++;
+    }
+        // 2b. sort i_fmin
+    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
+    std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+    read_colors(data, n_colors, results, i_fmin_v);
+
+    // 3. Deal with the vector of pairs: p_Fmin
+    struct pair_hash {
+        size_t operator()(const pair<int64_t, int64_t>& p) const {
+            return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
+        }
+    };
+    std::unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash> p_fmin_counts;
+    p_fmin_counts.reserve(p_Fmin.size());
+
+    for (const auto& v: p_Fmin) {
+        p_fmin_counts[v]++;
+    }
+    vector<pair<pair<int64_t, uint64_t>, int64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
+
+    // TODO does it make sense to sort pairs??
+
+    read_f_rc_colors(data, n_colors, results, p_fmin_v);
+
+    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    counting_sort(results, ans, found_fmin, n_colors);
+    return;
+}
+
+
+
