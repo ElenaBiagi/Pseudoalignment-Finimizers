@@ -10,9 +10,6 @@
 #include <optional>
 #include <deque>
 
-#include <boost/dynamic_bitset.hpp>
-
-
 #include "BoundedDeque.hh"
 
 #include "common.hh"
@@ -420,52 +417,49 @@ uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& co
 }
 
 
-dynamic_bitset<> create_bitset(const uint64_t* data, const uint64_t n_colors, const int64_t start){
-    dynamic_bitset<> colorset_id(n_colors);
+vector<uint64_t> create_bit_array(const uint64_t* data, const uint64_t n_colors, const int64_t start) {
+    const size_t n_words = (n_colors + 63) / 64;
+    vector<uint64_t> colorset_id(n_words, 0);  // bit array
+
     const uint64_t* ptr = data + (start * n_colors) / 64;
     uint64_t bit_offset = (start * n_colors) % 64;
 
     uint64_t color_id = 0;
 
-    // 1. Read the first word of the forward kmer
+    // 1. Read the first unaligned word
     uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
     uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
     uint64_t word = (*ptr >> bit_offset) & mask;
 
     while (word != 0) {
         uint64_t bit = __builtin_ctzll(word);
-        //colorset_id.set(position_t(bit), true);
-        colorset_id.set(bit);
-
+        colorset_id[(color_id + bit) / 64] |= (1ULL << ((color_id + bit) % 64));
         word &= word - 1;
     }
 
     ++ptr;
     color_id += bits_to_read;
 
-    // 2. Read aligned words in btw
+    // 2. Read full 64-bit words
     while (color_id + 64 <= n_colors) {
-        uint64_t word = *ptr++;
-        for (uint64_t w = word; w != 0;) {
-            uint64_t bit = __builtin_ctzll(w);
-            colorset_id.set(bit);
-            w &= w - 1;
-        }
+        word = *ptr++;
+        colorset_id[color_id / 64] |= word;
         color_id += 64;
     }
 
-    // 3. Read the last word (if any)
+    // 3. Read the last partial word
     uint64_t bits_left = n_colors - color_id;
     if (bits_left > 0) {
-        uint64_t mask = ((1ULL << bits_left) - 1);
-        uint64_t word = *ptr & mask;
+        mask = ((1ULL << bits_left) - 1);
+        word = *ptr & mask;
 
         while (word != 0) {
             uint64_t bit = __builtin_ctzll(word);
-            colorset_id.set(bit);
+            colorset_id[(color_id + bit) / 64] |= (1ULL << ((color_id + bit) % 64));
             word &= word - 1;
         }
     }
+
     return colorset_id;
 }
 
@@ -480,14 +474,17 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
         uint64_t r_start = key.second;
 
         // read first color
-        dynamic_bitset<> f_bitset = create_bitset(data, n_colors, start);
-        dynamic_bitset<> r_bitset = create_bitset(data, n_colors, r_start);
+        vector<uint64_t> f_bitset = create_bit_array(data, n_colors, start);
+        vector<uint64_t> r_bitset = create_bit_array(data, n_colors, r_start);
 
-        dynamic_bitset<> result = f_bitset | r_bitset;
-        
-        for (size_t i = result.find_first(); i != dynamic_bitset<>::npos; i = result.find_next(i)) {
-            tot_res[i] += freq;
+        //vector<uint64_t> result = f_bitset | r_bitset;
+        for (size_t i = 0; i < f_bitset.size(); ++i) {
+            tot_res[i] += (f_bitset[i] | r_bitset[i])*freq;
         }
+
+        /* for (size_t i = result.find_first(); i != dynamic_bitset<>::npos; i = result.find_next(i)) {
+            tot_res[i] += freq;
+        } */
     }
 }
 
