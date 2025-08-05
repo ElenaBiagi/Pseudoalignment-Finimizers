@@ -213,7 +213,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     return;
 }
 
-void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<int64_t, uint64_t>>& fmin_v){
+void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     for (const auto& [start,freq] : fmin_v) {
         const uint64_t* ptr = data + (start * n_colors) / 64;
         uint64_t bit_offset = (start * n_colors) % 64;
@@ -227,7 +227,7 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
 
         while (word != 0) {
             uint64_t bit = __builtin_ctzll(word);
-            tot_res[bit]+=freq;
+            results[bit]+=freq;
             word &= word - 1;
         }
 
@@ -239,7 +239,7 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
             uint64_t word = *ptr++;
             for (uint64_t w = word; w != 0;) {
                 uint64_t bit = __builtin_ctzll(w);
-                tot_res[color_id + bit]+=freq;
+                results[color_id + bit]+=freq;
                 w &= w - 1;
             }
             color_id += 64;
@@ -253,7 +253,7 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
 
             while (word != 0) {
                 uint64_t bit = __builtin_ctzll(word);
-                tot_res[color_id + bit]+=freq;
+                results[color_id + bit]+=freq;
                 word &= word - 1;
             }
         }
@@ -343,11 +343,18 @@ void newnew_bounded_counting_sort (const vector<uint64_t>& results, vector<pair<
 
 
 void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+    //cerr << "Start counting sort"<< endl;
+    //cerr << n_colors << endl;
+    //cerr << "results: ";
     vector<uint16_t> counts;
     counts.resize(found_fmin+1); 
+
     for (size_t idx = 0; idx < n_colors; idx++) {
+        //cerr << results[idx]<< ", ";
         counts[results[idx]]++;
     }
+    //cerr << endl;
+    //cerr << "Before cumulative sums" << endl;
 
     // Cumulative Sums
     for (size_t c = 1; c < counts.size(); c++) {
@@ -359,8 +366,9 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
         ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
         counts[results[idx]]--;
     }
-}
+    //cerr << "End counting sort"<< endl;
 
+}
 
 void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
     vector<uint64_t> results;
@@ -371,6 +379,7 @@ void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_
     // Count freq of each fmin
     std::unordered_map<uint64_t, uint64_t> fmin_counts;
     fmin_counts.reserve(Fmin.size());
+    cerr << Fmin.size()<< endl;
     for (const auto& v: Fmin) {
         fmin_counts[v]++;
     }
@@ -418,6 +427,7 @@ uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& co
 
 
 vector<uint64_t> create_bit_array(const uint64_t* data, const uint64_t n_colors, const int64_t start) {
+    //cerr << "Start create_bit_array" << endl;
     const size_t n_words = (n_colors + 63) / 64;
     vector<uint64_t> colorset_id(n_words, 0);  // bit array
 
@@ -459,18 +469,19 @@ vector<uint64_t> create_bit_array(const uint64_t* data, const uint64_t n_colors,
             word &= word - 1;
         }
     }
-
+    //cerr << "End create_bit_array" << endl;
     return colorset_id;
 }
 
-void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& tot_res, const vector<pair<pair<int64_t, uint64_t>, int64_t>>& p_fmin_v){
+void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
+    //cerr << "Start read_f_rc_colors" << endl;
     // option 1: compare f and r as you go
     // option 2: store f and r in 2 bitvectors and compare at the end
     //for (const auto& [[start, r_start], freq] : p_fmin_v) {
     for (const auto& p : p_fmin_v) {
         const auto& key = p.first;
         const auto& freq = p.second;
-        int64_t start = key.first;
+        uint64_t start = key.first;
         uint64_t r_start = key.second;
 
         // read first color
@@ -479,19 +490,28 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
 
         //vector<uint64_t> result = f_bitset | r_bitset;
         for (size_t i = 0; i < f_bitset.size(); ++i) {
-            tot_res[i] += (f_bitset[i] | r_bitset[i])*freq;
+            uint64_t combined = f_bitset[i] | r_bitset[i];
+            for (int b = 0; b < 64; ++b) {
+                if (combined & (1ULL << b)) {
+                    results[i * 64 + b] += freq;
+                }
+            }
         }
 
         /* for (size_t i = result.find_first(); i != dynamic_bitset<>::npos; i = result.find_next(i)) {
             tot_res[i] += freq;
         } */
     }
+    //cerr << "End read_f_rc_colors" << endl;
 }
 
 // TODO: how to sort these or exploit identical ones still keeping the pairs?
 // two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
 // This should anyways keep the number of false pos low
 void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    //cerr << "Start combine_f_rc" << endl;
+
+    r_Fmin.resize(r_Fmin.size(),-1);
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
     results.resize(n_colors, 0);
@@ -527,6 +547,8 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
             i_Fmin.push_back(r_Fmin[n_fmin-i-1]);
         }
     }
+    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
         // Count freq of each i_fmin
@@ -540,6 +562,12 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
     read_colors(data, n_colors, results, i_fmin_v);
 
+    /* cerr << "results: ";
+    for (auto r: results){
+        cerr << r << ", ";
+    }
+    cerr << endl; */
+
     // 3. Deal with the vector of pairs: p_Fmin
     struct pair_hash {
         size_t operator()(const pair<int64_t, int64_t>& p) const {
@@ -552,14 +580,21 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     for (const auto& v: p_Fmin) {
         p_fmin_counts[v]++;
     }
-    vector<pair<pair<int64_t, uint64_t>, int64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
+    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
 
+    /* for (auto p : p_fmin_v){
+        cerr << p << ", ";
+    }
+    cerr << endl; */
     // TODO does it make sense to sort pairs??
 
     read_f_rc_colors(data, n_colors, results, p_fmin_v);
 
-    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    
+
     counting_sort(results, ans, found_fmin, n_colors);
+    //cerr << "End combine_f_rc" << endl;
+
     return;
 }
 
