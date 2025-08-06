@@ -472,17 +472,16 @@ uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& co
 }
 
 bit_vector create_bit_vector(const uint64_t* data, const uint64_t n_colors, const int64_t start) {
-    //cerr << "Start create_bit_vector" << endl;
     bit_vector colorset_id(n_colors, 0);
 
-    const uint64_t* ptr = data + (start * n_colors) / 64;
+    const uint64_t* ptr = data + (static_cast<uint64_t>(start) * n_colors) / 64;
     uint64_t bit_offset = (start * n_colors) % 64;
 
     uint64_t color_id = 0;
 
-    // 1. Read the first word
-    uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-    uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+    // Read first partial word
+    const uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+    const uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
     uint64_t word = (*ptr >> bit_offset) & mask;
 
     while (word != 0) {
@@ -490,35 +489,97 @@ bit_vector create_bit_vector(const uint64_t* data, const uint64_t n_colors, cons
         colorset_id[bit]=1;
         word &= word - 1;
     }
-
     ++ptr;
     color_id += bits_to_read;
 
     // 2. Read aligned words in btw
     while (color_id + 64 <= n_colors) {
-        uint64_t word = *ptr++;
-        for (uint64_t w = word; w != 0;) {
-            uint64_t bit = __builtin_ctzll(w);
+        word = *ptr++;
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
             colorset_id[color_id + bit]=1;
-            w &= w - 1;
+            word &= word - 1;
         }
         color_id += 64;
     }
 
-    // 3. Read the last word (if any)
+    // Read last partial word
     uint64_t bits_left = n_colors - color_id;
     if (bits_left > 0) {
-        uint64_t mask = ((1ULL << bits_left) - 1);
-        uint64_t word = *ptr & mask;
-
+        const uint64_t mask = ((1ULL << bits_left) - 1);
+        word = *ptr & mask;
         while (word != 0) {
             uint64_t bit = __builtin_ctzll(word);
             colorset_id[color_id + bit]=1;
             word &= word - 1;
         }
     }
-    //cerr << "End create_bit_vector" << endl;
     return colorset_id;
+}
+
+void augment_bit_vector(const uint64_t* data, const uint64_t n_colors, const int64_t start, bit_vector& f_bit_vector) {
+
+    const uint64_t* ptr = data + (static_cast<uint64_t>(start) * n_colors) / 64;
+    uint64_t bit_offset = (start * n_colors) % 64;
+
+    uint64_t color_id = 0;
+
+    // Read first partial word
+    const uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+    const uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+    uint64_t word = (*ptr >> bit_offset) & mask;
+
+    while (word != 0) {
+        uint64_t bit = __builtin_ctzll(word);
+        f_bit_vector[bit]=1;
+        // TODO instead of storing a new_bitvector, compute OR immediately
+        word &= word - 1;
+    }
+    ++ptr;
+    color_id += bits_to_read;
+
+    // 2. Read aligned words in btw
+    while (color_id + 64 <= n_colors) {
+        word = *ptr++;
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            f_bit_vector[color_id + bit]=1;
+            word &= word - 1;
+        }
+        color_id += 64;
+    }
+
+    // Read last partial word
+    uint64_t bits_left = n_colors - color_id;
+    if (bits_left > 0) {
+        const uint64_t mask = ((1ULL << bits_left) - 1);
+        word = *ptr & mask;
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            f_bit_vector[color_id + bit]=1;
+            word &= word - 1;
+        }
+    }
+    return;
+}
+
+void add_freq_to_results_bitwise( const bit_vector& f_bitset, vector<uint64_t>& results, uint64_t freq) {
+    const uint64_t* words = f_bitset.data();
+    size_t n_words = (f_bitset.size() + 63) / 64;
+    size_t bit_index = 0;
+
+    for (size_t w = 0; w < n_words; ++w) {
+        uint64_t word = words[w];
+        while (word) {
+            uint64_t bit = __builtin_ctzll(word);
+            size_t index = bit_index + bit;
+            if (index < results.size()) {
+                results[index] += freq;
+            }
+            word &= word - 1; 
+        }
+        bit_index += 64;
+    }
 }
 
 void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
@@ -533,14 +594,17 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
         uint64_t r_start = key.second;
 
         bit_vector f_bitset = create_bit_vector(data, n_colors, start);
-        bit_vector r_bitset = create_bit_vector(data, n_colors, r_start);
+        //bit_vector r_bitset = create_bit_vector(data, n_colors, r_start);
+        augment_bit_vector(data, n_colors, r_start, f_bitset);
 
+        // Combine the f with rc
         //bit_vector u_bitset = f_bitset | r_bitset;
-        for (uint32_t i=0; i< n_colors; i++){
-            results[i] += (f_bitset[i] | r_bitset[i])*freq;
-        }
+        /* for (uint32_t i=0; i< n_colors; i++){
+            results[i] += f_bitset[i]*freq;
+            //results[i] += (f_bitset[i] | r_bitset[i])*freq;
+        } */
+        add_freq_to_results_bitwise(f_bitset, results, freq);
     }
-    //cerr << "End read_f_rc_colors" << endl;
 }
 
 // TODO: how to sort these or exploit identical ones still keeping the pairs?
