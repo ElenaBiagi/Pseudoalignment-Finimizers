@@ -368,13 +368,15 @@ public:
         vector<int64_t> r_Finimizers;
         const string reverse = sbwt::get_rc(query);
         //const string reverse = get_rc(query);
-        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, Finimizers);
+        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
 
         // TODO Combine the results of finimizers color ids for forward and reverse
 
 
         // Check the colors for every finimizer found
-        uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
+        //uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
+        uint16_t min_value = combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans, t);
+
         return min_value;
     }
 
