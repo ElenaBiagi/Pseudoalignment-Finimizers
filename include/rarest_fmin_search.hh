@@ -582,6 +582,41 @@ void add_freq_to_results_bitwise( const bit_vector& f_bitset, vector<uint64_t>& 
     }
 }
 
+void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start2, uint64_t n_colors, vector<uint64_t>& results, uint64_t freq) {
+    const uint64_t bit_offset1 = start1 * n_colors;
+    const uint64_t bit_offset2 = start2 * n_colors;
+
+    uint64_t idx = 0;
+
+    while (idx < n_colors) {
+        
+        uint64_t word1_idx = (bit_offset1 + idx) / 64;
+        uint64_t word2_idx = (bit_offset2 + idx) / 64;
+
+        uint64_t shift1 = (bit_offset1 + idx) % 64;
+        uint64_t shift2 = (bit_offset2 + idx) % 64;
+
+        uint64_t bits_to_process = std::min({n_colors - idx, 64 - shift1, 64 - shift2});
+
+        uint64_t mask = (bits_to_process == 64) ? ~0ULL : ((1ULL << bits_to_process) - 1);
+
+        uint64_t word1 = (data[word1_idx] >> shift1) & mask;
+        uint64_t word2 = (data[word2_idx] >> shift2) & mask;
+        uint64_t combined = word1 | word2;
+
+        while (combined) {
+            uint64_t bit = __builtin_ctzll(combined);
+            uint64_t result_idx = idx + bit;
+            if (result_idx < n_colors) {
+                results[result_idx] += freq;
+            }
+            combined &= combined - 1;
+        }
+
+        idx += bits_to_process;
+    }
+}
+
 void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
     //cerr << "Start read_f_rc_colors" << endl;
     // option 1: compare f and r as you go
@@ -593,9 +628,11 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
         uint64_t start = key.first;
         uint64_t r_start = key.second;
 
-        bit_vector f_bitset = create_bit_vector(data, n_colors, start);
+        foreach_union_set_bit(data, start, r_start, n_colors, results, freq);
+        /* bit_vector f_bitset = create_bit_vector(data, n_colors, start);
         //bit_vector r_bitset = create_bit_vector(data, n_colors, r_start);
         augment_bit_vector(data, n_colors, r_start, f_bitset);
+        */
 
         // Combine the f with rc
         //bit_vector u_bitset = f_bitset | r_bitset;
@@ -603,7 +640,7 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
             results[i] += f_bitset[i]*freq;
             //results[i] += (f_bitset[i] | r_bitset[i])*freq;
         } */
-        add_freq_to_results_bitwise(f_bitset, results, freq);
+        //add_freq_to_results_bitwise(f_bitset, results, freq);
     }
 }
 
@@ -665,12 +702,6 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
     read_colors(data, n_colors, results, i_fmin_v);
 
-    /* cerr << "results: ";
-    for (auto r: results){
-        cerr << r << ", ";
-    }
-    cerr << endl; */
-
     // 3. Deal with the vector of pairs: p_Fmin
     struct pair_hash {
         size_t operator()(const pair<int64_t, int64_t>& p) const {
@@ -685,10 +716,6 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     }
     vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
 
-    /* for (auto p : p_fmin_v){
-        cerr << p << ", ";
-    }
-    cerr << endl; */
     // TODO does it make sense to sort pairs??
 
     read_f_rc_colors(data, n_colors, results, p_fmin_v);
