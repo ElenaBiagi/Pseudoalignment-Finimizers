@@ -471,117 +471,6 @@ uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& co
     return min_value;
 }
 
-bit_vector create_bit_vector(const uint64_t* data, const uint64_t n_colors, const int64_t start) {
-    bit_vector colorset_id(n_colors, 0);
-
-    const uint64_t* ptr = data + (static_cast<uint64_t>(start) * n_colors) / 64;
-    uint64_t bit_offset = (start * n_colors) % 64;
-
-    uint64_t color_id = 0;
-
-    // Read first partial word
-    const uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-    const uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-    uint64_t word = (*ptr >> bit_offset) & mask;
-
-    while (word != 0) {
-        uint64_t bit = __builtin_ctzll(word);
-        colorset_id[bit]=1;
-        word &= word - 1;
-    }
-    ++ptr;
-    color_id += bits_to_read;
-
-    // 2. Read aligned words in btw
-    while (color_id + 64 <= n_colors) {
-        word = *ptr++;
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            colorset_id[color_id + bit]=1;
-            word &= word - 1;
-        }
-        color_id += 64;
-    }
-
-    // Read last partial word
-    uint64_t bits_left = n_colors - color_id;
-    if (bits_left > 0) {
-        const uint64_t mask = ((1ULL << bits_left) - 1);
-        word = *ptr & mask;
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            colorset_id[color_id + bit]=1;
-            word &= word - 1;
-        }
-    }
-    return colorset_id;
-}
-
-void augment_bit_vector(const uint64_t* data, const uint64_t n_colors, const int64_t start, bit_vector& f_bit_vector) {
-
-    const uint64_t* ptr = data + (static_cast<uint64_t>(start) * n_colors) / 64;
-    uint64_t bit_offset = (start * n_colors) % 64;
-
-    uint64_t color_id = 0;
-
-    // Read first partial word
-    const uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-    const uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-    uint64_t word = (*ptr >> bit_offset) & mask;
-
-    while (word != 0) {
-        uint64_t bit = __builtin_ctzll(word);
-        f_bit_vector[bit]=1;
-        // TODO instead of storing a new_bitvector, compute OR immediately
-        word &= word - 1;
-    }
-    ++ptr;
-    color_id += bits_to_read;
-
-    // 2. Read aligned words in btw
-    while (color_id + 64 <= n_colors) {
-        word = *ptr++;
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            f_bit_vector[color_id + bit]=1;
-            word &= word - 1;
-        }
-        color_id += 64;
-    }
-
-    // Read last partial word
-    uint64_t bits_left = n_colors - color_id;
-    if (bits_left > 0) {
-        const uint64_t mask = ((1ULL << bits_left) - 1);
-        word = *ptr & mask;
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            f_bit_vector[color_id + bit]=1;
-            word &= word - 1;
-        }
-    }
-    return;
-}
-
-void add_freq_to_results_bitwise( const bit_vector& f_bitset, vector<uint64_t>& results, uint64_t freq) {
-    const uint64_t* words = f_bitset.data();
-    size_t n_words = (f_bitset.size() + 63) / 64;
-    size_t bit_index = 0;
-
-    for (size_t w = 0; w < n_words; ++w) {
-        uint64_t word = words[w];
-        while (word) {
-            uint64_t bit = __builtin_ctzll(word);
-            size_t index = bit_index + bit;
-            if (index < results.size()) {
-                results[index] += freq;
-            }
-            word &= word - 1; 
-        }
-        bit_index += 64;
-    }
-}
-
 void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start2, uint64_t n_colors, vector<uint64_t>& results, uint64_t freq) {
     const uint64_t bit_offset1 = start1 * n_colors;
     const uint64_t bit_offset2 = start2 * n_colors;
@@ -622,25 +511,13 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
     // option 1: compare f and r as you go
     // option 2: store f and r in 2 bitvectors and compare at the end
     //for (const auto& [[start, r_start], freq] : p_fmin_v) {
-    for (const auto& p : p_fmin_v) {
-        const auto& key = p.first;
-        const auto& freq = p.second;
-        uint64_t start = key.first;
-        uint64_t r_start = key.second;
+    for (const auto& [key,freq] : p_fmin_v) {
+        //const auto& key = p.first;
+        //const auto& freq = p.second;
+        const uint64_t start = key.first;
+        const uint64_t r_start = key.second;
 
         foreach_union_set_bit(data, start, r_start, n_colors, results, freq);
-        /* bit_vector f_bitset = create_bit_vector(data, n_colors, start);
-        //bit_vector r_bitset = create_bit_vector(data, n_colors, r_start);
-        augment_bit_vector(data, n_colors, r_start, f_bitset);
-        */
-
-        // Combine the f with rc
-        //bit_vector u_bitset = f_bitset | r_bitset;
-        /* for (uint32_t i=0; i< n_colors; i++){
-            results[i] += f_bitset[i]*freq;
-            //results[i] += (f_bitset[i] | r_bitset[i])*freq;
-        } */
-        //add_freq_to_results_bitwise(f_bitset, results, freq);
     }
 }
 
@@ -648,9 +525,6 @@ void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint
 // two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
 // This should anyways keep the number of false pos low
 void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
-    //cerr << "Start combine_f_rc" << endl;
-
-    // r_Fmin.resize(r_Fmin.size(),-1); // this does not work as intended
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
     results.resize(n_colors, 0);
@@ -664,8 +538,6 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     // store the diff ones in a separate vector??
     // you can still sort Fmin -> correct results
     // How to deal with the reverse??? sort r_Fmin based on Fmin sorting
-    // xor? 11=0 10=0
-
 
     // TODO got through them one by one and 
     const int n_fmin = Fmin.size(); // now this is input_len -k +1
@@ -720,16 +592,11 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
 
     read_f_rc_colors(data, n_colors, results, p_fmin_v);
 
-    
-
     counting_sort(results, ans, found_fmin, n_colors);
-    //cerr << "End combine_f_rc" << endl;
-
     return;
 }
 
 uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){
-    //cerr << "Start combine_f_rc" << endl;
 
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
@@ -792,7 +659,6 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     read_f_rc_colors(data, n_colors, results, p_fmin_v);
 
     counting_sort(results, ans, found_fmin, n_colors);
-    //cerr << "End combine_f_rc" << endl;
 
     const uint64_t min_value = found_fmin * t;
 
