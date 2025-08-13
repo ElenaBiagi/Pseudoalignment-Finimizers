@@ -80,23 +80,23 @@ void true_or_crash(bool b, char* error_message){
     }
 }
 
-inline void hash_combine(std::size_t& seed, std::size_t value) {
-    seed ^= value + 0x517cc1b727220a95 + (seed << 6) + (seed >> 2);
+// TODO: check or replace hash function
+inline constexpr void hash_combine(std::size_t& seed, const std::size_t value) {
+    seed ^= value + 0x517cc1b727220a95ULL + (seed << 6) + (seed >> 2);
 }
 
 template <typename Range>
-std::size_t hash_range(const Range& range) {
+[[nodiscard]] std::size_t hash_range(const Range& range) {
     std::size_t seed = 0;
     for (const auto& item : range) {
         hash_combine(seed, std::hash<std::decay_t<decltype(item)>>{}(item));
     }
     return seed;
 }
-
 class CompressedColoredFinimizers {
 private:
 
-    void subtract_and_filter(std::vector<uint8_t>& vec, uint64_t plen) {
+    void subtract_and_filter(vector<uint8_t>& vec, uint64_t plen) {
         auto new_end = std::remove_if(vec.begin(), vec.end(), [plen](uint8_t& val) {
             if (val < plen) {return true;}     
             val -= plen;                    
@@ -104,30 +104,135 @@ private:
         });
     }
 
-    using PackedColorSet = std::vector<uint64_t>;
+    using PackedColorSet = vector<uint64_t>;
 
     struct PackedColorSetHasher {
-        size_t operator()(const std::vector<uint64_t>& v) const {
-        return hash_range(v);
-    }
+        size_t operator()(const PackedColorSet& v) const {
+            return hash_range(v);
+        }
     };
 
-    std::vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
-        std::vector<bit_vector> binary_colors;
+    vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
         size_t total_blocks = C.size() / n_colors;
+        std::vector<bit_vector> result;
+        result.reserve(total_blocks);
 
         for (size_t i = 0; i < total_blocks; ++i) {
             bit_vector block(n_colors);
             for (size_t j = 0; j < n_colors; ++j) {
                 block[j] = C[i * n_colors + j];
             }
-            binary_colors.push_back(std::move(block));
+            result.push_back(std::move(block));
         }
-
-        return binary_colors;
+        return result;
     }
 
-    size_t count_ones(const sdsl::bit_vector& bv) {
+     vector<unordered_map<string, vector<size_t>>> split_bitvector_and_count(const uint64_t* data, size_t bv_size, size_t n_colors) {
+        size_t total_blocks = bv_size/ n_colors; 
+        if (bv_size % n_colors != 0) {
+            cerr << "Bitvector size is not a multiple of n_colors" << endl;
+        }
+        vector<unordered_map<string, vector<size_t>>> results(n_colors + 1);
+
+        size_t words_per_block = (n_colors + 63) / 64;
+
+        for (size_t start = 0; start < total_blocks; ++start) {
+            size_t count = 0;
+            const uint64_t* ptr = data + (start * n_colors) / 64;
+            uint64_t bit_offset = (start * n_colors) % 64;
+            uint64_t color_id = 0;
+
+            string block_bytes;
+            block_bytes.reserve(words_per_block * sizeof(uint64_t));
+
+            //1. First word
+            uint64_t bits_to_read = std::min<uint64_t>(64 - bit_offset, n_colors);
+            uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+            uint64_t word = (*ptr >> bit_offset) & mask;
+            count += sdsl::bits::cnt(word);
+            block_bytes.append(reinterpret_cast<const char*>(&word), sizeof(word));
+            ++ptr;
+            color_id += bits_to_read;
+
+
+            // 2. Full words
+            while (color_id + 64 <= n_colors) {
+                uint64_t word = *ptr++;
+                count += sdsl::bits::cnt(word);
+                block_bytes.append(reinterpret_cast<const char*>(&word), sizeof(word));
+                color_id += 64;
+            }
+
+            // 3. Last word
+            if (color_id < n_colors) {
+                uint64_t bits_left = n_colors - color_id;
+                uint64_t mask = ((1ULL << bits_left) - 1);
+                uint64_t word = *ptr & mask;
+                count += sdsl::bits::cnt(word);
+                block_bytes.append(reinterpret_cast<const char*>(&word), sizeof(word));
+            }
+
+            // Store block_bytes as key (hashable with std::hash<string>)
+            results[count][block_bytes].push_back(start);
+        }
+
+        return results;
+    }
+
+/* vector<unordered_map<string, vector<size_t>>> split_bitvector_and_count(const uint64_t* data, size_t total_bits, size_t n_colors) {
+    if (n_colors == 0) throw runtime_error("n_colors must be > 0");
+    if (total_bits % n_colors != 0) throw runtime_error("total_bits must be divisible by n_colors");
+
+    size_t n_blocks = total_bits / n_colors;
+    size_t total_words = (total_bits + 63) / 64;
+    size_t words_per_block = (n_colors + 63) / 64;
+
+    vector<unordered_map<string, vector<size_t>>> results(n_colors + 1);
+
+    for (size_t start = 0; start < n_blocks; ++start) {
+        size_t count = 0;
+        size_t base_bit = start * n_colors;
+        size_t base_word = base_bit / 64;
+        unsigned bit_offset = static_cast<unsigned>(base_bit % 64); // 0..63
+
+        string block_bytes;
+        block_bytes.reserve(words_per_block * sizeof(uint64_t));
+
+        // Build each 64-bit chunk of the logical block by combining adjacent machine words when needed
+        for (size_t k = 0; k < words_per_block; ++k) {
+            size_t idx_lo = base_word + k;
+            uint64_t lo = 0;
+            uint64_t hi = 0;
+            if (idx_lo < total_words) lo = data[idx_lo];
+            if (idx_lo + 1 < total_words) hi = data[idx_lo + 1];
+
+            uint64_t word;
+            if (bit_offset == 0) {
+                word = lo;
+            } else {
+                // shift/OR to assemble 64 aligned bits of the logical block
+                word = (lo >> bit_offset) | (hi << (64 - bit_offset));
+            }
+
+            // mask the upper bits of the last chunk so identical logical blocks hash equal
+            uint64_t bits_in_this_word = std::min<uint64_t>(64, n_colors - k * 64);
+            uint64_t mask = (bits_in_this_word == 64) ? ~0ULL : ((1ULL << bits_in_this_word) - 1ULL);
+            word &= mask;
+
+            count += sdsl::bits::cnt(word);
+
+            // append the full 8 bytes for consistent hashing (masked upper bits are zero)
+            block_bytes.append(reinterpret_cast<const char*>(&word), sizeof(word));
+        }
+
+        // store occurrence
+        results[count][block_bytes].push_back(start);
+    }
+
+    return results;
+}   
+ */
+size_t count_ones(const sdsl::bit_vector& bv) {
         size_t count = 0;
         size_t n_bits = bv.size();
         size_t n_words = (n_bits + 63) / 64;
@@ -152,7 +257,6 @@ private:
 
         return count;
     }
-
 
 public:
 
@@ -186,6 +290,7 @@ public:
 
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
         n_colors = cf.color_sets_concat.size() / n_finimizers;
+        cerr << "n_colors: "<< (int)n_colors << endl;
 
         subtract_and_filter(cf.lengths_by_freq, plen);
 
@@ -200,80 +305,86 @@ public:
 
 
         // 1. Deduplicate color_sets
-        std::unordered_map<PackedColorSet, uint32_t, PackedColorSetHasher> color_set_map;
+        cerr << "Deduplicate color_sets" << endl;
 
-        size_t n_words = (n_colors + 63) / 64;
-        //if (n_words==color_sets_concat.size()/64){cerr << "n_words==color_sets_concat.size()/64"<< endl;}
+        // Create a vector of n_colors vectors to store in each the index at which a colorset id with that many colors appears
         
-        auto colors_list = split_bitvector(cf.color_sets_concat, n_colors);
+        const uint64_t* data = color_sets_concat.data();
+
+        vector<unordered_map<string, vector<size_t>>> n_bits_set_to_1 = split_bitvector_and_count(reinterpret_cast<const uint64_t*>(color_sets_concat.data()), n_finimizers * n_colors, n_colors);
+        // the length should be n_finimizers * n_colors
+        //vector<vector<uint64_t>> n_bits_set_to_1(n_colors+1); 
+        // Go through each color id and fill in the vector (implicit SORT)
         
-        std::vector<bit_vector> unique_color_sets;
+        // Store only unique
+        size_t num_unique_blocks = 0;
+        for (auto& v : n_bits_set_to_1){
+            num_unique_blocks += v.size();
+        }
+        sdsl::bit_vector unique_color_sets(num_unique_blocks * n_colors);
 
-        std::vector<uint32_t> color_set_ids; // One per finimizer: index into unique_color_sets
-        color_set_ids.resize(n_finimizers);
+        // Store unique color sets ids per finimizer
+        vector<uint32_t> color_set_ids(n_finimizers, 0); // One per finimizer: index into unique_color_sets
 
-        for (size_t i = 0; i < n_finimizers; ++i) {
-            const bit_vector& c_set_id = colors_list[i];
-            PackedColorSet packed(n_words, 0);
+        // if all the bits are set, there is no need to deduplicate
 
-            // Pack bits into uint64_t
+        // TODO STORE DENSE COLOR SET IDS AS NEGATIVE
+
+        /* uint64_t old_offset;
+        uint64_t new_offset = 0;
+        auto& only_bucket = n_bits_set_to_1[n_colors]; // unordered_map<string, vector<size_t>>
+        if (!only_bucket.empty()) {
+            auto kv = only_bucket.begin(); // only one key
+            vector<size_t>& old_offsets = kv->second;
+            
+            //for (auto c_id : old_offsets){
+            //    color_set_ids[c_id]=0; // redundant
+            //} 
+            uint64_t old_offset = old_offsets[0]* n_colors;
             for (size_t j = 0; j < n_colors; ++j) {
-                if (c_set_id[j]) {
-                    packed[j / 64] |= uint64_t(1) << (j % 64);
+                unique_color_sets[new_offset + j] = color_sets_concat[old_offset + j];
+            }
+           new_offset += n_colors;
+        } */
+
+        //size_t total_blocks = color_sets_concat.size()/ n_colors; 
+
+        uint64_t new_offset = 0;
+        
+        // TODO Go through n_bits_set_to_1 backwards
+        for (size_t c = n_colors + 1; c-- > 0; ){
+            for (auto& kv : n_bits_set_to_1[c]){
+                vector<size_t>& old_offsets  = kv.second; 
+                
+                for (auto& c_id : old_offsets){
+                color_set_ids[c_id] = new_offset / n_colors; // redundant for n_colors, new_offset = 0;
                 }
-            }
+                uint64_t old_offset = old_offsets[0]* n_colors;
 
-            auto [it, inserted] = color_set_map.try_emplace(packed, unique_color_sets.size());
-            if (inserted) {
-                // 2. Store only unique color sets
-                unique_color_sets.push_back(c_set_id); // Store bitvector
-            }
-            // 3. Store for each finimizer a color_set_id
-            color_set_ids[i] = it->second;
-        }
+                /* if (old_offsets[0] >= total_blocks)
+                cerr << "Invalid block index from split"<< endl;
+                if (old_offset + n_colors > color_sets_concat.size())
+                cerr << "Source bitvector read past end"<< endl;
 
-        
-
-        // 4. Sort unique_color_sets by number of bits set (descending = denser first)
-        std::vector<std::pair<size_t, size_t>> colors_density;
-        colors_density.reserve(unique_color_sets.size());
-
-
-        for (size_t i = 0; i < unique_color_sets.size(); ++i) {
-            colors_density.emplace_back(i, count_ones(unique_color_sets[i]));
-        }
-
-        std::sort(colors_density.begin(), colors_density.end(), [](const auto& a, const auto& b) {
-            return (a.second > b.second);
-        });
-
-        std::vector<size_t> remap(unique_color_sets.size());
-        std::vector<bit_vector> sorted_unique_color_sets;
-        sorted_unique_color_sets.resize(unique_color_sets.size());
-
-
-        for (auto i=0; i<colors_density.size(); i++){
-            size_t old_i = colors_density[i].first;
-            remap[old_i] = i;
-            sorted_unique_color_sets[i] = std::move(unique_color_sets[old_i]);
-        }
-
-        // 5 Update color_set_ids
-        for (size_t i = 0; i < n_finimizers; ++i) {
-            color_set_ids[i] = remap[color_set_ids[i]];
-        }
-
-        // 6. Store color sets in a bitvector
-        bit_vector dedup_concat(unique_color_sets.size() * n_colors);
-
-        for (size_t i = 0; i < sorted_unique_color_sets.size(); ++i) {
-            size_t offset = i * n_colors;
-            for (size_t j = 0; j < n_colors; ++j) {
-                dedup_concat[offset + j] = sorted_unique_color_sets[i][j];
+                if (new_offset + n_colors > unique_color_sets.size())
+                cerr << "Destination bitvector write past end"<< endl;
+ */
+                for (size_t j = 0; j < n_colors; ++j) {
+                    unique_color_sets[new_offset + j] = color_sets_concat[old_offset + j];
+                }
+            new_offset += n_colors;
             }
         }
-        this->color_sets_concat = std::move(dedup_concat);
 
+
+        /* // Free up memory from now-unused vector
+        n_bits_set_to_1.clear();
+        n_bits_set_to_1.shrink_to_fit(); */
+
+        // Assign to final structure
+        this->color_sets_concat = std::move(unique_color_sets);
+
+        cerr << "Deal with tails" << endl;
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
         for(int64_t i = 0; i < n_finimizers; i++){
@@ -324,7 +435,6 @@ public:
             buckets[p_int]=Bucket(cur_tails, cur_color_set_ids, cf.lengths_by_freq);
 
         }
-        //color_sets_concat = std::move(cf.color_sets_concat);
     }
 
     void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans ) const{
@@ -336,16 +446,20 @@ public:
         // TODO: How to mark in Finimizers and r_Finimizers if a finimizer is not found????
 
         vector<int64_t> Finimizers;
+        Finimizers.reserve(query_len - k +1);
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
+        cerr << Finimizers.size() << endl;
         
         // reverse complement
         vector<int64_t> r_Finimizers;
-        const string reverse = sbwt::get_rc(query);
+        r_Finimizers.reserve(query_len - k +1);
+        string r_query = sbwt::get_rc(query);
+        reverse(r_query.begin(), r_query.end());
         //const string reverse = get_rc(query);
-        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
+        rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
+        cerr << r_Finimizers.size() << endl;
 
         // TODO Combine the results of finimizers color ids for forward and reverse
-
 
         // Check the colors for every finimizer found
         //pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// old
@@ -366,9 +480,10 @@ public:
 
         // reverse complement
         vector<int64_t> r_Finimizers;
-        const string reverse = sbwt::get_rc(query);
+        string r_query = sbwt::get_rc(query);
+        reverse(r_query.begin(), r_query.end());
         //const string reverse = get_rc(query);
-        rarest_fmin_streaming_search(reverse, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
+        rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
 
         // TODO Combine the results of finimizers color ids for forward and reverse
 
