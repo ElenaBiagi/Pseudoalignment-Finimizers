@@ -340,60 +340,11 @@ public:
             }
         }
 
-        // if all the bits are set, there is no need to deduplicate
-
-        // TODO STORE DENSE COLOR SET IDS AS NEGATIVE
-
-        /* uint64_t old_offset;
-        uint64_t new_offset = 0;
-        auto& only_bucket = n_bits_set_to_1[n_colors]; // unordered_map<string, vector<size_t>>
-        if (!only_bucket.empty()) {
-            auto kv = only_bucket.begin(); // only one key
-            vector<size_t>& old_offsets = kv->second;
-            
-            //for (auto c_id : old_offsets){
-            //    color_set_ids[c_id]=0; // redundant
-            //} 
-            uint64_t old_offset = old_offsets[0]* n_colors;
-            for (size_t j = 0; j < n_colors; ++j) {
-                unique_color_sets[new_offset + j] = color_sets_concat[old_offset + j];
-            }
-           new_offset += n_colors;
-        } */
-
-        //size_t total_blocks = color_sets_concat.size()/ n_colors; 
-
-//         uint64_t new_offset = 0;
-        
-//         // TODO Go through n_bits_set_to_1 backwards
-//         for (size_t c = n_colors + 1; c-- > 0; ){
-//             for (auto& kv : n_bits_set_to_1[c]){
-//                 vector<size_t>& old_offsets  = kv.second; 
-                
-//                 for (auto& c_id : old_offsets){
-//                 color_set_ids[c_id] = new_offset / n_colors; // redundant for n_colors, new_offset = 0;
-//                 }
-//                 uint64_t old_offset = old_offsets[0]* n_colors;
-
-//                 /* if (old_offsets[0] >= total_blocks)
-//                 cerr << "Invalid block index from split"<< endl;
-//                 if (old_offset + n_colors > color_sets_concat.size())
-//                 cerr << "Source bitvector read past end"<< endl;
-
-//                 if (new_offset + n_colors > unique_color_sets.size())
-//                 cerr << "Destination bitvector write past end"<< endl;
-//  */
-//                 for (size_t j = 0; j < n_colors; ++j) {
-//                     unique_color_sets[new_offset + j] = color_sets_concat[old_offset + j];
-//                 }
-//             new_offset += n_colors;
-//             }
-//         }
-
-
         /* // Free up memory from now-unused vector
-        n_bits_set_to_1.clear();
-        n_bits_set_to_1.shrink_to_fit(); */
+        Map_bits_set_to_1.clear();
+        Map_bits_set_to_1.shrink_to_fit(); 
+        Sorted_bits_set_to_1.clear();
+        Sorted_bits_set_to_1.shrink_to_fit();*/
 
         // Assign to final structure
         this->color_sets_concat = std::move(unique_color_sets);
