@@ -104,14 +104,7 @@ private:
         });
     }
 
-    using PackedColorSet = vector<uint64_t>;
-
-    struct PackedColorSetHasher {
-        size_t operator()(const PackedColorSet& v) const {
-            return hash_range(v);
-        }
-    };
-
+    // TODO remove?
     vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
         size_t total_blocks = C.size() / n_colors;
         std::vector<bit_vector> result;
@@ -168,7 +161,7 @@ private:
             sorted_color_ids.push_back(K.first);
         }
 
-        // Sort by number of 1s (descending) popcount
+        // Sort by number of 1s (descending) w popcount
         std::sort(sorted_color_ids.begin(), sorted_color_ids.end(),
             [](const sdsl::bit_vector& a, const sdsl::bit_vector& b) {
                 return sdsl::util::cnt_one_bits(a) > sdsl::util::cnt_one_bits(b);
@@ -232,6 +225,7 @@ private:
 }   
  */
 
+ // TODO remove?
  size_t count_ones(const sdsl::bit_vector& bv) {
         size_t count = 0;
         size_t n_bits = bv.size();
@@ -312,7 +306,7 @@ public:
         //const uint64_t* data = color_sets_concat.data();
         //vector<unordered_map<string, vector<size_t>>> n_bits_set_to_1 = split_bitvector_and_count(reinterpret_cast<const uint64_t*>(color_sets_concat.data()), n_finimizers * n_colors, n_colors);
         
-        auto [Sorted_bits_set_to_1, Map_bits_set_to_1] = split_bitvector_and_count(color_sets_concat, n_colors);
+        auto [Sorted_bits_set_to_1, Map_bits_set_to_1] = split_bitvector_and_count(cf.color_sets_concat, n_colors);
         
         
         // Store only unique
@@ -334,7 +328,7 @@ public:
 
                 // Copy the bv in unique_color_sets
                 for (size_t j = 0; j < n_colors; ++j) {
-                    unique_color_sets[new_offset + j] = color_sets_concat[old_offset + j];
+                    unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
                 }
                 new_offset += n_colors;
             }

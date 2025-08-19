@@ -231,7 +231,7 @@ void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>
             word &= word - 1;
         }
 
-        ++ptr;
+        ptr++;
         color_id += bits_to_read;
 
         // 2. Read aligned words in btw
@@ -549,16 +549,41 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     i_Fmin.reserve(n_fmin);
 
     for (auto i = 0; i<n_fmin; i++){
+        int64_t f = Fmin[i];
+        int64_t r = r_Fmin[n_fmin - i - 1];
         // TODO this is ok only if the rc does not reverse but only complements the string
-        if (Fmin[i] != r_Fmin[n_fmin-i-1] && Fmin[i] != -1 && r_Fmin[n_fmin-i-1] != -1){
-            p_Fmin.push_back({Fmin[i], r_Fmin[n_fmin-i-1]});
+        if (f != r && f != -1 && r != -1){
+            p_Fmin.push_back({f, r});
         }
-        else if (Fmin[i] != -1){
-            i_Fmin.push_back(Fmin[i]);
-        } else{
-            i_Fmin.push_back(r_Fmin[n_fmin-i-1]);
+        else if (f != -1){
+            i_Fmin.push_back(f);
+        } 
+        else if (r != -1){
+            i_Fmin.push_back(r);
         }
+
+        /* if (f == r && f != -1){
+            i_Fmin.push_back(f);
+        }
+        else if (f != r){
+            if (f != -1 && r != -1){
+                p_Fmin.push_back({f, r});
+            }
+            else if (f != -1){
+                i_Fmin.push_back(f);
+            }
+            else { // r != -1
+                i_Fmin.push_back(r);
+            }
+        } */
     }
+    // cases:
+    // == -1 -1 : nothing
+    // == x x : store x
+    // != -1 x : store x
+    // != x -1 : store x
+    // != x y : store x,y
+
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
 
     // 2. Deal with the vector of int64_t: i_Fmin
@@ -615,14 +640,17 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     i_Fmin.reserve(n_fmin);
 
     for (auto i = 0; i<n_fmin; i++){
+        int64_t f = Fmin[i];
+        int64_t r = r_Fmin[n_fmin - i - 1];
         // TODO this is ok only if the rc does not reverse but only complements the string
-        if (Fmin[i] != r_Fmin[n_fmin-i-1] && Fmin[i] != -1 && r_Fmin[n_fmin-i-1] != -1){
-            p_Fmin.push_back({Fmin[i], r_Fmin[n_fmin-i-1]});
+        if (f != r && f != -1 && r != -1){
+            p_Fmin.push_back({f, r});
         }
-        else if (Fmin[i] != -1){
-            i_Fmin.push_back(Fmin[i]);
-        } else{
-            i_Fmin.push_back(r_Fmin[n_fmin-i-1]);
+        else if (f != -1){
+            i_Fmin.push_back(f);
+        } 
+        else if (r != -1){
+            i_Fmin.push_back(r);
         }
     }
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
