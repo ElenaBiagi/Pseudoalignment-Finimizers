@@ -390,18 +390,13 @@ void newnew_bounded_counting_sort (const vector<uint64_t>& results, vector<pair<
 
 
 void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
-    //cerr << "Start counting sort"<< endl;
-    //cerr << n_colors << endl;
-    //cerr << "results: ";
     vector<uint16_t> counts;
     counts.resize(found_fmin+1); 
 
     for (size_t idx = 0; idx < n_colors; idx++) {
-        //cerr << results[idx]<< ", ";
         counts[results[idx]]++;
     }
-    //cerr << endl;
-    //cerr << "Before cumulative sums" << endl;
+    
 
     // Cumulative Sums
     for (size_t c = 1; c < counts.size(); c++) {
@@ -413,7 +408,6 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
         ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
         counts[results[idx]]--;
     }
-    //cerr << "End counting sort"<< endl;
 
 }
 
@@ -426,7 +420,6 @@ void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_
     // Count freq of each fmin
     std::unordered_map<uint64_t, uint64_t> fmin_counts;
     fmin_counts.reserve(Fmin.size());
-    cerr << Fmin.size()<< endl;
     for (const auto& v: Fmin) {
         fmin_counts[v]++;
     }
@@ -496,9 +489,9 @@ void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start
         while (combined) {
             uint64_t bit = __builtin_ctzll(combined);
             uint64_t result_idx = idx + bit;
-            if (result_idx < n_colors) {
+            //if (result_idx < n_colors) {
                 results[result_idx] += freq;
-            }
+            //} 
             combined &= combined - 1;
         }
 
@@ -507,13 +500,10 @@ void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start
 }
 
 void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
-    //cerr << "Start read_f_rc_colors" << endl;
     // option 1: compare f and r as you go
     // option 2: store f and r in 2 bitvectors and compare at the end
     //for (const auto& [[start, r_start], freq] : p_fmin_v) {
     for (const auto& [key,freq] : p_fmin_v) {
-        //const auto& key = p.first;
-        //const auto& freq = p.second;
         const uint64_t start = key.first;
         const uint64_t r_start = key.second;
 
@@ -531,7 +521,6 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
 
     const uint64_t* data = color_sets_concat.data();
     // for now assume they have the same size
-    // TODO how can they not have the same size??
 
     //option1 
     // check the ones that are the same and deal with only the others later
@@ -539,19 +528,19 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     // you can still sort Fmin -> correct results
     // How to deal with the reverse??? sort r_Fmin based on Fmin sorting
 
-    // TODO got through them one by one and 
+    
     const int n_fmin = Fmin.size(); // now this is input_len -k +1
     // 1. Make a vector of pairs and a vector of int64_t
-    vector<pair<int64_t, int64_t>> p_Fmin;
+    vector<pair<int64_t, int64_t>> p_Fmin; // pair of distinct color_sets ids
     p_Fmin.reserve(n_fmin);
 
-    vector<int64_t> i_Fmin; // if colorset id is the same for forward and reverse
+    vector<int64_t> i_Fmin; // if colorset id is the same (identical) for forward and reverse
     i_Fmin.reserve(n_fmin);
 
     for (auto i = 0; i<n_fmin; i++){
         int64_t f = Fmin[i];
         int64_t r = r_Fmin[n_fmin - i - 1];
-        // TODO this is ok only if the rc does not reverse but only complements the string
+        // r string is the reverse complement
         if (f != r && f != -1 && r != -1){
             p_Fmin.push_back({f, r});
         }
@@ -561,21 +550,6 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
         else if (r != -1){
             i_Fmin.push_back(r);
         }
-
-        /* if (f == r && f != -1){
-            i_Fmin.push_back(f);
-        }
-        else if (f != r){
-            if (f != -1 && r != -1){
-                p_Fmin.push_back({f, r});
-            }
-            else if (f != -1){
-                i_Fmin.push_back(f);
-            }
-            else { // r != -1
-                i_Fmin.push_back(r);
-            }
-        } */
     }
     // cases:
     // == -1 -1 : nothing
@@ -594,7 +568,8 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     for (const auto& v: i_Fmin) {
         i_fmin_counts[v]++;
     }
-        // 2b. sort i_fmin
+
+    // 2b. sort i_fmin
     vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
     std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
     read_colors(data, n_colors, results, i_fmin_v);
@@ -611,7 +586,7 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     for (const auto& v: p_Fmin) {
         p_fmin_counts[v]++;
     }
-    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
+    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end()); // [{{f,r},counts},...]
 
     // TODO does it make sense to sort pairs??
 
@@ -630,7 +605,6 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     const uint64_t* data = color_sets_concat.data();
 
 
-    // TODO got through them one by one and 
     const int n_fmin = Fmin.size(); // now this is input_len -k +1
     // 1. Make a vector of pairs and a vector of int64_t
     vector<pair<int64_t, int64_t>> p_Fmin;
@@ -642,7 +616,6 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     for (auto i = 0; i<n_fmin; i++){
         int64_t f = Fmin[i];
         int64_t r = r_Fmin[n_fmin - i - 1];
-        // TODO this is ok only if the rc does not reverse but only complements the string
         if (f != r && f != -1 && r != -1){
             p_Fmin.push_back({f, r});
         }

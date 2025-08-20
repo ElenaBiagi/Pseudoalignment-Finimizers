@@ -80,19 +80,6 @@ void true_or_crash(bool b, char* error_message){
     }
 }
 
-// TODO: check or replace hash function
-inline constexpr void hash_combine(std::size_t& seed, const std::size_t value) {
-    seed ^= value + 0x517cc1b727220a95ULL + (seed << 6) + (seed >> 2);
-}
-
-template <typename Range>
-[[nodiscard]] std::size_t hash_range(const Range& range) {
-    std::size_t seed = 0;
-    for (const auto& item : range) {
-        hash_combine(seed, std::hash<std::decay_t<decltype(item)>>{}(item));
-    }
-    return seed;
-}
 class CompressedColoredFinimizers {
 private:
 
@@ -105,7 +92,7 @@ private:
     }
 
     // TODO remove?
-    vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
+    /* vector<bit_vector> split_bitvector(const bit_vector& C, size_t n_colors) {
         size_t total_blocks = C.size() / n_colors;
         std::vector<bit_vector> result;
         result.reserve(total_blocks);
@@ -118,7 +105,7 @@ private:
             result.push_back(std::move(block));
         }
         return result;
-    }
+    } */
 
     struct BitVectorHash {
         std::size_t operator()(const sdsl::bit_vector& v) const noexcept {
@@ -141,18 +128,23 @@ private:
         }
     };
 
-    pair<vector<sdsl::bit_vector>, unordered_map<sdsl::bit_vector, vector<size_t>, BitVectorHash, BitVectorEqual>> split_bitvector_and_count(const bit_vector& C, size_t n_colors) {
+    unordered_map<sdsl::bit_vector, vector<size_t>, BitVectorHash, BitVectorEqual> split_bitvector(const bit_vector& C, size_t n_colors) {
         
         // TODO split in a more efficient way
         size_t total_blocks = C.size() / n_colors;
         unordered_map<sdsl::bit_vector, vector<size_t>, BitVectorHash, BitVectorEqual> unique_color_ids;
         for (size_t i = 0; i < total_blocks; ++i) {
             bit_vector block(n_colors);
+            uint64_t offset = i * n_colors;
             for (size_t j = 0; j < n_colors; ++j) {
-                block[j] = C[i * n_colors + j];
+                block[j] = C[offset + j];
             }
             unique_color_ids[block].push_back(i);
         }
+        return unique_color_ids;
+    }
+
+    vector<sdsl::bit_vector> sort_bitvectors(unordered_map<sdsl::bit_vector, vector<size_t>, BitVectorHash, BitVectorEqual>& unique_color_ids) {
 
         // Sort the keys(bit_vectors) in a vector based on the number of 1s
         vector<sdsl::bit_vector> sorted_color_ids;
@@ -167,8 +159,7 @@ private:
                 return sdsl::util::cnt_one_bits(a) > sdsl::util::cnt_one_bits(b);
         });
 
-        return {sorted_color_ids, unique_color_ids};
-
+        return sorted_color_ids;
     }
 
 /* vector<unordered_map<string, vector<size_t>>> split_bitvector_and_count(const uint64_t* data, size_t total_bits, size_t n_colors) {
@@ -306,9 +297,10 @@ public:
         //const uint64_t* data = color_sets_concat.data();
         //vector<unordered_map<string, vector<size_t>>> n_bits_set_to_1 = split_bitvector_and_count(reinterpret_cast<const uint64_t*>(color_sets_concat.data()), n_finimizers * n_colors, n_colors);
         
-        auto [Sorted_bits_set_to_1, Map_bits_set_to_1] = split_bitvector_and_count(cf.color_sets_concat, n_colors);
-        
-        
+        auto Map_bits_set_to_1 = split_bitvector(cf.color_sets_concat, n_colors);
+
+        auto Sorted_bits_set_to_1 = sort_bitvectors(Map_bits_set_to_1);
+
         // Store only unique
         size_t num_unique_blocks = Sorted_bits_set_to_1.size();
         sdsl::bit_vector unique_color_sets(num_unique_blocks * n_colors);
@@ -316,22 +308,28 @@ public:
         // Store unique color sets ids per finimizer
         vector<uint32_t> color_set_ids(n_finimizers, 0); // One per finimizer: index into unique_color_sets
 
+        // real offsets
         uint64_t new_offset = 0;
+        uint64_t old_offset = 0;
 
         for (auto& bv: Sorted_bits_set_to_1){
             vector<size_t>& old_offsets = Map_bits_set_to_1[bv];
-                
-            for (auto& c_id : old_offsets){
-                color_set_ids[c_id] = new_offset / n_colors;
-                
-                uint64_t old_offset = c_id * n_colors;
+            
+            // For every old offset write the new offset
+            // Then write the color_id bitvector once, at new_offset  
+            uint64_t new_color_id_offset = new_offset / n_colors;
 
-                // Copy the bv in unique_color_sets
-                for (size_t j = 0; j < n_colors; ++j) {
-                    unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
-                }
-                new_offset += n_colors;
+            for (auto& c_id : old_offsets){
+                color_set_ids[c_id] = new_color_id_offset;
+                
+                old_offset = c_id * n_colors; // TODO this should be done only once
             }
+            // Copy the bv in unique_color_sets
+            // TODO do this more efficiently
+            for (size_t j = 0; j < n_colors; ++j) {
+                unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
+            }
+            new_offset += n_colors;
         }
 
         /* // Free up memory from now-unused vector
@@ -403,26 +401,27 @@ public:
         if (query.size() < this->k) return; 
 
         // TODO: How to mark in Finimizers and r_Finimizers if a finimizer is not found????
+        // now -1 if not found
+        // option 2: store x + 64, (x=correct value) or 0 if not found 
 
         vector<int64_t> Finimizers;
         Finimizers.reserve(query_len - k +1);
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
-        cerr << Finimizers.size() << endl;
+        //cerr << Finimizers.size() << endl;
         
         // reverse complement
+        //cerr << "reverse complement" << endl;
         vector<int64_t> r_Finimizers;
         r_Finimizers.reserve(query_len - k +1);
         string r_query = sbwt::get_rc(query);
-        reverse(r_query.begin(), r_query.end());
-        //const string reverse = get_rc(query);
         rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
-        cerr << r_Finimizers.size() << endl;
+        //cerr << r_Finimizers.size() << endl;
 
-        // TODO Combine the results of finimizers color ids for forward and reverse
+        // Combine the results of finimizers color ids for forward and reverse
 
         // Check the colors for every finimizer found
         //pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// old
-        combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans);// wrong
+        combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans);
 
         return;
     }
@@ -440,12 +439,9 @@ public:
         // reverse complement
         vector<int64_t> r_Finimizers;
         string r_query = sbwt::get_rc(query);
-        reverse(r_query.begin(), r_query.end());
-        //const string reverse = get_rc(query);
         rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
 
-        // TODO Combine the results of finimizers color ids for forward and reverse
-
+        // Combine the results of finimizers color ids for forward and reverse
 
         // Check the colors for every finimizer found
         //uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
