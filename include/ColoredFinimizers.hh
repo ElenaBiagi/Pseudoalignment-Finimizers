@@ -310,7 +310,6 @@ public:
 
         // real offsets
         uint64_t new_offset = 0;
-        uint64_t old_offset = 0;
 
         for (auto& bv: Sorted_bits_set_to_1){
             vector<size_t>& old_offsets = Map_bits_set_to_1[bv];
@@ -322,8 +321,9 @@ public:
             for (auto& c_id : old_offsets){
                 color_set_ids[c_id] = new_color_id_offset;
                 
-                old_offset = c_id * n_colors; // TODO this should be done only once
             }
+
+            uint64_t old_offset = old_offsets[0] * n_colors;
             // Copy the bv in unique_color_sets
             // TODO do this more efficiently
             for (size_t j = 0; j < n_colors; ++j) {
