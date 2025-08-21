@@ -24,23 +24,28 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     int i=0;
     const size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
 
+    //string buffer;
+    //buffer.reserve(flush_t);
+
+    size_t buffer_size = 0;
+    std::ostringstream buffer;
+
     if (t > 0){
-        std::ostringstream buffer;
-        size_t buffer_size = 0;
         
         while(true){
             int64_t len = reader.get_next_read_to_buffer();
-
             if(len == 0) break;
-            //out << i << " ";
+            
             string i_str = to_string(i);
+            buffer << i_str << " ";
+            buffer_size += i_str.size() + 1;
 
-            buffer << i_str << " " ;
-            buffer_size += i_str.size()+1;
+            //buffer.append(to_string(i)).push_back(':');
+            //buffer_size += to_string(i).size()+1; 
 
             //int64_t t0 = cur_time_micros();
             //string seq = remove_N_from_string(reader.read_buf);
-            const string seq = reader.read_buf;
+            const string& seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
 
@@ -50,40 +55,41 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
                 const auto& [idx, count] = ans[a];
                 if (count < min_value){break;}
-                //out << idx << ":" << count << " ";
-                string pair_str = std::to_string(idx) + ":" + std::to_string(count) + " ";
-                buffer << pair_str;
-                buffer_size += pair_str.size();
+
+                // buffer.append(to_string(idx)).push_back(':');
+                // buffer.append(to_string(count)).push_back(' ');
+                buffer << idx << ":" << count << " ";
+                buffer_size += to_string(idx).size() + to_string(count).size() + 2; // 2 for ':', ' '
 
             }
-            //out << '\n';
-            string end = "\n";
-            buffer << end;
-            buffer_size += end.size();
+            //buffer.push_back('\n');
+            buffer << '\n';
+            buffer_size += 1;
 
             if (buffer_size >= flush_t) {
-                out << buffer.str();
-                buffer.str("");
+                string tmp = move(buffer).str();   
+                out.write(tmp.data(), tmp.size());
+                buffer.str("");                  
+                //out.write(buffer.data(), buffer.size());
                 buffer.clear();
                 buffer_size = 0;
             }
+
             i++;
         }
-        if (buffer_size > 0) {
-            out << buffer.str();
-        }
-    } else {
+    } else { // Print everything 
         while(true){
-            // TODO PRINT OUTPUT ONLY AT THE END?
-
             int64_t len = reader.get_next_read_to_buffer();
-
             if(len == 0) break;
-            out << i << " ";
+
+            //buffer.append(to_string(i)).push_back(' ');
+            string i_str = to_string(i);
+            buffer << i_str << " ";
+            buffer_size += to_string(i).size() + 1;
 
             //int64_t t0 = cur_time_micros();
             //string seq = remove_N_from_string(reader.read_buf);
-            string seq = reader.read_buf;
+            const string& seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
             index.search(seq, ans);
@@ -92,13 +98,33 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
                 const auto& [idx, count] = ans[a];
                 if (count == 0){break;}
-                out << idx << ":" << count << " ";
+                //buffer.append(to_string(idx)).push_back(':');
+                //buffer.append(to_string(count)).push_back(' ');
+                buffer << idx << ":" << count << " ";
+                buffer_size += to_string(idx).size() + to_string(count).size() + 2;
+
             }
-            out << '\n';
+            //buffer.push_back('\n');
+            buffer << '\n';
+            buffer_size += 1;
+
+            if (buffer_size >= flush_t) {
+                //out.write(buffer.data(), buffer.size());
+                string tmp = move(buffer).str();   
+                out.write(tmp.data(), tmp.size());
+                buffer.clear();
+                buffer_size = 0;
+            }
+
             i++;
         }
 
     }
+    if (buffer_size > 0) {
+            //out.write(buffer.data(), buffer.size());
+            string tmp = move(buffer).str();   
+            out.write(tmp.data(), tmp.size());
+        }
 
     //total_micros += cur_time_micros() - t0;
     //write_log("k " + to_string(k), LogLevel::MAJOR);
