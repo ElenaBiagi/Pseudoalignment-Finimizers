@@ -88,3 +88,11 @@ public:
         return buf[physical_index(index)];
     }
 };
+
+/* template <typename DequeT, typename ValueT>
+inline void push_monotone_increasing(DequeT& dq, const ValueT& value) {
+    while (!dq.empty() && dq.back() > value) {
+        dq.pop_back();
+    }
+    dq.push_back(value);
+} */

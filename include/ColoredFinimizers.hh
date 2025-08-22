@@ -12,8 +12,33 @@
 #include "rarest_fmin_search.hh"
 #include "Buckets.hh"
 
+#include <chrono>
+
 
 using namespace std;
+
+static std::chrono::nanoseconds time_rarest_fmin(0);
+static std::chrono::nanoseconds time_rarest_fmin_rc(0);
+static std::chrono::nanoseconds time_combine(0);
+static std::chrono::nanoseconds time_index_loading(0);
+static std::chrono::nanoseconds time_output(0);
+
+
+
+void print_search_timing_stats() {
+    using namespace std::chrono;
+    std::cerr << "Time to load the index: "
+                << duration_cast<milliseconds>(time_index_loading).count() << " ms\n";
+
+    std::cerr << "Time in rarest_fmin_streaming_search (fwd): "
+                << duration_cast<milliseconds>(time_rarest_fmin).count() << " ms\n";
+    std::cerr << "Time in rarest_fmin_streaming_search (rev): "
+                << duration_cast<milliseconds>(time_rarest_fmin_rc).count() << " ms\n";
+    std::cerr << "Time in combine_f_rc: "
+                << duration_cast<milliseconds>(time_combine).count() << " ms\n";
+    std::cerr << "Time to output results: "
+                << duration_cast<milliseconds>(time_output).count() << " ms\n";
+}
 
 // Colored finimizers without much compression
 class ColoredFinimizers {
@@ -146,19 +171,25 @@ private:
 
     vector<sdsl::bit_vector> sort_bitvectors(unordered_map<sdsl::bit_vector, vector<size_t>, BitVectorHash, BitVectorEqual>& unique_color_ids) {
 
-        // Sort the keys(bit_vectors) in a vector based on the number of 1s
-        vector<sdsl::bit_vector> sorted_color_ids;
-        sorted_color_ids.reserve(unique_color_ids.size());
-        for (auto& K : unique_color_ids) {
-            sorted_color_ids.push_back(K.first);
+        vector<pair<size_t, const sdsl::bit_vector*>> bv_with_counts;
+        bv_with_counts.reserve(unique_color_ids.size());
+
+        for (auto& kv : unique_color_ids) {
+            bv_with_counts.emplace_back(sdsl::util::cnt_one_bits(kv.first), &kv.first); // popcount
         }
 
-        // Sort by number of 1s (descending) w popcount
-        std::sort(sorted_color_ids.begin(), sorted_color_ids.end(),
-            [](const sdsl::bit_vector& a, const sdsl::bit_vector& b) {
-                return sdsl::util::cnt_one_bits(a) > sdsl::util::cnt_one_bits(b);
-        });
+        // Sort the keys(bit_vectors) in a vector based on the number of 1s (descending)
+        std::sort(bv_with_counts.begin(), bv_with_counts.end(),
+              [](auto& a, auto& b) { return a.first > b.first; });
 
+        // keep only bv
+        vector<sdsl::bit_vector> sorted_color_ids;
+        sorted_color_ids.reserve(bv_with_counts.size());
+        
+        for (auto& [count, bv_ptr] : bv_with_counts) {
+            sorted_color_ids.push_back(*bv_ptr);
+        }
+    
         return sorted_color_ids;
     }
 
@@ -326,9 +357,13 @@ public:
             uint64_t old_offset = old_offsets[0] * n_colors;
             // Copy the bv in unique_color_sets
             // TODO do this more efficiently
-            for (size_t j = 0; j < n_colors; ++j) {
+            /* for (size_t j = 0; j < n_colors; ++j) {
                 unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
-            }
+            } */
+            const uint64_t* src = cf.color_sets_concat.data() + old_offset;
+            uint64_t* dst = unique_color_sets.data() + new_offset;
+            std::copy_n(src, n_colors/64, dst);
+
             new_offset += n_colors;
         }
 
@@ -406,23 +441,36 @@ public:
 
         vector<int64_t> Finimizers;
         Finimizers.reserve(query_len - k +1);
+        {
+            auto start = std::chrono::high_resolution_clock::now();
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
-        //cerr << Finimizers.size() << endl;
+            auto end = std::chrono::high_resolution_clock::now();
+            time_rarest_fmin += (end - start);
+        }
         
-        // reverse complement
-        //cerr << "reverse complement" << endl;
+        // Reverse complement
         vector<int64_t> r_Finimizers;
         r_Finimizers.reserve(query_len - k +1);
         string r_query = sbwt::get_rc(query);
+        {
+            auto start = std::chrono::high_resolution_clock::now();
         rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
-        //cerr << r_Finimizers.size() << endl;
-
+            auto end = std::chrono::high_resolution_clock::now();
+            time_rarest_fmin_rc += (end - start);
+        }
         // Combine the results of finimizers color ids for forward and reverse
-
+        //CountingSortStructure CSS;
+        //CSS.init(query_len - this->k + 1, n_colors); 
+        //CSS.init(found_fmin, n_colors); // we don't know found_fmin but we know the length of the string (upperbound)
         // Check the colors for every finimizer found
-        //pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// old
+        //pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, CSS);// old
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            //combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, CSS);
         combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans);
-
+            auto end = std::chrono::high_resolution_clock::now();
+            time_combine += (end - start);
+        }
         return;
     }
 
@@ -434,18 +482,35 @@ public:
         if (query.size() < this->k) return 0; 
 
         vector<int64_t> Finimizers;
+        {
+            auto start = std::chrono::high_resolution_clock::now();
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
+            auto end = std::chrono::high_resolution_clock::now();
+            time_rarest_fmin += (end - start);
+        }
 
         // reverse complement
         vector<int64_t> r_Finimizers;
         string r_query = sbwt::get_rc(query);
+        {
+            auto start = std::chrono::high_resolution_clock::now();
         rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
-
+            auto end = std::chrono::high_resolution_clock::now();
+            time_rarest_fmin_rc += (end - start);
+        }
         // Combine the results of finimizers color ids for forward and reverse
-
+        //CountingSortStructure CSS;
+        //CSS.init(query_len - this->k + 1, n_colors); 
         // Check the colors for every finimizer found
         //uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
-        uint16_t min_value = combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans, t);
+        uint16_t min_value;
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            //min_value = combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, CSS, t);
+            min_value = combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans, t);
+            auto end = std::chrono::high_resolution_clock::now();
+            time_combine += (end - start);
+        }
 
         return min_value;
     }

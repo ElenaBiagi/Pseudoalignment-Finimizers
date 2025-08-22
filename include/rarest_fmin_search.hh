@@ -16,6 +16,14 @@
 #include "bitsearch.hh"
 #include "Buckets.hh"
 
+/* struct Candidate {
+    uint64_t len, _int, color, start;
+    inline bool operator<(const Candidate& o) const {
+        return std::tie(len, _int, color, start) < std::tie(o.len, o._int, o.color, o.start);
+    }
+}; */
+
+
 // TODO Deal with empty SB
 void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     // 2. Prefix NOT found
@@ -33,8 +41,11 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
                 if (new_fmin < k_fmin) {
                     curr_candidates.clear();
                     k_fmin = new_fmin;
+                    //curr_candidates.push_back(new_fmin); 
+
                 }
                 else{
+                    //push_monotone_increasing(curr_candidates, new_fmin);
                     while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
                 }
                 curr_candidates.push_back(new_fmin); 
@@ -560,6 +571,7 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     // != x y : store x,y
 
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    //CSS.init(found_fmin, n_colors); // only here we know found_fmin
 
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
@@ -628,6 +640,8 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
         }
     }
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    //CSS.init(found_fmin, n_colors); // only here we know found_fmin
+
 
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
