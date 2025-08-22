@@ -48,9 +48,11 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             const string& seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
+            ans.reserve(seq.size());
 
             const uint16_t min_value = index.search(seq, ans, t );
 
+            auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
 
                 const auto& [idx, count] = ans[a];
@@ -69,13 +71,14 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             if (buffer_size >= flush_t) {
                 string tmp = move(buffer).str();   
                 out.write(tmp.data(), tmp.size());
-                buffer.str("");                  
                 //out.write(buffer.data(), buffer.size());
                 buffer.clear();
                 buffer_size = 0;
             }
 
             i++;
+            auto end = std::chrono::high_resolution_clock::now();
+            time_output += (end - start);
         }
     } else { // Print everything 
         while(true){
@@ -92,8 +95,10 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             const string& seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
+            ans.reserve(seq.size());
             index.search(seq, ans);
-        
+            
+            auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
 
                 const auto& [idx, count] = ans[a];
@@ -109,27 +114,35 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             buffer_size += 1;
 
             if (buffer_size >= flush_t) {
-                //out.write(buffer.data(), buffer.size());
                 string tmp = move(buffer).str();   
                 out.write(tmp.data(), tmp.size());
+                //out.write(buffer.data(), buffer.size());
                 buffer.clear();
                 buffer_size = 0;
             }
 
             i++;
+            auto end = std::chrono::high_resolution_clock::now();
+            time_output += (end - start);
+
         }
 
     }
+    auto start = std::chrono::high_resolution_clock::now();
+
     if (buffer_size > 0) {
             //out.write(buffer.data(), buffer.size());
             string tmp = move(buffer).str();   
             out.write(tmp.data(), tmp.size());
         }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    time_output += (end - start);
 
     //total_micros += cur_time_micros() - t0;
     //write_log("k " + to_string(k), LogLevel::MAJOR);
     //write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
-
+    print_search_timing_stats();
     return 1;
 }
 
@@ -236,8 +249,14 @@ int search_fmin(int argc, char** argv){
     /* int64_t total_micros = 0; 
     int64_t t0 = cur_time_micros();
     */
-    CompressedColoredFinimizers index;
-    index.load(index_prefix);
+   CompressedColoredFinimizers index;
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+    index.load(index_prefix);            
+        auto end = std::chrono::high_resolution_clock::now();
+        time_index_loading += (end - start);
+    }
+    
     /* total_micros += cur_time_micros() - t0;
     cerr << total_micros << endl; */
     cerr << "Index loaded" << endl;
