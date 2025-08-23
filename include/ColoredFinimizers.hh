@@ -15,6 +15,26 @@
 
 using namespace std;
 
+static std::chrono::nanoseconds time_rarest_fmin(0);
+static std::chrono::nanoseconds time_combine(0);
+static std::chrono::nanoseconds time_index_loading(0);
+static std::chrono::nanoseconds time_output(0);
+
+
+
+void print_search_timing_stats() {
+    using namespace std::chrono;
+    std::cerr << "Time to load the index: "
+                << duration_cast<milliseconds>(time_index_loading).count() << " ms\n";
+
+    std::cerr << "Time in rarest_fmin_streaming_search (fwd): "
+                << duration_cast<milliseconds>(time_rarest_fmin).count() << " ms\n";
+    std::cerr << "Time in combine_f_rc: "
+                << duration_cast<milliseconds>(time_combine).count() << " ms\n";
+    std::cerr << "Time to output results: "
+                << duration_cast<milliseconds>(time_output).count() << " ms\n";
+}
+
 // Colored finimizers without much compression
 class ColoredFinimizers {
 public:
@@ -332,10 +352,11 @@ public:
         const int64_t query_len = query.length();
       
         if (query.size() < this->k) return; 
-
+        auto start = std::chrono::high_resolution_clock::now();
         vector<uint64_t> Finimizers;
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
-      
+        auto end = std::chrono::high_resolution_clock::now();
+        time_rarest_fmin += (end - start);
         // Check the colors for every finimizer found
         pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans);// wrong
         return;
@@ -346,12 +367,17 @@ public:
         const int64_t query_len = query.length();
 
         if (query.size() < this->k) return 0; 
-
+        auto start = std::chrono::high_resolution_clock::now();
         vector<uint64_t> Finimizers;
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
-
+        auto end = std::chrono::high_resolution_clock::now();
+        time_rarest_fmin += (end - start);
+        
         // Check the colors for every finimizer found
+        start = std::chrono::high_resolution_clock::now();
         uint16_t min_value = pseudoalignment_stats(Finimizers, this->color_sets_concat, this->n_colors, ans,t);
+        end = std::chrono::high_resolution_clock::now();
+        time_combine += (end - start);
         return min_value;
     }
 

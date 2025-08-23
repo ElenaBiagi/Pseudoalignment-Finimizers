@@ -43,9 +43,9 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             string seq = reader.read_buf;
 
             vector<pair<uint16_t, uint16_t>> ans;
-
             const uint16_t min_value = index.search(seq, ans, t );
-
+            
+            auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
 
                 const auto& [idx, count] = ans[a];
@@ -57,9 +57,9 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
             }
             //out << '\n';
-            string end = "\n";
-            buffer << end;
-            buffer_size += end.size();
+            string s_end = "\n";
+            buffer << s_end;
+            buffer_size += s_end.size();
 
             if (buffer_size >= flush_t) {
                 out << buffer.str();
@@ -68,10 +68,17 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 buffer_size = 0;
             }
             i++;
+            auto end = std::chrono::high_resolution_clock::now();
+            time_output += (end - start);
         }
+
+        auto start = std::chrono::high_resolution_clock::now();
         if (buffer_size > 0) {
             out << buffer.str();
         }
+        auto end = std::chrono::high_resolution_clock::now();
+        time_output+= (end - start);
+
     } else {
         while(true){
             // TODO PRINT OUTPUT ONLY AT THE END?
@@ -87,7 +94,9 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
             vector<pair<uint16_t, uint16_t>> ans;
             index.search(seq, ans);
-        
+
+            auto start = std::chrono::high_resolution_clock::now();
+
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
 
                 const auto& [idx, count] = ans[a];
@@ -96,6 +105,8 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             }
             out << '\n';
             i++;
+            auto end = std::chrono::high_resolution_clock::now();
+            time_output+= (end - start);
         }
 
     }
@@ -103,6 +114,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     //total_micros += cur_time_micros() - t0;
     //write_log("k " + to_string(k), LogLevel::MAJOR);
     //write_log("us/query: " + to_string((double)total_micros / number_of_queries) + " (excluding I/O etc)", LogLevel::MAJOR);
+    print_search_timing_stats();
 
     return 1;
 }
@@ -210,8 +222,12 @@ int search_fmin(int argc, char** argv){
     /* int64_t total_micros = 0; 
     int64_t t0 = cur_time_micros();
     */
+
+    auto start = std::chrono::high_resolution_clock::now();
     CompressedColoredFinimizers index;
     index.load(index_prefix);
+    auto end = std::chrono::high_resolution_clock::now();
+    time_index_loading += (end - start);
     /* total_micros += cur_time_micros() - t0;
     cerr << total_micros << endl; */
     cerr << "Index loaded" << endl;
