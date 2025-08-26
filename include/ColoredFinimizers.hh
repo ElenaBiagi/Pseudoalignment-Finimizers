@@ -362,7 +362,12 @@ public:
             } */
             const uint64_t* src = cf.color_sets_concat.data() + old_offset;
             uint64_t* dst = unique_color_sets.data() + new_offset;
-            std::copy_n(src, n_colors/64, dst);
+            std::copy_n(src, (n_colors + 63)/64, dst); // line 365
+            // mask unused bits
+            if (n_colors % 64 != 0) {
+                uint64_t mask = (1ULL << (n_colors % 64)) - 1;
+                dst[(n_colors + 63)/64 - 1] &= mask;
+            }
 
             new_offset += n_colors;
         }
