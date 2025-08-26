@@ -327,7 +327,6 @@ public:
         
         //const uint64_t* data = color_sets_concat.data();
         //vector<unordered_map<string, vector<size_t>>> n_bits_set_to_1 = split_bitvector_and_count(reinterpret_cast<const uint64_t*>(color_sets_concat.data()), n_finimizers * n_colors, n_colors);
-        size_t n_words = (n_colors + 63) / 64;
 
         auto Map_bits_set_to_1 = split_bitvector(cf.color_sets_concat, n_colors);
 
@@ -348,36 +347,20 @@ public:
             
             // For every old offset write the new offset
             // Then write the color_id bitvector once, at new_offset  
-            uint64_t new_color_id_offset = new_offset / n_words;
+            uint64_t new_color_id_offset = new_offset / n_colors;
 
             for (auto& c_id : old_offsets){
                 color_set_ids[c_id] = new_color_id_offset;
                 
             }
 
-            uint64_t old_offset = old_offsets[0] * n_words;
+            uint64_t old_offset = old_offsets[0] * n_colors;
             // Copy the bv in unique_color_sets
             // TODO do this more efficiently
-            /* for (size_t j = 0; j < n_colors; ++j) {
+            for (size_t j = 0; j < n_colors; ++j) {
                 unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
-            } */
-
-            if (old_offset + n_words > cf.color_sets_concat.capacity() / 64) {
-                throw std::runtime_error("source out of bounds");
             }
-            if (new_offset + n_words > unique_color_sets.capacity() / 64) {
-                throw std::runtime_error("dest out of bounds");
-            }
-            const uint64_t* src = cf.color_sets_concat.data() + old_offset;
-            uint64_t* dst = unique_color_sets.data() + new_offset;
-            std::copy_n(src, n_words, dst); // line 365
-            // mask unused bits
-            if (n_colors % 64 != 0) {
-                uint64_t mask = (1ULL << (n_colors % 64)) - 1;
-                dst[(n_colors + 63)/64 - 1] &= mask;
-            }
-
-            new_offset += n_words;
+            new_offset += n_colors;
         }
 
         /* // Free up memory from now-unused vector
