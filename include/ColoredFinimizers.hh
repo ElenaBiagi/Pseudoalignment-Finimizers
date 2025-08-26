@@ -361,6 +361,13 @@ public:
             /* for (size_t j = 0; j < n_colors; ++j) {
                 unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
             } */
+
+            if (old_offset + n_words > cf.color_sets_concat.capacity() / 64) {
+                throw std::runtime_error("source out of bounds");
+            }
+            if (new_offset + n_words > unique_color_sets.capacity() / 64) {
+                throw std::runtime_error("dest out of bounds");
+            }
             const uint64_t* src = cf.color_sets_concat.data() + old_offset;
             uint64_t* dst = unique_color_sets.data() + new_offset;
             std::copy_n(src, n_words, dst); // line 365
