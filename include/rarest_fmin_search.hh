@@ -25,7 +25,7 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
     uint64_t sp_len = int_sp_len; // plen is here plen-1: sp_len must be < plen as the whole prefix was not found  
     while (sp_len > 0){ 
         auto it = sB.find(int_sp);
-        if (it != sB.end() && sp_len == it->second.first){ // real match 
+        if (it != sB.end() && sp_len == static_cast<uint64_t>(it->second.first)){ // real match 
             //all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
             if ((start + sp_len -1) > end) { next_candidates.push_back(make_tuple(sp_len+start-1, int_sp, it->second.second, start));} // Sorted based on END
             else { 
@@ -35,7 +35,7 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
                     k_fmin = new_fmin;
                 }
                 else{
-                    while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
+                    while (!curr_candidates.empty() && curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
                 }
                 curr_candidates.push_back(new_fmin); 
             }
@@ -116,7 +116,7 @@ void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint
                 k_fmin = new_fmin;
             }
             else{
-                while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
+                while (!curr_candidates.empty() && curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
             }
             curr_candidates.push_back(new_fmin);
             next_candidates.pop_front();
