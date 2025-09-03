@@ -34,7 +34,7 @@ class CompressedColorSets {
     CompressedColorSets() = default;
 
     
-    CompressedColorSets (const unordered_map<string, vector<size_t>>& deduplicated_cs, uint64_t n_colors,  vector<uint64_t>& color_set_ids, sdsl::bit_vector& color_sets_concat ){// cf.color_sets_concat
+    CompressedColorSets (const unordered_map<string, vector<size_t>>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids, const sdsl::bit_vector& color_sets_concat ){// cf.color_sets_concat
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
         BV.resize(deduplicated_cs.size() * n_colors);
@@ -53,6 +53,7 @@ class CompressedColorSets {
             if (size < sparse_thr) {
                 for (size_t c = 0; c < n_colors; c++) {
                     // store 1s explicitly
+                    // TODO this could me more efficient
                     if (bv[c]) { L.push_back((uint32_t)(c)); } 
                 }
                 // color set ids = rank in L
@@ -74,12 +75,13 @@ class CompressedColorSets {
                 new_offset += n_colors;
             }
         }
-        // Add EF.size() to the indices of BV
+        // Add EF.size() (after the loop) to the indices of BV
         for (auto b = 0; b < color_set_ids.size(); b++){
             if (BV_color_set_ids[b]){ color_set_ids[b]+= EF.size();}
         }
         BV.resize((BV_size * n_colors)+63);
-        cerr << (int)BV_size << endl;
+        cerr << "BV: "<< (int)BV_size << endl;
+        cerr << "L: " << EF.size() << endl;
     }
 
     void serialize(const string& index_prefix) const {
