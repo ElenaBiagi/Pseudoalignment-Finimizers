@@ -25,7 +25,7 @@
 
 
 // TODO Deal with empty SB
-void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t,int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     // 2. Prefix NOT found
     // Start from the longest possible prefix
     // if you find a real match, stop
@@ -135,7 +135,7 @@ void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint6
         }
     }
 }
-void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<char, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<int64_t>& Fmin){ 
+void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<int64_t>& Fmin){ 
     const int64_t str_len = input.size();
 
     uint64_t start = 0;
@@ -224,7 +224,8 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     return;
 }
 
-void read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
+
+void only_concat_read_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     for (const auto& [start,freq] : fmin_v) {
         const uint64_t* ptr = data + (start * n_colors) / 64;
         uint64_t bit_offset = (start * n_colors) % 64;

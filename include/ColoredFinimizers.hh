@@ -1,21 +1,21 @@
 #pragma once
 
 #include <vector>
-#include <iostream>
-#include <fstream>
+//#include <iostream>
+//#include <fstream>
 #include <optional>
-#include <bit>
-#include <bitset>
+//#include <bit>
+//#include <bitset>
 #include <unordered_map>
-#include <algorithm>
+//#include <algorithm>
 
 #include "sdsl/bit_vectors.hpp"
-#include "common.hh"
+//#include "common.hh"
 #include "rarest_fmin_search.hh"
+#include "CompressedColorSets.hh"
 #include "Buckets.hh"
 
 #include <chrono>
-
 
 using namespace std;
 
@@ -107,7 +107,7 @@ void true_or_crash(bool b, const char* error_message){
     }
 }
 
-struct ColorSet {
+/* struct old_ColorSet {
     enum class ColorSetType : uint8_t { SPARSE, BITMAP, COMPLEMENT };
     // 3 different representations
     
@@ -202,26 +202,22 @@ struct ColorSet {
         }
     }
 };
+ */
 
 void combine_f_rc(const std::vector<int64_t>& Fmin,
                   const std::vector<int64_t>& r_Fmin,
-                  //const std::vector<ColorSet>& unique_color_sets,
-                  //const std::vector<uint32_t>& color_set_ids,
-                  const sdsl::bit_vector& color_sets_concat,
+                  const CompressedColorSets& CCS,
                   const uint64_t n_colors,
                   std::vector<std::pair<uint16_t, uint16_t>>& ans);
 
 uint64_t combine_f_rc(const std::vector<int64_t>& Fmin,
                       const std::vector<int64_t>& r_Fmin,
-                      //const std::vector<ColorSet>& unique_color_sets,
-                      //const std::vector<uint32_t>& color_set_ids,
-                      const sdsl::bit_vector& color_sets_concat,
+                      const CompressedColorSets& CCS,
                       const uint64_t n_colors,
                       std::vector<std::pair<uint16_t, uint16_t>>& ans,
                       const float& t);
 
-
-class CompressedColoredFinimizers {
+ class CompressedColoredFinimizers {
 public:
     enum class ColorSetType : uint8_t { SPARSE, BITMAP, COMPLEMENT };
     
@@ -230,13 +226,13 @@ private:
     //vector<ColorSet> unique_color_sets;
     sdsl::bit_vector unique_color_sets;
 
-    vector<uint32_t> color_set_ids;
+    vector<uint64_t> color_set_ids;
 
 public:
-    sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors. TODO: deduplicate.
+    CompressedColorSets CCS; // Length #finimizers * #colors.
 
     vector<optional<Bucket>> buckets; 
-    unordered_map<uint32_t, pair<char, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
+    unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
     uint64_t n_colors;
     uint64_t n_finimizers;
     uint64_t plen;
@@ -275,7 +271,6 @@ public:
             string key((char*)bv.data(), ((n_colors + 63) / 64) * 8);
             deduplicated_cs[key].push_back(i);
         }
-
         /* unique_color_sets.reserve(deduplicated_cs.size());
         color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
         for (auto& [key, old_offsets] : deduplicated_cs) {
@@ -287,35 +282,15 @@ public:
             for (auto old_id : old_offsets) color_set_ids[old_id] = new_id;
         } */
 
-        sdsl::bit_vector unique_color_sets(deduplicated_cs.size() * n_colors);
+        
 
         color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
-        uint64_t new_offset = 0;
+        CompressedColorSets CCS(deduplicated_cs, n_colors, color_set_ids, cf.color_sets_concat);
 
-        for (auto& [key, old_offsets] : deduplicated_cs) {
-
-
-            sdsl::bit_vector bv(n_colors);
-            memcpy((char*)bv.data(), key.data(), key.size()); // rebuild the bitvector from the string(hash key)
-            // For every old offset write the new offset
-            // Then write the color_id bitvector once, at new_offset  
-            uint64_t new_color_id_offset = new_offset / n_colors;
-
-            for (auto& c_id : old_offsets){
-                color_set_ids[c_id] = new_color_id_offset;
-                
-            }
-            uint64_t old_offset = old_offsets[0] * n_colors;
-
-            // Copy the bv in unique_color_sets
-            // TODO do this more efficiently
-            for (size_t j = 0; j < n_colors; ++j) {
-                unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
-            }
-            new_offset += n_colors;
-        }
+        
         // Assign to final structure
-        this->color_sets_concat = std::move(unique_color_sets);
+        this->CCS = std::move(CCS);
+        
 
         cerr << "Deal with tails" << endl;
         int64_t first_nonegative_tail_idx = -1;
@@ -402,7 +377,7 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             // combine_f_rc(Finimizers, r_Finimizers, unique_color_sets, color_set_ids, this->n_colors, ans);
-            combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans);
+            combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -437,7 +412,7 @@ public:
         uint16_t min_value;
         {
             auto start = std::chrono::high_resolution_clock::now();
-            min_value = combine_f_rc(Finimizers, r_Finimizers, this->color_sets_concat, this->n_colors, ans, t);
+            min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -449,13 +424,13 @@ public:
     void serialize(const string& index_prefix) const {
         cerr << "Save the index" << endl;
         // color_sets_concat
-        std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
+        /* std::ofstream colors_out(index_prefix + ".colors.sdsl", std::ios::binary);
         if (!colors_out) {
             std::cerr << "Error: Could not open colors file!" << std::endl;
             return;
         }
         sdsl::serialize(color_sets_concat, colors_out);
-        colors_out.close();
+        colors_out.close(); */
         /* ofstream colors_out(index_prefix + ".colors.hybrid", ios::binary);
         size_t num_sets = unique_color_sets.size();
         colors_out.write(reinterpret_cast<const char*>(&num_sets), sizeof(num_sets));
@@ -470,7 +445,7 @@ public:
         ids_out.write(reinterpret_cast<const char*>(color_set_ids.data()), ids_size * sizeof(uint32_t));
         ids_out.close(); */
 
-        
+        CCS.serialize(index_prefix);
 
         // buckets (std::optional<Bucket>)
         std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
@@ -522,13 +497,13 @@ public:
 
     void load(const string& index_prefix) {
         // color_sets_concat
-        std::ifstream colors_in(index_prefix + ".colors.sdsl", std::ios::binary);
+        /* std::ifstream colors_in(index_prefix + ".colors.sdsl", std::ios::binary);
         if (!colors_in) {
             std::cerr << "Error: Could not open colors file!" << std::endl;
             return;
         }
         sdsl::load(color_sets_concat, colors_in);
-        colors_in.close();
+        colors_in.close(); */
 
         /* std::ifstream colors_in(index_prefix + ".colors.hybrid", ios::binary);
         size_t num_sets;
@@ -539,13 +514,16 @@ public:
         }
         colors_in.close(); */
 
-        // color set ids are in buckets and sB
+        CCS.load(index_prefix);
+
+
+        /* // color set ids are in buckets and sB
         std::ifstream ids_in(index_prefix + ".color_set_ids.BIN", std::ios::binary);
         size_t ids_size;
         ids_in.read(reinterpret_cast<char*>(&ids_size), sizeof(ids_size));
         color_set_ids.resize(ids_size);
         ids_in.read(reinterpret_cast<char*>(color_set_ids.data()), ids_size * sizeof(uint32_t));
-        ids_in.close();
+        ids_in.close(); */
 
         // buckets
         std::ifstream buckets_in(index_prefix + ".buckets.BIN", std::ios::binary);
@@ -605,11 +583,393 @@ public:
 
 };
 
+// TODO MOVE THIS TO COMPRESSED_COLOR_SETS
+
+void read_bv(const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t>& results){
+    const uint64_t* ptr = data + (start * n_colors) / 64;
+    uint64_t bit_offset = (start * n_colors) % 64;
+
+    uint64_t color_id = 0;
+
+    // 1. Read the first word
+    uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+    uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+    uint64_t word = (*ptr >> bit_offset) & mask;
+
+    while (word != 0) {
+        uint64_t bit = __builtin_ctzll(word);
+        results[bit]+=freq;
+        word &= word - 1;
+    }
+
+    ptr++;
+    color_id += bits_to_read;
+
+    // 2. Read aligned words in btw
+    while (color_id + 64 <= n_colors) {
+        uint64_t word = *ptr++;
+        for (uint64_t w = word; w != 0;) {
+            uint64_t bit = __builtin_ctzll(w);
+            results[color_id + bit]+=freq;
+            w &= w - 1;
+        }
+        color_id += 64;
+    }
+
+    // 3. Read the last word (if any)
+    uint64_t bits_left = n_colors - color_id;
+    if (bits_left > 0) {
+        uint64_t mask = ((1ULL << bits_left) - 1);
+        uint64_t word = *ptr & mask;
+
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            results[color_id + bit]+=freq;
+            word &= word - 1;
+        }
+    }
+}
+
+void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
+    sdsl::bit_vector BV = CCS.getBV();
+    vector<uint32_t> L = CCS.getL();
+    vector<size_t> EF = CCS.getEF();
+
+    const uint64_t* data = BV.data();
+    const uint64_t L_size = EF.size();
+    for (const auto& [pos,freq] : fmin_v) {
+        if (pos >= L_size){  // Check how big start is (dense or sparse)
+
+            uint64_t start = pos - L_size;
+            read_bv(data, start, freq, n_colors, results);
+        }
+        else{ // read from L
+            const size_t end = EF[pos]; // exclusive end
+            size_t start = EF[pos-1]; // inclusive start
+            while(start < end){ results[L[start++]]+=freq;}
+        }
+    }
+}
+
+void combine_bv(const uint64_t* data, const uint64_t start1, const uint64_t start2, const uint64_t n_colors, vector<uint64_t>& results, const uint64_t freq) {
+    const uint64_t bit_offset1 = start1 * n_colors;
+    const uint64_t bit_offset2 = start2 * n_colors;
+
+    uint64_t idx = 0;
+
+    while (idx < n_colors) {
+        
+        uint64_t word1_idx = (bit_offset1 + idx) / 64;
+        uint64_t word2_idx = (bit_offset2 + idx) / 64;
+
+        uint64_t shift1 = (bit_offset1 + idx) % 64;
+        uint64_t shift2 = (bit_offset2 + idx) % 64;
+
+        uint64_t bits_to_process = std::min({n_colors - idx, 64 - shift1, 64 - shift2});
+
+        uint64_t mask = (bits_to_process == 64) ? ~0ULL : ((1ULL << bits_to_process) - 1);
+
+        uint64_t word1 = (data[word1_idx] >> shift1) & mask;
+        uint64_t word2 = (data[word2_idx] >> shift2) & mask;
+        uint64_t combined = word1 | word2;
+
+        while (combined) {
+            uint64_t bit = __builtin_ctzll(combined);
+            uint64_t result_idx = idx + bit;
+            //if (result_idx < n_colors) {
+                results[result_idx] += freq;
+            //} 
+            combined &= combined - 1;
+        }
+
+        idx += bits_to_process;
+    }
+}
+
+inline void process_word(uint64_t word, uint64_t base,
+                         const vector<uint32_t>& L, size_t& j, size_t end,
+                         vector<uint64_t>& results, uint64_t freq) {
+    while (word) {
+        uint64_t bit = __builtin_ctzll(word);
+        uint64_t color = base + bit;
+
+        // add smaller values in L
+        while (j < end && L[j] < color) {
+            results[L[j++]] += freq;
+        }
+
+        // skip L, write BV 
+        if (j < end && L[j] == color) {
+            j++;
+        }
+
+        // add BV values 
+        results[color] += freq;
+        word &= word - 1; // clear lowest bit
+    }
+}
+
+void combine_bv_list(const uint64_t* data, const vector<uint32_t>& L, const vector<size_t>& EF, const uint64_t start1, const uint64_t pos2, const uint64_t n_colors, vector<uint64_t>& results, const uint64_t freq){
+    // start2 is the list pos
+    const size_t end2 = EF[pos2]; // exclusive end )
+    size_t start2 = EF[pos2-1]; // inclusive start [
+
+    // start1 is the bv pos
+    const uint64_t* ptr = data + (start1 * n_colors) / 64;
+    uint64_t bit_offset = (start1 * n_colors) % 64;
+
+    uint64_t color_id = 0;
+
+    // 1. Read the first word
+    uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+    uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+    uint64_t word = (*ptr >> bit_offset) & mask;
+    process_word(word, color_id, L, start2, end2, results, freq);
+    ptr++;
+    color_id += bits_to_read;
+
+    // 2. Read aligned words in btw
+    while (color_id + 64 <= n_colors) {
+        uint64_t word = *ptr++;
+        process_word(word, color_id, L, start2, end2, results, freq);
+        color_id += 64;
+    }
+
+    // 3. Read the last word (if any)  
+    if (color_id < n_colors) {
+        uint64_t bits_left = n_colors - color_id;
+        uint64_t mask = ((1ULL << bits_left) - 1);
+        uint64_t word = *ptr & mask;
+                process_word(word, color_id, L, start2, end2, results, freq);                
+    }
+
+    // L values left (if any)
+    while (start2 < end2) {results[L[start2++]] += freq;}
+}
+
+void combine_lists(const vector<uint32_t>& L, const vector<size_t>& EF, const uint64_t pos1, const uint64_t pos2, vector<uint64_t>& results, const uint64_t freq){
+    // AND
+    const size_t end1 = EF[pos1]; // exclusive end
+    const size_t start1 = EF[pos1-1]; // inclusive start
+
+    const size_t end2 = EF[pos2]; // exclusive end
+    const size_t start2 = EF[pos2-1]; 
+            
+    size_t i = start1, j = start2;
+    while (i < end1 && j < end2) {
+        if (L[i] < L[j]) {
+            results[L[i++]] += freq;
+        } else if (L[j] < L[i]) {
+            results[L[j++]] += freq;
+        } else {
+            results[L[i]] += freq;
+            i++; 
+            j++;
+        }
+    }
+    while (i < end1) results[L[i++]] += freq;
+    while (j < end2) results[L[j++]] += freq;
+}
+
+void read_f_rc_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
+    // option 1: compare f and r as you go
+    // option 2: store f and r in 2 bitvectors and compare at the end
+    //for (const auto& [[start, r_start], freq] : p_fmin_v) {
+    sdsl::bit_vector BV = CCS.getBV();
+    vector<uint32_t> L = CCS.getL();
+    vector<size_t> EF = CCS.getEF();
+
+    const uint64_t* data = BV.data();
+    const uint64_t L_size = EF.size();
+    for (const auto& [key,freq] : p_fmin_v) {
+        uint64_t start = key.first;
+        uint64_t r_start = key.second;
+        if (start >= L_size){
+            start -= L_size;
+            if (r_start >= L_size){
+                r_start -= L_size;
+                combine_bv(data, start, r_start, n_colors, results, freq);
+            }
+            else {
+                // TODO ONE LIST AND ONE COLOR SET
+                combine_bv_list(data, L, EF, start, r_start, n_colors, results, freq);
+            }
+        } 
+        else {
+            if (r_start >= L_size){
+                r_start -= L_size;
+                // TODO ONE LIST AND ONE COLOR SET
+                combine_bv_list(data, L, EF, r_start, start, n_colors, results, freq);
+            }
+            else{
+                // TODO 2 LISTS
+                combine_lists(L,EF, start, r_start, results, freq);
+            }
+        }
+    }
+}
+
+
 // TODO: how to sort these or exploit identical ones still keeping the pairs?
 // two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
 // This should anyways keep the number of false pos low
 
-void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    // NEW pseudoaligment_stats
+    vector<uint64_t> results;
+    results.resize(n_colors, 0);
+
+    // for now assume they have the same size
+
+    //option1 
+    // check the ones that are the same and deal with only the others later
+    // store the diff ones in a separate vector??
+    // you can still sort Fmin -> correct results
+    // How to deal with the reverse??? sort r_Fmin based on Fmin sorting
+
+    
+    const int n_fmin = Fmin.size(); // now this is input_len -k +1
+    // 1. Make a vector of pairs and a vector of int64_t
+    vector<pair<int64_t, int64_t>> p_Fmin; // pair of distinct color_sets ids
+    p_Fmin.reserve(n_fmin);
+
+    vector<int64_t> i_Fmin; // if colorset id is the same (identical) for forward and reverse
+    i_Fmin.reserve(n_fmin);
+
+    for (auto i = 0; i<n_fmin; i++){
+        int64_t f = Fmin[i];
+        int64_t r = r_Fmin[n_fmin - i - 1];
+        // r string is the reverse complement
+        if (f != r && f != -1 && r != -1){
+            p_Fmin.push_back({f, r});
+        }
+        else if (f != -1){
+            i_Fmin.push_back(f);
+        } 
+        else if (r != -1){
+            i_Fmin.push_back(r);
+        }
+    }
+    // cases:
+    // == -1 -1 : nothing
+    // == x x : store x
+    // != -1 x : store x
+    // != x -1 : store x
+    // != x y : store x,y
+
+    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    //CCS.init(found_fmin, n_colors); // only here we know found_fmin
+
+    // 2. Deal with the vector of int64_t: i_Fmin
+        // 2a. Keep frequency 
+        // Count freq of each i_fmin
+    std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+    i_fmin_counts.reserve(i_Fmin.size());
+    for (const auto& v: i_Fmin) {
+        i_fmin_counts[v]++;
+    }
+
+    // 2b. sort i_fmin
+    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
+    std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+    //read_colors(data, n_colors, results, i_fmin_v);
+    read_colors(CCS, n_colors, results, i_fmin_v);
+
+    // 3. Deal with the vector of pairs: p_Fmin
+    struct pair_hash {
+        size_t operator()(const pair<int64_t, int64_t>& p) const {
+            return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
+        }
+    };
+    std::unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash> p_fmin_counts;
+    p_fmin_counts.reserve(p_Fmin.size());
+
+    for (const auto& v: p_Fmin) {
+        p_fmin_counts[v]++;
+    }
+    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end()); // [{{f,r},counts},...]
+
+    // TODO does it make sense to sort pairs??
+
+    // TODO IMPLEMENT THIS
+    //read_f_rc_colors(data, n_colors, results, p_fmin_v);
+
+    counting_sort(results, ans, found_fmin, n_colors);
+    return;
+}
+
+uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){
+
+    // NEW pseudoaligment_stats
+    vector<uint64_t> results;
+    results.resize(n_colors, 0);
+
+    const int n_fmin = Fmin.size(); // now this is input_len -k +1
+    // 1. Make a vector of pairs and a vector of int64_t
+    vector<pair<int64_t, int64_t>> p_Fmin;
+    p_Fmin.reserve(n_fmin);
+
+    vector<int64_t> i_Fmin; // if colorset id is the same for forward and reverse
+    i_Fmin.reserve(n_fmin);
+
+    for (auto i = 0; i<n_fmin; i++){
+        int64_t f = Fmin[i];
+        int64_t r = r_Fmin[n_fmin - i - 1];
+        if (f != r && f != -1 && r != -1){
+            p_Fmin.push_back({f, r});
+        }
+        else if (f != -1){
+            i_Fmin.push_back(f);
+        } 
+        else if (r != -1){
+            i_Fmin.push_back(r);
+        }
+    }
+    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    //CCS.init(found_fmin, n_colors); // only here we know found_fmin
+
+
+    // 2. Deal with the vector of int64_t: i_Fmin
+        // 2a. Keep frequency 
+        // Count freq of each i_fmin
+    std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+    i_fmin_counts.reserve(i_Fmin.size());
+    for (const auto& v: i_Fmin) {
+        i_fmin_counts[v]++;
+    }
+        // 2b. sort i_fmin
+    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
+    std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+    read_colors(CCS, n_colors, results, i_fmin_v);
+
+
+    // 3. Deal with the vector of pairs: p_Fmin
+    struct pair_hash {
+        size_t operator()(const pair<int64_t, int64_t>& p) const {
+            return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
+        }
+    };
+    std::unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash> p_fmin_counts;
+    p_fmin_counts.reserve(p_Fmin.size());
+
+    for (const auto& v: p_Fmin) {
+        p_fmin_counts[v]++;
+    }
+    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
+
+    // TODO does it make sense to sort pairs??
+    //read_f_rc_colors(data, n_colors, results, p_fmin_v);
+
+    counting_sort(results, ans, found_fmin, n_colors);
+
+    const uint64_t min_value = found_fmin * t;
+
+    return min_value;
+}
+
+
+
+/* void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
     results.resize(n_colors, 0);
@@ -654,7 +1014,7 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
     // != x y : store x,y
 
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
-    //CSS.init(found_fmin, n_colors); // only here we know found_fmin
+    //CCS.init(found_fmin, n_colors); // only here we know found_fmin
 
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
@@ -723,7 +1083,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
         }
     }
     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
-    //CSS.init(found_fmin, n_colors); // only here we know found_fmin
+    //CCS.init(found_fmin, n_colors); // only here we know found_fmin
 
 
     // 2. Deal with the vector of int64_t: i_Fmin
@@ -763,7 +1123,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
 
     return min_value;
 }
-
+ */
 // void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const vector<ColorSet>& unique_color_sets, const vector<uint32_t>& color_set_ids, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
 //     // NEW pseudoaligment_stats
 //     vector<uint64_t> results;
@@ -889,7 +1249,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
 //     }
 //     const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
 //     //cerr << "found fmin = "<< found_fmin << endl;
-//     //CSS.init(found_fmin, n_colors); // only here we know found_fmin
+//     //CCS.init(found_fmin, n_colors); // only here we know found_fmin
 
 
 //     // 2. Deal with the vector of int64_t: i_Fmin
