@@ -78,7 +78,7 @@ class CompressedColorSets {
         for (auto b = 0; b < color_set_ids.size(); b++){
             if (BV_color_set_ids[b]){ color_set_ids[b]+= EF.size();}
         }
-        BV.resize(BV_size * n_colors);
+        BV.resize((BV_size * n_colors)+63);
         cerr << (int)BV_size << endl;
     }
 
