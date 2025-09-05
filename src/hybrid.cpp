@@ -1,10 +1,11 @@
 #include <string>
 #include <numeric>
 #include <iostream>
+#include <stdexcept>
 #include <cassert>
 
-#include "../include/hybrid.hpp"
-#include "../bundled/biolib/include/iterator/counting_iterator.hpp"
+#include "../include/hybrid.hh"
+#include "../biolib/include/counting_iterator.hpp"
 
 // #include <iostream>
 
@@ -436,5 +437,86 @@ hybrid::print_stats(std::ostream& out) const
         << " bits/int\n";
 }
 
+
+template <typename T>
+static void write_vector(std::ostream& out, const T& vec) {
+    uint64_t n = vec.size();
+    out.write(reinterpret_cast<const char*>(&n), sizeof(n));
+    for (uint64_t i = 0; i < n; i++) {
+        auto v = vec[i];
+        out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+    }
+}
+
+template <typename T>
+static void read_vector(std::istream& in, T& vec) {
+    uint64_t n;
+    in.read(reinterpret_cast<char*>(&n), sizeof(n));
+    vec.resize(n);
+    for (uint64_t i = 0; i < n; i++) {
+        typename T::value_type v;
+        in.read(reinterpret_cast<char*>(&v), sizeof(v));
+        vec[i] = v;
+    }
+}
+void hybrid::write(std::ostream& out) const {
+    if (!out.good()) {
+        throw std::runtime_error("hybrid::write: output stream not ready");
+    }
+
+    // Scalars
+    out.write(reinterpret_cast<const char*>(&m_num_docs), sizeof(m_num_docs));
+    out.write(reinterpret_cast<const char*>(&m_sparse_set_threshold_size), sizeof(m_sparse_set_threshold_size));
+    out.write(reinterpret_cast<const char*>(&m_very_dense_set_threshold_size), sizeof(m_very_dense_set_threshold_size));
+
+    // --- serialize m_offsets (ef_sequence) ---
+    uint64_t n_offsets = m_offsets.size();
+    out.write(reinterpret_cast<const char*>(&n_offsets), sizeof(n_offsets));
+    for (uint64_t i = 0; i < n_offsets; i++) {
+        uint64_t v = m_offsets.access(i);  // ef::array usually provides access()
+        out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+    }
+
+    // --- serialize m_colors (bit_vector) ---
+    uint64_t n_colors = m_colors.size();
+    out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
+    for (uint64_t i = 0; i < n_colors; i++) {
+        uint64_t v = m_colors[i];
+        out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+    }
+}
+
+void hybrid::read(std::istream& in) {
+    if (!in.good()) {
+        throw std::runtime_error("hybrid::read: input stream not ready");
+    }
+
+    // Scalars
+    in.read(reinterpret_cast<char*>(&m_num_docs), sizeof(m_num_docs));
+    in.read(reinterpret_cast<char*>(&m_sparse_set_threshold_size), sizeof(m_sparse_set_threshold_size));
+    in.read(reinterpret_cast<char*>(&m_very_dense_set_threshold_size), sizeof(m_very_dense_set_threshold_size));
+
+    // --- deserialize m_offsets ---
+    uint64_t n_offsets;
+    in.read(reinterpret_cast<char*>(&n_offsets), sizeof(n_offsets));
+    std::vector<uint64_t> tmp_offsets(n_offsets);
+    for (uint64_t i = 0; i < n_offsets; i++) {
+        in.read(reinterpret_cast<char*>(&tmp_offsets[i]), sizeof(tmp_offsets[i]));
+    }
+    {
+        bit::ef::array::builder builder(tmp_offsets.begin(), tmp_offsets.end());
+        m_offsets = ef_sequence(builder);  // rebuild compressed structure
+    }
+
+    // --- deserialize m_colors ---
+    uint64_t n_colors;
+    in.read(reinterpret_cast<char*>(&n_colors), sizeof(n_colors));
+    m_colors = bit_vector(n_colors);
+    for (uint64_t i = 0; i < n_colors; i++) {
+        uint64_t v;
+        in.read(reinterpret_cast<char*>(&v), sizeof(v));
+        m_colors[i] = v;
+    }
+}
 } // namespace color_classes 
 } // namespace kaminari

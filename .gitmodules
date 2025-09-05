@@ -7,3 +7,6 @@
 [submodule "finimizer_matrix"]
 	path = finimizer_matrix
 	url = https://github.com/jnalanko/finimizer_matrix.git
+[submodule "biolib"]
+	path = biolib
+	url = https://github.com/yhhshb/biolib.git

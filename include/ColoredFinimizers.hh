@@ -22,6 +22,7 @@
 
 using namespace std;
 using ColorClasses = kaminari::color_classes::hybrid;
+using color_t = kaminari::color_classes::hybrid::color_t;
 
 
 static std::chrono::nanoseconds time_rarest_fmin(0);
@@ -331,7 +332,10 @@ public:
     void serialize(const string& index_prefix) const {
         cerr << "Save the index" << endl;
 
-        CCS.serialize(index_prefix);
+        //CCS.serialize(index_prefix);
+        std::ofstream out(index_prefix + ".hybrid", std::ios::binary);
+        CCS.write(out); // hybrid::write
+        out.close();        
 
         // buckets (std::optional<Bucket>)
         std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
@@ -383,7 +387,10 @@ public:
 
     void load(const string& index_prefix) {
 
-        CCS.load(index_prefix);
+        //CCS.load(index_prefix);
+        std::ifstream in(index_prefix + ".hybrid", std::ios::binary);
+        CCS.read(in); // hybrid::read
+        in.close();
 
         // buckets
         std::ifstream buckets_in(index_prefix + ".buckets.BIN", std::ios::binary);
@@ -884,7 +891,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
         // 2b. sort i_fmin
     vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
     std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
-    read_colors(CCS, n_colors, results, i_fmin_v);
+    read_colors(CCS, results, i_fmin_v);
 
 
     // 3. Deal with the vector of pairs: p_Fmin
@@ -902,7 +909,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
     vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
 
     // TODO does it make sense to sort pairs??
-    read_f_rc_colors(CCS, n_colors, results, p_fmin_v);
+    read_f_rc_colors(CCS, results, p_fmin_v);
 
     counting_sort(results, ans, found_fmin, n_colors);
 
