@@ -2,11 +2,11 @@
 #define KAMINARI_COLOR_CLASSES_HYBRID_HPP
 
 #include <vector>
-#include "../bundled/biolib/include/bit_vector.hpp"
-#include "../bundled/biolib/include/bit_parser.hpp"
-#include "../bundled/biolib/include/codes.hpp"
-#include "../bundled/biolib/include/packed_vector.hpp"
-#include "../bundled/biolib/include/elias_fano.hpp"
+#include "../biolib/include/bit_vector.hpp"
+#include "../biolib/include/bit_parser.hpp"
+#include "../biolib/include/codes.hpp"
+#include "../biolib/include/packed_vector.hpp"
+#include "../biolib/include/elias_fano.hpp"
 
 namespace kaminari {
 namespace color_classes {
@@ -115,6 +115,9 @@ class hybrid
             visitor.visit(m_offsets);
             visitor.visit(m_colors);
         }
+
+        void write(std::ostream& out) const;
+        void read(std::istream& in);
 
     private:
         uint32_t m_num_docs;
