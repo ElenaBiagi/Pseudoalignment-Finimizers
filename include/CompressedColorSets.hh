@@ -33,7 +33,6 @@ class CompressedColorSets {
 
     CompressedColorSets() = default;
 
-    
     CompressedColorSets (const unordered_map<string, vector<size_t>>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids, const sdsl::bit_vector& color_sets_concat ){// cf.color_sets_concat
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
@@ -41,14 +40,13 @@ class CompressedColorSets {
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
         uint64_t new_offset = 0;
+        const size_t sparse_thr = n_colors / 4; //*0.25
+        //const size_t dense_thr  = (3 * n_colors) / 4; // *0.75
         for (auto& [key, old_offsets] : deduplicated_cs) {
 
             sdsl::bit_vector bv(n_colors);
             memcpy((char*)bv.data(), key.data(), key.size());
             const size_t size = sdsl::util::cnt_one_bits(bv);
-            const size_t sparse_thr = n_colors / 4; //*0.25
-            //const size_t dense_thr  = (3 * n_colors) / 4; // *0.75
-
             // Sparse
             if (size < sparse_thr) {
                 for (size_t c = 0; c < n_colors; c++) {
