@@ -1,16 +1,10 @@
 #pragma once
 
 #include <vector>
-//#include <iostream>
-//#include <fstream>
 #include <optional>
-//#include <bit>
-//#include <bitset>
 #include <unordered_map>
-//#include <algorithm>
 
 #include "sdsl/bit_vectors.hpp"
-//#include "common.hh"
 #include "rarest_fmin_search.hh"
 #include "CompressedColorSets.hh"
 #include "Buckets.hh"
@@ -398,7 +392,7 @@ public:
         sB.clear();
         for (size_t i = 0; i < map_size; ++i) {
             uint32_t key;
-            std::pair<char,int64_t> val;
+            std::pair<uint8_t,int64_t> val;
             sB_in.read(reinterpret_cast<char*>(&key), sizeof(uint32_t));
             sB_in.read(reinterpret_cast<char*>(&val.first), sizeof(uint8_t));
             sB_in.read(reinterpret_cast<char*>(&val.second), sizeof(int64_t));

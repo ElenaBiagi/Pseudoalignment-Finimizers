@@ -45,7 +45,13 @@ class CompressedColorSets {
         for (auto& [key, old_offsets] : deduplicated_cs) {
 
             sdsl::bit_vector bv(n_colors);
-            memcpy((char*)bv.data(), key.data(), key.size());
+            //memcpy((char*)bv.data(), key.data(), key.size());
+            // TODO replace this for loop with the line above
+            for (size_t j = 0; j < n_colors; ++j) {
+                if (key[j] == '1') {   // if you store keys as "0101..." strings
+                    bv[j] = 1;
+            }
+        }
             const size_t size = sdsl::util::cnt_one_bits(bv);
             // Sparse
             if (size < sparse_thr) {
@@ -80,6 +86,8 @@ class CompressedColorSets {
         BV.resize((BV_size * n_colors)+63);
         cerr << "BV: "<< (int)BV_size << endl;
         cerr << "L: " << EF.size() << endl;
+        //uint64_t max = *std::max_element(L.begin(), L.end());
+        //cerr << "Max value in L: " << max << std::endl;
     }
 
     void serialize(const string& index_prefix) const {
