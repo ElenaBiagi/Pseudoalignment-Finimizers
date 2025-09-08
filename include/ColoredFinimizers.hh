@@ -286,14 +286,14 @@ public:
 
     
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans) const{//, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers) const {
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers) const {
         //cerr << "search"<< endl;
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
 
         // Forward finimizer search
-        vector<int64_t> Finimizers;
-        //Finimizers.clear();
+        //vector<int64_t> Finimizers;
+        Finimizers.clear();
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
@@ -303,8 +303,8 @@ public:
         }
 
         // Reverse complement search
-        vector<int64_t> r_Finimizers;
-        //r_Finimizers.clear();
+        //vector<int64_t> r_Finimizers;
+        r_Finimizers.clear();
         r_Finimizers.reserve(query_len - k + 1);
         string r_query = sbwt::get_rc(query);
         {
@@ -325,14 +325,16 @@ public:
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers) const {
         //cerr << "search"<< endl;
 
         const int64_t query_len = query.length();
         if (query_len < this->k) return 0;
 
         // Forward finimizer search
-        vector<int64_t> Finimizers;
+        //vector<int64_t> Finimizers;
+        Finimizers.clear();
+        Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
             rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
@@ -341,7 +343,9 @@ public:
         }
 
         // reverse complement
-        vector<int64_t> r_Finimizers;
+        //vector<int64_t> r_Finimizers;
+        r_Finimizers.clear();
+        r_Finimizers.reserve(query_len - k + 1);
         string r_query = sbwt::get_rc(query);
         {
             auto start = std::chrono::high_resolution_clock::now();
