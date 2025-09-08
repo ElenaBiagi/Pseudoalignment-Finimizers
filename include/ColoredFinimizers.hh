@@ -105,16 +105,14 @@ void combine_f_rc(const std::vector<int64_t>& Fmin,
                   const std::vector<int64_t>& r_Fmin,
                   const CompressedColorSets& CCS,
                   const uint64_t n_colors,
-                  std::vector<std::pair<uint16_t, uint16_t>>& ans,
-                  const uint64_t max_fmin_id);
+                  std::vector<std::pair<uint16_t, uint16_t>>& ans);
 
 uint64_t combine_f_rc(const std::vector<int64_t>& Fmin,
                       const std::vector<int64_t>& r_Fmin,
                       const CompressedColorSets& CCS,
                       const uint64_t n_colors,
                       std::vector<std::pair<uint16_t, uint16_t>>& ans,
-                      const float& t,
-                      const uint64_t max_fmin_id);
+                      const float& t);
 
  class CompressedColoredFinimizers {
 
@@ -288,7 +286,7 @@ public:
 
     
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers, const uint64_t max_fmin_id) const {
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers) const {
         //cerr << "search"<< endl;
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
@@ -319,7 +317,7 @@ public:
         // Combine forward and reverse results
         {
             auto start = std::chrono::high_resolution_clock::now();
-            combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, max_fmin_id);
+            combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -327,7 +325,7 @@ public:
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers, const uint64_t max_fmin_id) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers) const {
         //cerr << "search"<< endl;
 
         const int64_t query_len = query.length();
@@ -360,7 +358,7 @@ public:
         uint16_t min_value;
         {
             auto start = std::chrono::high_resolution_clock::now();
-            min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, max_fmin_id);
+            min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -770,10 +768,8 @@ void read_f_rc_colors(const CompressedColorSets& CCS, const uint64_t n_colors, v
 // two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
 // This should anyways keep the number of false pos low
 
-void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const uint64_t max_fmin_id){
+void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
     //cerr << "combine_f_rc" << endl;
-
-    // TODO REMOVE MAX_FMIN_ID
 
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
@@ -824,27 +820,6 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
         // 2a. Keep frequency 
         // Count freq of each i_fmin
 
-    // TODO REMOVE Flat map ??
-    /* vector<uint64_t> i_fmin_counts(max_fmin_id, 0);
-    vector<int64_t> touched_ids;
-    touched_ids.reserve(i_Fmin.size());
-
-    for (auto v : i_Fmin) {
-        if (i_fmin_counts[v] == 0) {
-            touched_ids.push_back(v);
-        }
-        i_fmin_counts[v]++;
-    }
-
-    // Build sparse vector of (id, count) only for touched IDs
-    vector<pair<int64_t, uint64_t>> i_fmin_v;
-    i_fmin_v.reserve(touched_ids.size());
-    for (auto id : touched_ids) {
-        i_fmin_v.emplace_back(id, i_fmin_counts[id]);
-        i_fmin_counts[id] = 0; // reset if reuse later
-    }
- */
-
     std::unordered_map<int64_t, uint64_t> i_fmin_counts;
     i_fmin_counts.reserve(i_Fmin.size());
     for (const auto& v: i_Fmin) {
@@ -893,7 +868,7 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
     return;
 }
 
-uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t, const uint64_t max_fmin_id){
+uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){
     //cerr << "combine_f_rc" << endl;
     // NEW pseudoaligment_stats
     vector<uint64_t> results;
