@@ -42,16 +42,15 @@ class CompressedColorSets {
         uint64_t new_offset = 0;
         const size_t sparse_thr = n_colors / 4; //*0.25
         //const size_t dense_thr  = (3 * n_colors) / 4; // *0.75
-        for (auto& [key, old_offsets] : deduplicated_cs) {
 
-            sdsl::bit_vector bv(n_colors);
-            //memcpy((char*)bv.data(), key.data(), key.size());
-            // TODO replace this for loop with the line above
-            for (size_t j = 0; j < n_colors; ++j) {
-                if (key[j] == '1') {   // if you store keys as "0101..." strings
-                    bv[j] = 1;
-            }
-        }
+        const uint64_t* data = color_sets_concat.data();
+
+        for (auto& [key, old_offsets] : deduplicated_cs) {
+            const uint64_t start = old_offsets[0];
+
+            // TODO access color_set_concat and save the value in a bv
+
+            sdsl::bit_vector bv = read_colors_to_bv(data, n_colors, start);
             const size_t size = sdsl::util::cnt_one_bits(bv);
             // Sparse
             if (size < sparse_thr) {
@@ -88,6 +87,54 @@ class CompressedColorSets {
         cerr << "L: " << EF.size() << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
+    }
+
+    sdsl::bit_vector read_colors_to_bv(const uint64_t* data, const uint64_t n_colors, const uint64_t start){
+        sdsl::bit_vector bv(n_colors);
+
+        const uint64_t* ptr = data + (start * n_colors) / 64;
+        uint64_t bit_offset = (start * n_colors) % 64;
+
+        uint64_t color_id = 0;
+
+        // 1. Read the first word
+        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+        uint64_t word = (*ptr >> bit_offset) & mask;
+
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            bv[bit]=1;
+            word &= word - 1;
+        }
+
+        ++ptr;
+        color_id += bits_to_read;
+
+        // 2. Read aligned words in btw
+        while (color_id + 64 <= n_colors) {
+            uint64_t word = *ptr++;
+            for (uint64_t w = word; w != 0;) {
+                uint64_t bit = __builtin_ctzll(w);
+                bv[color_id + bit]=1;
+                w &= w - 1;
+            }
+            color_id += 64;
+        }
+
+        // 3. Read the last word (if any)
+        uint64_t bits_left = n_colors - color_id;
+        if (bits_left > 0) {
+            uint64_t mask = ((1ULL << bits_left) - 1);
+            uint64_t word = *ptr & mask;
+
+            while (word != 0) {
+                uint64_t bit = __builtin_ctzll(word);
+                bv[color_id + bit]=1;
+                word &= word - 1;
+            }
+        }
+        return bv;
     }
 
     void serialize(const string& index_prefix) const {
