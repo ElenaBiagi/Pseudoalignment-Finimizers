@@ -21,6 +21,12 @@ template<typename reader_t, typename out_stream_t>
 int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const CompressedColoredFinimizers& index, const float& t){
     //int64_t total_micros = 0;
     
+    const sdsl::bit_vector& BV = index.CCS.getBV();
+    //const vector<size_t>& EF = index.CCS.getEF();
+    const vector<uint32_t>& L = index.CCS.getL();
+
+    const uint64_t max_fmin_id = L.size() + (BV.size()/ index.n_colors);
+
     int i=0;
     const size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
 
@@ -29,6 +35,9 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
     size_t buffer_size = 0;
     std::ostringstream buffer;
+
+    vector<int64_t> Finimizers;
+    vector<int64_t> r_Finimizers;
 
     if (t > 0){
         
@@ -50,7 +59,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             vector<pair<uint16_t, uint16_t>> ans;
             ans.reserve(seq.size());
 
-            const uint16_t min_value = index.search(seq, ans, t );
+            const uint16_t min_value = index.search(seq, ans, t, Finimizers,r_Finimizers, max_fmin_id);
 
             auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
@@ -96,7 +105,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
 
             vector<pair<uint16_t, uint16_t>> ans;
             ans.reserve(seq.size());
-            index.search(seq, ans);
+            index.search(seq, ans, Finimizers,r_Finimizers, max_fmin_id);
             
             auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
