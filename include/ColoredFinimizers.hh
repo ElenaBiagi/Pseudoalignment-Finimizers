@@ -425,7 +425,7 @@ public:
         }
     }
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans ) const{
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers ) const{
   
         const int64_t query_len = query.length();
       
@@ -435,7 +435,7 @@ public:
         // now -1 if not found
         // option 2: store x + 64, (x=correct value) or 0 if not found 
 
-        vector<int64_t> Finimizers;
+        Finimizers.clear();
         Finimizers.reserve(query_len - k +1);
         {
             auto start = std::chrono::high_resolution_clock::now();
@@ -445,12 +445,12 @@ public:
         }
         
         // Reverse complement
-        vector<int64_t> r_Finimizers;
+        r_Finimizers.clear();
         r_Finimizers.reserve(query_len - k +1);
         string r_query = sbwt::get_rc(query);
         {
             auto start = std::chrono::high_resolution_clock::now();
-        rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
+            rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin_rc += (end - start);
         }
@@ -471,13 +471,14 @@ public:
     }
 
     // TODO use min_value inside pseudoalignment stats ???
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t,  vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers ) const {
         
         const int64_t query_len = query.length();
 
         if (query.size() < this->k) return 0; 
 
-        vector<int64_t> Finimizers;
+        Finimizers.clear();
+        Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
@@ -486,7 +487,8 @@ public:
         }
 
         // reverse complement
-        vector<int64_t> r_Finimizers;
+        r_Finimizers.clear();
+        r_Finimizers.reserve(query_len - k + 1);
         string r_query = sbwt::get_rc(query);
         {
             auto start = std::chrono::high_resolution_clock::now();
