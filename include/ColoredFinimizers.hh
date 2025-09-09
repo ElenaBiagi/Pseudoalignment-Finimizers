@@ -539,23 +539,11 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
 
     const sdsl::bit_vector& BV = CCS.getBV();
     const vector<uint32_t>& L = CCS.getL();
-    const vector<size_t>& EF = CCS.getEF();
+    const sdsl::enc_vector<>& EF = CCS.getEF();
 
     const uint64_t* data = BV.data();
     const uint64_t L_size = EF.size();
-    /* for (const auto& [pos,freq] : fmin_v) {
-        if (pos >= L_size){  // Check how big start is (dense or sparse)
-
-            uint64_t start = pos - L_size;
-            read_bv(data, start, freq, n_colors, results);
-        }
-        else{ // read from L
-            const size_t end = EF[pos]; // exclusive end
-            size_t start = EF[pos-1]; // inclusive start
-            while(start < end){ results[L[start++]]+=freq;}
-        }
-    } */
-    // TODO exploit the fact that the pos are sorted
+    // Exploit the fact that the pos are sorted
     uint64_t i;
     for ( i=0; i< fmin_v.size(); i++) {
         const auto& [pos,freq] = fmin_v[i];
@@ -638,7 +626,7 @@ inline void process_word(uint64_t word, uint64_t base, const vector<uint32_t>& L
 
 }
 
-void combine_bv_list(const uint64_t* data, const vector<uint32_t>& L, const vector<size_t>& EF, const uint64_t start1, const uint64_t pos2, const uint64_t n_colors, vector<uint64_t>& results, const uint64_t freq){
+void combine_bv_list(const uint64_t* data, const vector<uint32_t>& L, const sdsl::enc_vector<>& EF, const uint64_t start1, const uint64_t pos2, const uint64_t n_colors, vector<uint64_t>& results, const uint64_t freq){
     
             //cerr << "combine_bv_lists" << endl;
 // start2 is the list pos
@@ -680,7 +668,7 @@ void combine_bv_list(const uint64_t* data, const vector<uint32_t>& L, const vect
 
 }
 
-inline void combine_lists(const vector<uint32_t>& L, const vector<size_t>& EF, const uint64_t pos1, const uint64_t pos2, vector<uint64_t>& results, const uint64_t freq){
+inline void combine_lists(const vector<uint32_t>& L, const sdsl::enc_vector<>& EF, const uint64_t pos1, const uint64_t pos2, vector<uint64_t>& results, const uint64_t freq){
         //cerr << "combine_lists" << endl;
 
     // AND
@@ -716,10 +704,7 @@ void read_f_rc_colors(const CompressedColorSets& CCS, const uint64_t n_colors, v
     //for (const auto& [[start, r_start], freq] : p_fmin_v) {
     const sdsl::bit_vector& BV = CCS.getBV();
     const vector<uint32_t>& L = CCS.getL();
-    const vector<size_t>& EF = CCS.getEF();
-
-    //cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
-    //cerr << "L: " << EF.size() << endl;
+    const sdsl::enc_vector<>& EF = CCS.getEF();
 
     const uint64_t* data = BV.data();
     const uint64_t L_size = EF.size();

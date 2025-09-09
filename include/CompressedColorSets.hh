@@ -6,6 +6,7 @@
 
 
 #include "sdsl/bit_vectors.hpp"
+#include <sdsl/enc_vector.hpp>
 
 
 using namespace std;
@@ -14,12 +15,12 @@ using namespace std;
 class CompressedColorSets {
     private:
     vector<uint32_t> L;
-    vector<size_t> EF = {0}; // the first value has to be 0
+    sdsl::enc_vector<> EF;
     sdsl::bit_vector BV;
 
     public:
     const std::vector<uint32_t>& getL() const { return L; }
-    const std::vector<size_t>& getEF() const { return EF; }
+    const sdsl::enc_vector<>& getEF() const { return EF; }
     const sdsl::bit_vector& getBV() const { return BV; }
 
     // TODO compress colorset like Themisto
@@ -36,6 +37,7 @@ class CompressedColorSets {
     CompressedColorSets (const unordered_map<string, vector<size_t>>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids, const sdsl::bit_vector& color_sets_concat ){// cf.color_sets_concat
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
+        vector<size_t> EF_v = {0}; // the first value has to be 0
         BV.resize(deduplicated_cs.size() * n_colors);
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
@@ -60,8 +62,8 @@ class CompressedColorSets {
                     if (bv[c]) { L.push_back((uint32_t)(c)); } 
                 }
                 // color set ids = rank in L
-                for (auto& c_id : old_offsets){ color_set_ids[c_id] = EF.size(); } // the minimum is 1
-                EF.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
+                for (auto& c_id : old_offsets){ color_set_ids[c_id] = EF_v.size(); } // the minimum is 1
+                EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
             } else {
                 const uint64_t old_offset = old_offsets[0] * n_colors;
                 //BV.resize(BV.size()+n_colors); // Resize BV every time.. not very efficient
@@ -80,11 +82,16 @@ class CompressedColorSets {
         }
         // Add EF.size() (after the loop) to the indices of BV
         for (auto b = 0; b < color_set_ids.size(); b++){
-            if (BV_color_set_ids[b]){ color_set_ids[b]+= EF.size();}
+            if (BV_color_set_ids[b]){ color_set_ids[b]+= EF_v.size();}
         }
         BV.resize((BV_size * n_colors)+63);
+
+        // Convert EF_v into real Elias-Fano econding 
+        sdsl::enc_vector<> ef(EF_v);
+        this->EF = std::move(ef);
+
         cerr << "BV: "<< (int)BV_size << endl;
-        cerr << "L: " << EF.size() << endl;
+        cerr << "L: " << EF_v.size() << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
     }
@@ -138,6 +145,7 @@ class CompressedColorSets {
     }
 
     void serialize(const string& index_prefix) const {
+        // BV
         std::ofstream BV_out(index_prefix + ".BV.sdsl", std::ios::binary);
         if (!BV_out) {
             std::cerr << "Error: Could not open BV file!" << std::endl;
@@ -146,16 +154,20 @@ class CompressedColorSets {
         sdsl::serialize(BV, BV_out);
         BV_out.close();
 
+        // L
         std::ofstream L_out(index_prefix + ".L.BIN", std::ios::binary);
         size_t L_size = L.size();
         L_out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
         L_out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint32_t));
         L_out.close();
 
-         std::ofstream EF_out(index_prefix + ".EF.BIN", std::ios::binary);
-        size_t EF_size = EF.size();
-        EF_out.write(reinterpret_cast<const char*>(&EF_size), sizeof(EF_size));
-        EF_out.write(reinterpret_cast<const char*>(EF.data()), EF_size * sizeof(size_t));
+        // EF
+        std::ofstream EF_out(index_prefix + ".EF.sdsl", std::ios::binary);
+        if (!EF_out) {
+            std::cerr << "Error: Could not open EF file!" << std::endl;
+            return;
+        }
+        sdsl::serialize(EF, EF_out);
         EF_out.close();
     }
 
@@ -178,11 +190,12 @@ class CompressedColorSets {
         L_in.close();
 
         // EF
-        std::ifstream EF_in(index_prefix + ".EF.BIN", std::ios::binary);
-        size_t EF_size;
-        EF_in.read(reinterpret_cast<char*>(&EF_size), sizeof(EF_size));
-        EF.resize(EF_size);
-        EF_in.read(reinterpret_cast<char*>(EF.data()), EF_size * sizeof(size_t));
+        std::ifstream EF_in(index_prefix + ".EF.sdsl", std::ios::binary);
+        if (!EF_in) {
+            std::cerr << "Error: Could not open EF.sdsl !" << std::endl;
+            return;
+        }
+        sdsl::load(BV, EF_in);
         EF_in.close();
     }
 
