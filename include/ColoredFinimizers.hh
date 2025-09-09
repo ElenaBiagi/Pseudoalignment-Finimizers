@@ -320,13 +320,13 @@ public:
         }
     }
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans ) const{
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& Finimizers ) const{
   
         const int64_t query_len = query.length();
       
         if (query.size() < this->k) return; 
         auto start = std::chrono::high_resolution_clock::now();
-        vector<uint64_t> Finimizers;
+        Finimizers.clear();
         Finimizers.reserve(query_len - k +1);
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
         auto end = std::chrono::high_resolution_clock::now();
@@ -337,13 +337,13 @@ public:
     }
 
     // TODO use min_value inside pseudoalignment stats ???
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t, vector<uint64_t>& Finimizers) const {
         
         const int64_t query_len = query.length();
 
         if (query.size() < this->k) return 0; 
         auto start = std::chrono::high_resolution_clock::now();
-        vector<uint64_t> Finimizers;
+        Finimizers.clear();
         Finimizers.reserve(query_len - k +1);
         rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
         auto end = std::chrono::high_resolution_clock::now();
