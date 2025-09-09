@@ -354,8 +354,8 @@ void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_
     const uint64_t* data = color_sets_concat.data();
 
     // Count freq of each fmin
-    std::unordered_map<uint64_t, uint64_t> fmin_counts;
-    fmin_counts.reserve(Fmin.size());
+    std::map<uint64_t, uint64_t> fmin_counts;
+    // SORT ?
     std::sort(Fmin.begin(), Fmin.end());
     for (const auto& v: Fmin) {
         fmin_counts[v]++;
@@ -363,7 +363,7 @@ void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_
 
     // vector for sorted output so that it is possible to scan color_set_concat ????
     vector<pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end()); 
+    //std::sort(fmin_v.begin(), fmin_v.end()); 
     read_colors_old(data, n_colors, results, fmin_v);
 
     const size_t found_fmin = Fmin.size(); // # total finimizers
