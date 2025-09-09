@@ -7,7 +7,7 @@ struct Compact_tails{
 
 class Bucket {
 public:
-    Bucket() = default;
+    Bucket() = default; // TODO store nullptr for missing values instead of optional
 
     std::unordered_map<int, int> tlen_rank_map;
 

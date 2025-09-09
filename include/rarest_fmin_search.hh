@@ -25,7 +25,7 @@
 
 
 // TODO Deal with empty SB
-void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t,int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t,int64_t>>& sB, const uint64_t start,const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     // 2. Prefix NOT found
     // Start from the longest possible prefix
     // if you find a real match, stop
@@ -57,7 +57,7 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
     }
 }
 
-void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+inline void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
@@ -79,7 +79,7 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, co
 }
 
 // The query is shorter than (k - plen)
-void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+inline void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
@@ -231,23 +231,29 @@ void only_concat_read_colors(const uint64_t* data, const uint64_t n_colors, vect
         uint64_t bit_offset = (start * n_colors) % 64;
 
         uint64_t color_id = 0;
+        uint64_t bits_left = n_colors;
 
-        // 1. Read the first word
-        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-        uint64_t word = (*ptr >> bit_offset) & mask;
+        if (bit_offset != 0){
+            // 1. Read the first word
+            uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+            uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+            uint64_t word = (*ptr >> bit_offset) & mask;
 
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            results[bit]+=freq;
-            word &= word - 1;
+            while (word != 0) {
+                uint64_t bit = __builtin_ctzll(word);
+                results[bit]+=freq;
+                word &= word - 1;
+            }
+
+            ptr++;
+            color_id += bits_to_read;
+            bits_left -= bits_to_read;
+
         }
 
-        ptr++;
-        color_id += bits_to_read;
-
         // 2. Read aligned words in btw
-        while (color_id + 64 <= n_colors) {
+
+        while (bits_left >= 64) {
             uint64_t word = *ptr++;
             for (uint64_t w = word; w != 0;) {
                 uint64_t bit = __builtin_ctzll(w);
@@ -255,10 +261,10 @@ void only_concat_read_colors(const uint64_t* data, const uint64_t n_colors, vect
                 w &= w - 1;
             }
             color_id += 64;
+            bits_left -= 64;
         }
 
         // 3. Read the last word (if any)
-        uint64_t bits_left = n_colors - color_id;
         if (bits_left > 0) {
             uint64_t mask = ((1ULL << bits_left) - 1);
             uint64_t word = *ptr & mask;
@@ -350,6 +356,7 @@ void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_
     // Count freq of each fmin
     std::unordered_map<uint64_t, uint64_t> fmin_counts;
     fmin_counts.reserve(Fmin.size());
+    std::sort(Fmin.begin(), Fmin.end());
     for (const auto& v: Fmin) {
         fmin_counts[v]++;
     }
