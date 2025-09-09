@@ -243,23 +243,27 @@ public:
         uint64_t bit_offset = (start * n_colors) % 64;
 
         uint64_t color_id = 0;
+        uint64_t bits_left = n_colors;
 
-        // 1. Read the first word
-        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-        uint64_t word = (*ptr >> bit_offset) & mask;
+        if (bit_offset != 0){
+            // 1. Read the first word
+            uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+            uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+            uint64_t word = (*ptr >> bit_offset) & mask;
 
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            bv[bit]=1;
-            word &= word - 1;
+            while (word != 0) {
+                uint64_t bit = __builtin_ctzll(word);
+                bv[bit]=1;
+                word &= word - 1;
+            }
+
+            ++ptr;
+            color_id += bits_to_read;
+            bits_left -= bits_to_read;
         }
 
-        ++ptr;
-        color_id += bits_to_read;
-
         // 2. Read aligned words in btw
-        while (color_id + 64 <= n_colors) {
+        while (bits_left >= 64) {
             uint64_t word = *ptr++;
             for (uint64_t w = word; w != 0;) {
                 uint64_t bit = __builtin_ctzll(w);
@@ -267,10 +271,10 @@ public:
                 w &= w - 1;
             }
             color_id += 64;
+            bits_left -= 64;
         }
 
         // 3. Read the last word (if any)
-        uint64_t bits_left = n_colors - color_id;
         if (bits_left > 0) {
             uint64_t mask = ((1ULL << bits_left) - 1);
             uint64_t word = *ptr & mask;
@@ -492,23 +496,28 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     uint64_t bit_offset = (start * n_colors) % 64;
 
     uint64_t color_id = 0;
+    uint64_t bits_left = n_colors;
 
-    // 1. Read the first word
-    uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-    uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-    uint64_t word = (*ptr >> bit_offset) & mask;
 
-    while (word != 0) {
-        uint64_t bit = __builtin_ctzll(word);
-        results[bit]+=freq;
-        word &= word - 1;
+    if (bit_offset != 0){
+        // 1. Read the first word
+        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+        uint64_t word = (*ptr >> bit_offset) & mask;
+
+        while (word != 0) {
+            uint64_t bit = __builtin_ctzll(word);
+            results[bit]+=freq;
+            word &= word - 1;
+        }
+
+        ptr++;
+        color_id += bits_to_read;
+        bits_left -= bits_to_read;
     }
 
-    ptr++;
-    color_id += bits_to_read;
-
     // 2. Read aligned words in btw
-    while (color_id + 64 <= n_colors) {
+    while (bits_left >= 64) {
         uint64_t word = *ptr++;
         for (uint64_t w = word; w != 0;) {
             uint64_t bit = __builtin_ctzll(w);
@@ -516,10 +525,10 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
             w &= w - 1;
         }
         color_id += 64;
+        bits_left -= 64;
     }
 
     // 3. Read the last word (if any)
-    uint64_t bits_left = n_colors - color_id;
     if (bits_left > 0) {
         uint64_t mask = ((1ULL << bits_left) - 1);
         uint64_t word = *ptr & mask;
@@ -531,7 +540,6 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
         }
     }
     //cerr << "end" << endl;
-
 }
 
 void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
@@ -540,6 +548,10 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     const sdsl::bit_vector& BV = CCS.getBV();
     const vector<uint32_t>& L = CCS.getL();
     const sdsl::enc_vector<>& EF = CCS.getEF();
+
+    /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
+    cerr << "EF: " << EF.size() << endl;
+    cerr << "L: " << L.size() << endl; */
 
     const uint64_t* data = BV.data();
     const uint64_t L_size = EF.size();
@@ -628,8 +640,8 @@ inline void process_word(uint64_t word, uint64_t base, const vector<uint32_t>& L
 
 void combine_bv_list(const uint64_t* data, const vector<uint32_t>& L, const sdsl::enc_vector<>& EF, const uint64_t start1, const uint64_t pos2, const uint64_t n_colors, vector<uint64_t>& results, const uint64_t freq){
     
-            //cerr << "combine_bv_lists" << endl;
-// start2 is the list pos
+    //cerr << "combine_bv_lists" << endl;
+    // start2 is the list pos
     const size_t end2 = EF[pos2]; // exclusive end )
     size_t start2 = EF[pos2-1]; // inclusive start [
 

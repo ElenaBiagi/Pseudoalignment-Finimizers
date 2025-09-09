@@ -14,6 +14,8 @@ using namespace std;
 
 class CompressedColorSets {
     private:
+    // TODO Combine BV and L in a 
+    // add a bitvector instead of branch 
     vector<uint32_t> L;
     sdsl::enc_vector<> EF;
     sdsl::bit_vector BV;
@@ -38,7 +40,8 @@ class CompressedColorSets {
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
         vector<size_t> EF_v = {0}; // the first value has to be 0
-        BV.resize(deduplicated_cs.size() * n_colors);
+        sdsl::bit_vector BV_v(deduplicated_cs.size() * n_colors,0); // ensure that it's all 0s
+        BV.swap(BV_v);
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
         uint64_t new_offset = 0;
@@ -169,6 +172,10 @@ class CompressedColorSets {
         }
         sdsl::serialize(EF, EF_out);
         EF_out.close();
+        cerr << "BV: "<< (BV.size()-63)/43 << endl;
+        cerr << "EF: " << EF.size() << endl;
+
+        cerr << "L: " << L.size() << endl;
     }
 
     void load(const string& index_prefix) {
@@ -179,6 +186,7 @@ class CompressedColorSets {
             return;
         }
         sdsl::load(BV, colors_in);
+
         colors_in.close();
 
         // L
@@ -195,7 +203,7 @@ class CompressedColorSets {
             std::cerr << "Error: Could not open EF.sdsl !" << std::endl;
             return;
         }
-        sdsl::load(BV, EF_in);
+        sdsl::load(EF, EF_in);
         EF_in.close();
     }
 
