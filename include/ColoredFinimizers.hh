@@ -541,9 +541,6 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     const vector<uint32_t>& L = CCS.getL();
     const vector<size_t>& EF = CCS.getEF();
 
-    //cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
-    //cerr << "L: " << EF.size() << endl;
-
     const uint64_t* data = BV.data();
     const uint64_t L_size = EF.size();
     /* for (const auto& [pos,freq] : fmin_v) {
@@ -765,7 +762,7 @@ void read_f_rc_colors(const CompressedColorSets& CCS, const uint64_t n_colors, v
 
 }
 
-// two overlpaiing k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
+// two overlapping k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
 // This should anyways keep the number of false pos low
 
 void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
@@ -819,19 +816,19 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
         // Count freq of each i_fmin
+    if (i_Fmin.size()>0){
+        std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+        i_fmin_counts.reserve(i_Fmin.size());
+        for (const auto& v: i_Fmin) {
+            i_fmin_counts[v]++;
+        }
 
-    std::unordered_map<int64_t, uint64_t> i_fmin_counts;
-    i_fmin_counts.reserve(i_Fmin.size());
-    for (const auto& v: i_Fmin) {
-        i_fmin_counts[v]++;
+        // 2b. sort i_fmin
+        vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
+        // TODO count sort max= max(EF)
+        std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+        read_colors(CCS, n_colors, results, i_fmin_v);
     }
-
-    // 2b. sort i_fmin
-    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
-    // TODO count sort max= max(EF)
-    std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
-
-    read_colors(CCS, n_colors, results, i_fmin_v);
 
     //uint64_t max = *std::max_element(results.begin(), results.end());
     //cerr << "Max value after read_colors: " << max << std::endl;
@@ -902,17 +899,18 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
 
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
-        // Count freq of each i_fmin
-    std::unordered_map<int64_t, uint64_t> i_fmin_counts;
-    i_fmin_counts.reserve(i_Fmin.size());
-    for (const auto& v: i_Fmin) {
-        i_fmin_counts[v]++;
+            // Count freq of each i_fmin
+    if (i_Fmin.size()>0){
+        std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+        i_fmin_counts.reserve(i_Fmin.size());
+        for (const auto& v: i_Fmin) {
+            i_fmin_counts[v]++;
+        }
+            // 2b. sort i_fmin
+        vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
+        std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+        read_colors(CCS, n_colors, results, i_fmin_v);
     }
-        // 2b. sort i_fmin
-    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
-    std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
-    read_colors(CCS, n_colors, results, i_fmin_v);
-
 
     // 3. Deal with the vector of pairs: p_Fmin
     struct pair_hash {
