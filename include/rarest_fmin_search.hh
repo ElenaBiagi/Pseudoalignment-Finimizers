@@ -57,12 +57,12 @@ void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::u
     }
 }
 
-void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
-        if (plen+len ==32){cerr<< "ERROR plen+len " << plen << " + "<< len<< endl; }
+        //if (plen+len ==32){cerr<< "ERROR plen+len " << plen << " + "<< len<< endl; }
         if ((start + plen+len -1) > end) { next_candidates.push_back(make_tuple(plen+len+start-1, f_int, bucket_p.color_set_ids[pos], start));} // Sorted based on END
         else { 
             tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {plen + len, f_int, bucket_p.color_set_ids[pos], start};
@@ -79,7 +79,7 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, co
 }
 
 // The query is shorter than (k - plen)
-void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
@@ -148,7 +148,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     curr_candidates.push_back(k_fmin);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
-    char s_len = k-plen;
+    uint8_t s_len = k-plen;
     uint64_t int_s = prefix2int(input, start+plen, s_len); // tail
     uint64_t int_sp;
 

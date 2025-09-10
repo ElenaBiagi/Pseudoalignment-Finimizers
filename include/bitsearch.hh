@@ -189,11 +189,96 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
 }
 
 
+#include <cinttypes>
+#include <iostream>
+#include <cassert>
+
+/* pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T,
+                                      const uint64_t s,
+                                      const uint8_t slen) {
+    uint64_t pos = 0;               // unsigned bit offset
+    uint64_t tails_so_far = 0;
+    const uint64_t* data = T.data();
+    const uint64_t Tbits = T.size();
+    const uint64_t SAFE_MARGIN = 132;
+
+    // quick sanity
+    if (Tbits < 8) return {-1,0};
+
+    while (pos + SAFE_MARGIN < Tbits) {
+        // 1) read 5-bit tlen
+        uint64_t word_index = pos / 64;
+        uint8_t w_offset = pos % 64;
+        if (pos + 5 > Tbits) break;
+        uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
+        if (tlen == 0) { return {0,0}; }
+        pos += 5;
+
+        // 2) read vbyte ntails
+        uint64_t ntails = 0;
+        int shift = 0;
+        uint8_t byte;
+        do {
+            if (pos + 8 > Tbits) { std::cerr << "[bitMagicSearch] truncated vbyte at pos=" << pos << "\n"; return {-1,0}; }
+            word_index = pos / 64;
+            w_offset = pos % 64;
+            byte = sdsl::bits::read_int(&data[word_index], w_offset, 8);
+            pos += 8;
+            ntails |= uint64_t(byte & 0x7F) << shift;
+            shift += 7;
+            if (shift > 63) { std::cerr << "[bitMagicSearch] vbyte too large shift=" << shift << " pos=" << pos << "\n"; return {-1,0}; }
+        } while (byte & 0x80);
+
+        // defensive caps: if ntails or tlen are absurd, log and fail
+        if (ntails > (1ull<<30)) { // ridiculously large
+            std::cerr << "[bitMagicSearch] suspicious ntails=" << ntails << " at pos=" << pos << "\n";
+            return {-1,0};
+        }
+        if (tlen > 63) { std::cerr << "[bitMagicSearch] suspicious tlen=" << unsigned(tlen) << "\n"; return {-1,0}; }
+
+        // compute payload size and check bounds
+        uint64_t payload_bits = uint64_t(tlen) * ntails * 2ULL;
+        if (payload_bits > (1ull<<50)) { std::cerr << "[bitMagicSearch] huge payload_bits=" << payload_bits << "\n"; return {-1,0}; }
+        if (pos + payload_bits > Tbits) { std::cerr << "[bitMagicSearch] payload out of range pos=" << pos << " payload_bits=" << payload_bits << " Tbits=" << Tbits << "\n"; return {-1,0}; }
+
+        // 3) if tail longer than remaining suffix, skip payload
+        if (tlen > slen) {
+            pos += payload_bits;
+            tails_so_far += ntails;
+            continue;
+        }
+
+        // 4) extract key safely (we know tlen <= slen)
+        unsigned key_bits = tlen * 2;
+        unsigned shift_amount = (slen - tlen) * 2;
+        if (key_bits >= 64 || shift_amount >= 64) {
+            std::cerr << "[bitMagicSearch] unsafe bit sizes key_bits=" << key_bits << " shift_amount=" << shift_amount << "\n";
+            return {-1,0};
+        }
+        uint64_t mask = (key_bits == 64) ? ~0ULL : ((1ULL << key_bits) - 1ULL);
+        uint64_t key = (s >> shift_amount) & mask;
+
+        // 5) search
+        int64_t res = SearchTail(T, data, pos, key_bits, key, ntails);
+        if (res != -1) {
+            return { int64_t(res + tails_so_far), tlen };
+        }
+
+        // 6) advance past payload
+        pos += payload_bits;
+        tails_so_far += ntails;
+    }
+
+    return {-1,0};
+}
+
+ */
+
 // output: {pos in T (to get colors), tlen}
-pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
+pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
    // input: T, offset in T, len substring after prefix
-   // const char slen = k - plen; 
-   int64_t pos = 0;// start from 0 now that we have a single vector
+   // const uint8_t slen = k - plen; 
+   uint64_t pos = 0;// start from 0 now that we have a single vector
 
    int64_t tails_so_far = 0;
 
@@ -202,7 +287,9 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
 
    const uint64_t* data = T.data();
    // Check first the LONGER lengths.
-   while (pos < T.size()-128-4){ // break the loop once something is found
+   const uint64_t Tbits = T.size();
+   if (Tbits <= 132) {cerr << Tbits << endl;}
+   while (pos < Tbits-128-4){ // break the loop once something is found
       // 1. check the length of the first tail, 5‐bit tlen
       word_index = pos/64;
       w_offset = pos %64;
@@ -228,6 +315,12 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
       } while (byte & 0x80);       
       
       // 3. Extract substring
+      if (tlen > slen){ 
+         pos+= (tlen*ntails*2);
+         tails_so_far += ntails;
+         continue;
+      } // if the length of the tail is bigger than that of the reaining suffix we can move to the next set of tails
+
       // Starting at pos (64 - slen*2) extract the first 2*tlen bits of s
       uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
          
@@ -244,10 +337,9 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
    }
    return {-1,0};
 }
-
 // output: {pos in T (to get colors), tlen}
 // The query is shorter than (k - plen)
-pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){
+pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen){
    // input: T, offset in T, len substring after prefix
    
    int64_t pos = 0;// start from 0 now that we have a single vector
