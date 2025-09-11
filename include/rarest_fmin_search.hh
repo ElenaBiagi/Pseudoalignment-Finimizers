@@ -57,12 +57,12 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
     }
 }
 
-inline void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+inline void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
-        if (plen+len ==32){cerr<< "ERROR plen+len " << plen << " + "<< len<< endl; }
+        //if (plen+len ==32){cerr<< "ERROR plen+len " << plen << " + "<< len<< endl; }
         if ((start + plen+len -1) > end) { next_candidates.push_back(make_tuple(plen+len+start-1, f_int, bucket_p.color_set_ids[pos], start));} // Sorted based on END
         else { 
             tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {plen + len, f_int, bucket_p.color_set_ids[pos], start};
@@ -71,7 +71,7 @@ inline void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t p
                 k_fmin = new_fmin;
             }
             else{
-                while (curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
+                while (!curr_candidates.empty() && curr_candidates.back()> new_fmin) {curr_candidates.pop_back();}
             }
             curr_candidates.push_back(new_fmin); 
         }
@@ -79,7 +79,7 @@ inline void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t p
 }
 
 // The query is shorter than (k - plen)
-inline void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const char s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
+inline void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
@@ -147,7 +147,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     curr_candidates.push_back(k_fmin);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
-    char s_len = k-plen;
+    uint8_t s_len = k-plen;
     uint64_t int_s = prefix2int(input, start+plen, s_len); // tail
     uint64_t int_sp;
 
@@ -326,8 +326,7 @@ void read_colors_old(const uint64_t* data, const uint64_t n_colors, vector<uint6
 }
 
 void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
-    vector<uint16_t> counts;
-    counts.resize(found_fmin+1); 
+    vector<uint16_t> counts(found_fmin+1); 
 
     for (size_t idx = 0; idx < n_colors; idx++) {
         counts[results[idx]]++;
@@ -348,8 +347,7 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
 }
 
 void pseudoalignment_stats(vector<int64_t>& Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
-    vector<uint64_t> results;
-    results.resize(n_colors, 0);
+    vector<uint64_t> results(n_colors, 0);
 
     const uint64_t* data = color_sets_concat.data();
 

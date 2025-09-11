@@ -190,9 +190,9 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
 
 
 // output: {pos in T (to get colors), tlen}
-pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
+inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
    // input: T, offset in T, len substring after prefix
-   // const char slen = k - plen; 
+   // const uint8_t slen = k - plen; 
    int64_t pos = 0;// start from 0 now that we have a single vector
 
    int64_t tails_so_far = 0;
@@ -247,7 +247,7 @@ pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64
 
 // output: {pos in T (to get colors), tlen}
 // The query is shorter than (k - plen)
-pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const char slen){
+pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen){
    // input: T, offset in T, len substring after prefix
    
    int64_t pos = 0;// start from 0 now that we have a single vector
