@@ -161,7 +161,7 @@ public:
         const uint64_t* data = cf.color_sets_concat.data();
         sdsl::bit_vector bv(n_colors);
         for (size_t i = 0; i < n_finimizers; i++) {
-            sdsl::bit_vector bv = read_colors_to_bv(data, n_colors, i, bv);
+            bv = read_colors_to_bv(data, n_colors, i, bv);
             string key((char*)bv.data(), ((n_colors + 63) / 64) * 8);
 
             deduplicated_cs[key].push_back(i);
