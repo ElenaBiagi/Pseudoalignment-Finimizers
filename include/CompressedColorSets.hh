@@ -172,7 +172,7 @@ class CompressedColorSets {
         }
         sdsl::serialize(EF, EF_out);
         EF_out.close();
-        cerr << "BV: "<< (BV.size()-63)/43 << endl;
+        cerr << "BV: "<< (BV.size()-63)/43 << endl; // TODO 43 SALMONELLA N-COLORS
         cerr << "EF: " << EF.size() << endl;
 
         cerr << "L: " << L.size() << endl;
