@@ -811,8 +811,20 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
         // Count freq of each i_fmin
+    cout << i_Fmin.size() << ", ";
     if (i_Fmin.size()>0){
-        std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+        std::sort(i_Fmin.begin(), i_Fmin.end()); 
+        vector<pair<int64_t, uint64_t>> i_fmin_v;
+        i_fmin_v.reserve(i_Fmin.size());
+
+        for (size_t i = 0; i < i_Fmin.size();) {
+            size_t j = i + 1;
+            while (j < i_Fmin.size() && i_Fmin[j] == i_Fmin[i]) ++j;
+            i_fmin_v.emplace_back(i_Fmin[i], j - i);
+            i = j;
+        }
+
+/*         std::unordered_map<int64_t, uint64_t> i_fmin_counts;
         i_fmin_counts.reserve(i_Fmin.size());
         for (const auto& v: i_Fmin) {
             i_fmin_counts[v]++;
@@ -821,9 +833,12 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
         // 2b. sort i_fmin
         vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
         // TODO count sort max= max(EF)
-        std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+        std::sort(i_fmin_v.begin(), i_fmin_v.end());  */
         read_colors(CCS, n_colors, results, i_fmin_v);
+
+        cout << i_fmin_v.size() << ", ";
     }
+    
 
     //uint64_t max = *std::max_element(results.begin(), results.end());
     //cerr << "Max value after read_colors: " << max << std::endl;
@@ -834,6 +849,8 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
             return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
         }
     };
+    cout << p_Fmin.size() << ", ";
+
     std::unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash> p_fmin_counts;
     p_fmin_counts.reserve(p_Fmin.size());
 
@@ -841,7 +858,7 @@ void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, co
         p_fmin_counts[v]++;
     }
     vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end()); // [{{f,r},counts},...]
-
+    cout << p_fmin_v.size() << endl;
     // TODO does it make sense to sort pairs??
 
     read_f_rc_colors(CCS, n_colors, results, p_fmin_v);
@@ -897,19 +914,36 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
             // Count freq of each i_fmin
+    cout << i_Fmin.size() << ", ";
+
     if (i_Fmin.size()>0){
-        std::unordered_map<int64_t, uint64_t> i_fmin_counts;
+        std::sort(i_Fmin.begin(), i_Fmin.end()); 
+        vector<pair<int64_t, uint64_t>> i_fmin_v;
+        i_fmin_v.reserve(i_Fmin.size());
+
+        for (size_t i = 0; i < i_Fmin.size();) {
+            size_t j = i + 1;
+            while (j < i_Fmin.size() && i_Fmin[j] == i_Fmin[i]) ++j;
+            i_fmin_v.emplace_back(i_Fmin[i], j - i);
+            i = j;
+        }
+        /* std::unordered_map<int64_t, uint64_t> i_fmin_counts;
         i_fmin_counts.reserve(i_Fmin.size());
         for (const auto& v: i_Fmin) {
             i_fmin_counts[v]++;
         }
             // 2b. sort i_fmin
         vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
-        std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
+        std::sort(i_fmin_v.begin(), i_fmin_v.end()); */
+            
+        cout << i_fmin_v.size() << ", ";
+ 
         read_colors(CCS, n_colors, results, i_fmin_v);
     }
 
     // 3. Deal with the vector of pairs: p_Fmin
+    cout << p_Fmin.size() << ", ";
+
     struct pair_hash {
         size_t operator()(const pair<int64_t, int64_t>& p) const {
             return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
@@ -922,6 +956,7 @@ uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin
         p_fmin_counts[v]++;
     }
     vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
+    cout << p_fmin_v.size() << endl;
 
     // TODO does it make sense to sort pairs??
     read_f_rc_colors(CCS, n_colors, results, p_fmin_v);
