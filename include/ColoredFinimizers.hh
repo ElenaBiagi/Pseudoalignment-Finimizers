@@ -325,7 +325,7 @@ public:
 
         // Create a vector of n_colors vectors to store in each the index at which a colorset id with that many colors appears
         
-        //const uint64_t* data = color_sets_concat.data();
+        const uint64_t* data = cf.color_sets_concat.data();
         //vector<unordered_map<string, vector<size_t>>> n_bits_set_to_1 = split_bitvector_and_count(reinterpret_cast<const uint64_t*>(color_sets_concat.data()), n_finimizers * n_colors, n_colors);
 
         auto Map_bits_set_to_1 = split_bitvector(cf.color_sets_concat, n_colors);
@@ -368,7 +368,49 @@ public:
         Map_bits_set_to_1.shrink_to_fit(); 
         Sorted_bits_set_to_1.clear();
         Sorted_bits_set_to_1.shrink_to_fit();*/
+              
+/*         
+        unordered_map<string, vector<size_t>> deduplicated_cs; // {cs:[fmin indices]}
+        const uint64_t* data = cf.color_sets_concat.data();
+        sdsl::bit_vector bv(n_colors,0);
+        for (size_t i = 0; i < n_finimizers; i++) {
+            read_colors_to_bv(data, n_colors, i, bv);
+            string key((char*)bv.data(), ((n_colors + 63) / 64) * 8);
 
+            deduplicated_cs[key].push_back(i);
+        }        
+        cerr << deduplicated_cs.size() << endl;
+
+        vector<uint32_t> color_set_ids(n_finimizers, 0);
+        //this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
+        
+        // TODO SORT the colorset ids based on the number of ones
+
+        
+        sdsl::bit_vector unique_color_sets(deduplicated_cs.size() * n_colors,0); // ensure that it's all 0s
+        uint64_t new_offset = 0;
+        //sdsl::bit_vector bv(n_colors,0);
+        for (auto& [key, old_offsets] : deduplicated_cs) {
+            const uint64_t start = old_offsets[0];
+
+            // TODO access color_set_concat and save the value in a bv
+
+            read_colors_to_bv(data, n_colors, start, bv);
+            const size_t size = sdsl::util::cnt_one_bits(bv);
+
+            const uint64_t old_offset = old_offsets[0] * n_colors;
+
+            for (size_t j = 0; j < n_colors; ++j) {
+                unique_color_sets[new_offset + j] = cf.color_sets_concat[old_offset + j];
+            }
+            
+            // mark BV color set ids
+            for (auto& c_id : old_offsets){ 
+                color_set_ids[c_id] = new_offset/n_colors;
+            }
+            new_offset += n_colors;
+        }
+ */
         // Assign to final structure
         this->color_sets_concat = std::move(unique_color_sets);
 
@@ -425,7 +467,58 @@ public:
         }
     }
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers ) const{
+/*     void read_colors_to_bv(const uint64_t* data, const uint64_t n_colors, const uint64_t start, sdsl::bit_vector& bv){
+        sdsl::util::set_to_value(bv, 0);
+        const uint64_t* ptr = data + (start * n_colors) / 64;
+        uint64_t bit_offset = (start * n_colors) % 64;
+
+        uint64_t color_id = 0;
+        uint64_t bits_left = n_colors;
+
+        if (bit_offset != 0){
+            // 1. Read the first word
+            uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+            uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+            uint64_t word = (*ptr >> bit_offset) & mask;
+
+            while (word != 0) {
+                uint64_t bit = __builtin_ctzll(word);
+                bv[bit]=1;
+                word &= word - 1;
+            }
+
+            ++ptr;
+            color_id += bits_to_read;
+            bits_left -= bits_to_read;
+        }
+
+        // 2. Read aligned words in btw
+        while (bits_left >= 64) {
+            uint64_t word = *ptr++;
+            for (uint64_t w = word; w != 0;) {
+                uint64_t bit = __builtin_ctzll(w);
+                bv[color_id + bit]=1;
+                w &= w - 1;
+            }
+            color_id += 64;
+            bits_left -= 64;
+        }
+
+        // 3. Read the last word (if any)
+        if (bits_left > 0) {
+            uint64_t mask = ((1ULL << bits_left) - 1);
+            uint64_t word = *ptr & mask;
+
+            while (word != 0) {
+                uint64_t bit = __builtin_ctzll(word);
+                bv[color_id + bit]=1;
+                word &= word - 1;
+            }
+        }
+    }
+ */
+    
+ void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<int64_t>& r_Finimizers ) const{
   
         const int64_t query_len = query.length();
       
