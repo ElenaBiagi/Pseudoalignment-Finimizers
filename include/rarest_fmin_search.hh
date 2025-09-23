@@ -481,6 +481,11 @@ void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start
     const uint64_t bit_offset2 = start2 * n_colors;
 
     uint64_t idx = 0;
+    uint64_t ones = 0;
+    uint64_t ones1 = 0;
+    uint64_t ones2 = 0;
+
+
 
     while (idx < n_colors) {
         
@@ -508,7 +513,19 @@ void foreach_union_set_bit(const uint64_t* data, uint64_t start1, uint64_t start
         }
 
         idx += bits_to_process;
+        
+        // TODO: how different are these??
+        uint64_t diff = word1 ^ word2;
+        ones += __builtin_popcountll(diff);
+        ones1 += __builtin_popcountll(word1);
+        ones2 += __builtin_popcountll(word2); 
     }
+    if (ones == 0){ cerr << "Error: fmin " << start1 << " & " << start2 << " are the same!"<< endl;}
+
+    if (ones > (ones1+ones2)){ cerr << "Error: diff " << ones << " bigger than sum " <<  (ones1+ones2)<< endl;}
+    if (ones >3000){ cerr << ones << ": " <<  ones1 << ", " << ones2 << endl;}
+
+    else{cout << ones << endl;}
 }
 
 void read_f_rc_colors(const uint64_t* data, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
@@ -609,6 +626,20 @@ void combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bi
     return;
 }
 
+void print_pair_stats(vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
+    std:sort(p_fmin_v.begin(), p_fmin_v.end());
+    vector<pair<uint64_t, uint64_t>> v;
+    std::unordered_map<int64_t, uint64_t> p_fmin_freq;
+    for (auto& [p,freq]: p_fmin_v){
+        p_fmin_freq[p.first]++;
+        p_fmin_freq[p.second]++;
+    }
+    vector<pair<int64_t, uint64_t>> p_fmin_freq_v(p_fmin_freq.begin(), p_fmin_freq.end());
+    for (auto& pp: p_fmin_freq_v){
+        cout << pp.second << endl; 
+    }
+}
+
 uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl::bit_vector& color_sets_concat, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){
 
     // NEW pseudoaligment_stats
@@ -630,7 +661,7 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
         int64_t f = Fmin[i];
         int64_t r = r_Fmin[n_fmin - i - 1];
         if (f != r && f != -1 && r != -1){
-            p_Fmin.push_back({f, r});
+            p_Fmin.push_back({min(f, r), max(f,r)});
         }
         else if (f != -1){
             i_Fmin.push_back(f);
@@ -646,6 +677,8 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     // 2. Deal with the vector of int64_t: i_Fmin
         // 2a. Keep frequency 
         // Count freq of each i_fmin
+    //cout << i_Fmin.size() << ", ";
+
     std::unordered_map<int64_t, uint64_t> i_fmin_counts;
     i_fmin_counts.reserve(i_Fmin.size());
     for (const auto& v: i_Fmin) {
@@ -655,6 +688,7 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
     vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
     std::sort(i_fmin_v.begin(), i_fmin_v.end()); 
     read_colors(data, n_colors, results, i_fmin_v);
+    //cout << i_fmin_v.size() << ", ";
 
 
     // 3. Deal with the vector of pairs: p_Fmin
@@ -673,6 +707,10 @@ uint64_t combine_f_rc(vector<int64_t>& Fmin, vector<int64_t>& r_Fmin, const sdsl
 
     // TODO does it make sense to sort pairs??
     read_f_rc_colors(data, n_colors, results, p_fmin_v);
+    //print_pair_stats(p_fmin_v);
+
+    //cout << p_Fmin.size() << ", ";
+    //cout << p_fmin_v.size() << endl;
 
     counting_sort(results, ans, found_fmin, n_colors);
 
