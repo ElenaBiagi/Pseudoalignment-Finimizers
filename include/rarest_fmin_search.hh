@@ -51,7 +51,6 @@ void FindPrefix(const vector<optional<Bucket>>& buckets, const uint64_t plen, co
     auto [pos,len] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
-        if (plen+len ==32){cerr<< "ERROR plen+len " << plen << " + "<< len<< endl; }
         if ((start + plen+len -1) > end) { next_candidates.push_back(make_tuple(plen+len+start-1, f_int, bucket_p.color_set_ids[pos], start));} // Sorted based on END
         else { 
             tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {plen + len, f_int, bucket_p.color_set_ids[pos], start};
@@ -72,7 +71,6 @@ void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint64_t pl
     const Bucket& bucket_p = *buckets[int_p];
     auto [pos,len] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);  
     if (pos > -1){
-        if (plen+len ==32){cerr<< "ERROR short plen+len " << plen << " + "<< len<< endl; }
         uint64_t f_int = (int_p << (len *2)) | (int_s >> ((s_len - len)*2) ); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
         if ((start + plen+len -1) > end) { next_candidates.push_back(make_tuple(plen+len+start-1, f_int, bucket_p.color_set_ids[pos], start));} // Sorted based on END
         else { 
