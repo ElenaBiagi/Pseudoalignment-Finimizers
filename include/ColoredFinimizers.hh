@@ -25,11 +25,8 @@ void print_search_timing_stats() {
     using namespace std::chrono;
     std::cerr << "Time to load the index: "
                 << duration_cast<milliseconds>(time_index_loading).count() << " ms\n";
-
     std::cerr << "Time in rarest_fmin_streaming_search (fwd): "
                 << duration_cast<milliseconds>(time_rarest_fmin).count() << " ms\n";
-    std::cerr << "Time in rarest_fmin_streaming_search (rev): "
-                << duration_cast<milliseconds>(time_rarest_fmin_rc).count() << " ms\n";
     std::cerr << "Time in combine_f_rc: "
                 << duration_cast<milliseconds>(time_combine).count() << " ms\n";
     std::cerr << "Time to output results: "
@@ -101,9 +98,9 @@ void true_or_crash(bool b, const char* error_message){
     }
 }
 
-inline uint16_t pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results, const float t );
+inline uint16_t pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float t );
 
-inline void pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results);
+inline void pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans);
 
 
 class CompressedColoredFinimizers {
@@ -271,7 +268,7 @@ public:
 
     
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers, vector<uint64_t>& results) const {
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers) const {
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
 
@@ -294,7 +291,7 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             //combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, results);
+            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -303,7 +300,7 @@ public:
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float t, vector<int64_t>& Finimizers, vector<uint64_t>& results) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float t, vector<int64_t>& Finimizers) const {
         //cerr << "search"<< endl;
 
         const int64_t query_len = query.length();
@@ -325,7 +322,7 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             //min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, results, t);
+            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t);
 
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
@@ -549,15 +546,15 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
 }
 
 
-inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results){
-    //vector<uint64_t> results(n_colors,0);
-    if (results.size() != n_colors) {
+inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    vector<uint64_t> results(n_colors,0);
+    /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);  
     } else {
         std::fill(results.begin(), results.end(), 0);
     }
-
-    std::sort(Fmin.begin(), Fmin.end()); 
+ */
+    /* std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
 
@@ -566,17 +563,17 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
         while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
-    }
+    } */
     
-    /* // Count freq of each fmin
-    std::unordered_map<uint64_t, uint64_t> fmin_counts;
+    // Count freq of each fmin
+    std::unordered_map<int64_t, uint64_t> fmin_counts;
     for (auto v : Fmin) {
         fmin_counts[v]++;
     }
 
     // vector for sorted output so that it is possible to scan color_set_concat
-    vector<pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end()); */
+    vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    std::sort(fmin_v.begin(), fmin_v.end());
 
     read_colors(CCS, n_colors, results, fmin_v);
 
@@ -585,17 +582,17 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
     return;
 }
 
-inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results, const float t ){ 
+inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
     //if (Fmin.empty()){return 0;}
     
-    //vector<uint64_t> results(n_colors,0);
-    if (results.size() != n_colors) {
+    vector<uint64_t> results(n_colors,0);
+    /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);  
     } else {
         std::fill(results.begin(), results.end(), 0);
-    }
+    } */
 
-
+/* 
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -605,18 +602,18 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedCol
         while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
-    }
+    } */
     
-    /* // Count freq of each fmin
-    std::unordered_map<uint64_t, uint64_t> fmin_counts;
+    // Count freq of each fmin
+    std::unordered_map<int64_t, uint64_t> fmin_counts;
     for (auto v : Fmin) {
         fmin_counts[v]++;
     }
 
     // vector for sorted output so that it is possible to scan color_set_concat
 
-    vector<pair<uint64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end()); */
+    vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    std::sort(fmin_v.begin(), fmin_v.end());
 
     read_colors(CCS, n_colors, results, fmin_v);
 
