@@ -282,11 +282,6 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
-
-        // Reverse complement search
-        //vector<int64_t> r_Finimizers;
-        
-
         // Color sets
         {
             auto start = std::chrono::high_resolution_clock::now();
@@ -295,13 +290,10 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-
-        //cerr << "search end" << endl;
     }
 
     // Threshold-based search: returns minimum value and fills ans
     uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float t, vector<int64_t>& Finimizers) const {
-        //cerr << "search"<< endl;
 
         const int64_t query_len = query.length();
         if (query_len < this->k) return 0;
@@ -327,8 +319,6 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-        //cerr << "search end" << endl;
-
         return min_value;
     }
 
@@ -451,9 +441,9 @@ public:
 inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& results, const uint64_t freq) {
     //cerr << "process_word" << endl;
     while (word) {
-        uint64_t bit = countr_zero(word);
-        uint64_t color = base + bit; 
-        results[color] += freq;
+        //uint64_t bit = std::countr_zero(word);
+        uint64_t bit = __builtin_ctzll(word);
+        results[base + bit] += freq;
         word &= word - 1; // clear lowest bit
     }
     //cerr << "end" << endl;
@@ -491,12 +481,13 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     // 2. Read aligned words in btw
     while (bits_left >= 64) {
         uint64_t word = *ptr++;
-        for (uint64_t w = word; w != 0;) {
-            process_word(w,color_id, results, freq);
-            /* uint64_t bit = __builtin_ctzll(w);
+        process_word(word, color_id, results, freq);
+        /* for (uint64_t w = word; w != 0;) {
+            
+            uint64_t bit = __builtin_ctzll(w);
             results[color_id + bit]+=freq;
-            w &= w - 1; */
-        }
+            w &= w - 1;
+        } */
         color_id += 64;
         bits_left -= 64;
     }
@@ -554,7 +545,7 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
         std::fill(results.begin(), results.end(), 0);
     }
  */
-    /* std::sort(Fmin.begin(), Fmin.end()); 
+    std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
 
@@ -563,9 +554,9 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
         while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
-    } */
+    }
     
-    // Count freq of each fmin
+    /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
     for (auto v : Fmin) {
         fmin_counts[v]++;
@@ -573,7 +564,7 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
 
     // vector for sorted output so that it is possible to scan color_set_concat
     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end());
+    std::sort(fmin_v.begin(), fmin_v.end()); */
 
     read_colors(CCS, n_colors, results, fmin_v);
 
@@ -592,7 +583,7 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedCol
         std::fill(results.begin(), results.end(), 0);
     } */
 
-/* 
+ 
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -602,9 +593,9 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedCol
         while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
-    } */
+    }
     
-    // Count freq of each fmin
+    /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
     for (auto v : Fmin) {
         fmin_counts[v]++;
@@ -613,7 +604,7 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedCol
     // vector for sorted output so that it is possible to scan color_set_concat
 
     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end());
+    std::sort(fmin_v.begin(), fmin_v.end()); */
 
     read_colors(CCS, n_colors, results, fmin_v);
 
