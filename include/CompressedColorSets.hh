@@ -121,7 +121,7 @@ class CompressedColorSets {
         sdsl::enc_vector<> ef(EF_v);
         this->EF = std::move(ef);
 
-        cerr << "BV: "<< (int)BV_size - (int)dense << endl;
+        cerr << "BV: "<< (int)BV_size << endl;
         cerr << "L: " << EF_v.size()-1 << endl;
         //cerr << "dense:" << dense << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
