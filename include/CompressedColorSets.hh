@@ -11,6 +11,32 @@
 
 using namespace std;
 
+struct BVHash {
+    size_t operator()(const sdsl::bit_vector& bv) const noexcept {
+        const uint64_t* data = bv.data();
+        size_t n64 = (bv.size() + 63) / 64;
+        size_t h = 0;
+        for (size_t i = 0; i < n64; ++i) {
+            h ^= std::hash<uint64_t>{}(data[i]) 
+                 + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        }
+        return h;
+    }
+};
+
+struct BVEqual {
+    bool operator()(const sdsl::bit_vector& a, const sdsl::bit_vector& b) const noexcept {
+        if (a.size() != b.size()) return false;
+        const uint64_t* ad = a.data();
+        const uint64_t* bd = b.data();
+        size_t n64 = (a.size() + 63) / 64;
+        for (size_t i = 0; i < n64; ++i) {
+            if (ad[i] != bd[i]) return false;
+        }
+        return true;
+    }
+};
+
 
 class CompressedColorSets {
     private:
@@ -36,7 +62,8 @@ class CompressedColorSets {
 
     CompressedColorSets() = default;
 
-    CompressedColorSets (const unordered_map<string, vector<size_t>>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids, const sdsl::bit_vector& color_sets_concat ){// cf.color_sets_concat
+    CompressedColorSets (const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids){
+        if (n_colors == 0) throw runtime_error("n_colors must be > 0");
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
         vector<size_t> EF_v = {0}; // the first value has to be 0
@@ -48,31 +75,32 @@ class CompressedColorSets {
         const size_t sparse_thr = n_colors / 4; //*0.25
         //const size_t dense_thr  = (3 * n_colors) / 4; // *0.75
 
-        const uint64_t* data = color_sets_concat.data();
+        //uint64_t dense=0;
 
-        for (auto& [key, old_offsets] : deduplicated_cs) {
+        for (auto& [bv, old_offsets] : deduplicated_cs) {
             const uint64_t start = old_offsets[0];
 
             // TODO access color_set_concat and save the value in a bv
 
-            sdsl::bit_vector bv = read_colors_to_bv(data, n_colors, start);
             const size_t size = sdsl::util::cnt_one_bits(bv);
             // Sparse
             if (size < sparse_thr) {
+                // store 1s explicitly
+                // TODO more efficient ?
                 for (size_t c = 0; c < n_colors; c++) {
-                    // store 1s explicitly
-                    // TODO this could me more efficient
-                    if (bv[c]) { L.push_back((uint32_t)(c)); } 
+                    if (bv[c]) {L.push_back(static_cast<uint32_t>(c));}    
                 }
                 // color set ids = rank in L
-                for (auto& c_id : old_offsets){ color_set_ids[c_id] = EF_v.size(); } // the minimum is 1
+                uint64_t ef_index = EF_v.size();
+                for (auto& c_id : old_offsets){ color_set_ids[c_id] = ef_index; } // the minimum is 1
                 EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
             } else {
+                //if (size > dense_thr){dense++;}
                 const uint64_t old_offset = old_offsets[0] * n_colors;
                 //BV.resize(BV.size()+n_colors); // Resize BV every time.. not very efficient
                 BV_size++; // augment every time a new color set is added
                 for (size_t j = 0; j < n_colors; ++j) {
-                    BV[new_offset + j] = color_sets_concat[old_offset + j];
+                    BV[new_offset + j] = bv[j];
                 }
                 
                 // mark BV color set ids
@@ -93,58 +121,11 @@ class CompressedColorSets {
         sdsl::enc_vector<> ef(EF_v);
         this->EF = std::move(ef);
 
-        cerr << "BV: "<< (int)BV_size << endl;
-        cerr << "L: " << EF_v.size() << endl;
+        cerr << "BV: "<< (int)BV_size - (int)dense << endl;
+        cerr << "L: " << EF_v.size()-1 << endl;
+        //cerr << "dense:" << dense << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
-    }
-
-    sdsl::bit_vector read_colors_to_bv(const uint64_t* data, const uint64_t n_colors, const uint64_t start){
-        sdsl::bit_vector bv(n_colors);
-
-        const uint64_t* ptr = data + (start * n_colors) / 64;
-        uint64_t bit_offset = (start * n_colors) % 64;
-
-        uint64_t color_id = 0;
-
-        // 1. Read the first word
-        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-        uint64_t word = (*ptr >> bit_offset) & mask;
-
-        while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            bv[bit]=1;
-            word &= word - 1;
-        }
-
-        ++ptr;
-        color_id += bits_to_read;
-
-        // 2. Read aligned words in btw
-        while (color_id + 64 <= n_colors) {
-            uint64_t word = *ptr++;
-            for (uint64_t w = word; w != 0;) {
-                uint64_t bit = __builtin_ctzll(w);
-                bv[color_id + bit]=1;
-                w &= w - 1;
-            }
-            color_id += 64;
-        }
-
-        // 3. Read the last word (if any)
-        uint64_t bits_left = n_colors - color_id;
-        if (bits_left > 0) {
-            uint64_t mask = ((1ULL << bits_left) - 1);
-            uint64_t word = *ptr & mask;
-
-            while (word != 0) {
-                uint64_t bit = __builtin_ctzll(word);
-                bv[color_id + bit]=1;
-                word &= word - 1;
-            }
-        }
-        return bv;
     }
 
     void serialize(const string& index_prefix) const {

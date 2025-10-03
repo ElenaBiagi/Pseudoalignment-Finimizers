@@ -109,7 +109,6 @@ private:
     sdsl::bit_vector unique_color_sets;
 
     vector<uint64_t> color_set_ids;
-    
 
 public:
     CompressedColorSets CCS; // L, EF, BV
@@ -144,20 +143,43 @@ public:
         n_colors = cf.color_sets_concat.size() / n_finimizers;
         cerr << "n_colors: "<< (int)n_colors << endl;
         cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
+
         cerr << "Deduplicate color sets" << endl;
-        unordered_map<string, vector<size_t>> deduplicated_cs; // {cs:[fmin indices]}
         const uint64_t* data = cf.color_sets_concat.data();
         sdsl::bit_vector bv(n_colors);
-        for (size_t i = 0; i < n_finimizers; i++) {
-            bv = read_colors_to_bv(data, n_colors, i, bv);
-            string key((char*)bv.data(), ((n_colors + 63) / 64) * 8);
 
-            deduplicated_cs[key].push_back(i);
-        }        
-        cerr << deduplicated_cs.size() << endl;
+        unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual> deduplicated_cs;
+
+        for (size_t i = 0; i < n_finimizers; ++i) {
+            read_colors_to_bv(data, n_colors, i, bv);
+
+            auto it = deduplicated_cs.find(bv);
+            if (it == deduplicated_cs.end()) {
+                // First time seeing this color set
+                deduplicated_cs.emplace(bv, vector<size_t>{i});
+            } else {
+                // Already seen
+                it->second.push_back(i);
+            }
+        }
+
+        cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
+
+        // Flatten into a single sdsl::bit_vector (unique_color_sets)
+        unique_color_sets = sdsl::bit_vector(deduplicated_cs.size() * n_colors);
+        uint64_t new_offset = 0;
+
+        for (auto& kv : deduplicated_cs) {
+            const sdsl::bit_vector& ucs = kv.first;
+            for (size_t j = 0; j < n_colors; ++j) {
+                unique_color_sets[new_offset + j] = ucs[j];
+            }
+            new_offset += n_colors;
+        }
+
 
         this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
-        CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids, cf.color_sets_concat);
+        CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
 
         
         // Assign to final structure
@@ -215,7 +237,7 @@ public:
 
     }
 
-    sdsl::bit_vector read_colors_to_bv(const uint64_t* data, const uint64_t n_colors, const uint64_t start, sdsl::bit_vector& bv){
+    void read_colors_to_bv(const uint64_t* data, const uint64_t n_colors, const uint64_t start, sdsl::bit_vector& bv){
         sdsl::util::set_to_value(bv, 0);
         const uint64_t* ptr = data + (start * n_colors) / 64;
         uint64_t bit_offset = (start * n_colors) % 64;
@@ -263,7 +285,6 @@ public:
                 word &= word - 1;
             }
         }
-        return bv;
     }
 
     
