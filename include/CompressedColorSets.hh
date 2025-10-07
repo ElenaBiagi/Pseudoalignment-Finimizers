@@ -42,12 +42,12 @@ class CompressedColorSets {
     private:
     // TODO Combine BV and L in a 
     // add a bitvector instead of branch 
-    vector<uint32_t> L;
+    vector<uint16_t> L;
     sdsl::enc_vector<> EF;
     sdsl::bit_vector BV;
 
     public:
-    const std::vector<uint32_t>& getL() const { return L; }
+    const std::vector<uint16_t>& getL() const { return L; }
     const sdsl::enc_vector<>& getEF() const { return EF; }
     const sdsl::bit_vector& getBV() const { return BV; }
 
@@ -72,10 +72,10 @@ class CompressedColorSets {
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
         uint64_t new_offset = 0;
-        const size_t sparse_thr = n_colors / 4; //*0.25
-        //const size_t dense_thr  = (3 * n_colors) / 4; // *0.75
+        const size_t sparse_thr = n_colors / 16; //*0.25
+        const size_t dense_thr = n_colors * 0.937; //(3 * n_colors) / 4; // *0.75
 
-        //uint64_t dense=0;
+        uint64_t dense=0;
 
         for (auto& [bv, old_offsets] : deduplicated_cs) {
             const uint64_t start = old_offsets[0];
@@ -88,14 +88,14 @@ class CompressedColorSets {
                 // store 1s explicitly
                 // TODO more efficient ?
                 for (size_t c = 0; c < n_colors; c++) {
-                    if (bv[c]) {L.push_back(static_cast<uint32_t>(c));}    
+                    if (bv[c]) {L.push_back(static_cast<uint16_t>(c));}    
                 }
                 // color set ids = rank in L
                 uint64_t ef_index = EF_v.size();
                 for (auto& c_id : old_offsets){ color_set_ids[c_id] = ef_index; } // the minimum is 1
                 EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
             } else {
-                //if (size > dense_thr){dense++;}
+                if (size > dense_thr){dense++;}
                 const uint64_t old_offset = old_offsets[0] * n_colors;
                 //BV.resize(BV.size()+n_colors); // Resize BV every time.. not very efficient
                 BV_size++; // augment every time a new color set is added
@@ -121,9 +121,9 @@ class CompressedColorSets {
         sdsl::enc_vector<> ef(EF_v);
         this->EF = std::move(ef);
 
-        cerr << "BV: "<< (int)BV_size << endl;
+        cerr << "BV: "<< (int)BV_size - dense << endl;
         cerr << "L: " << EF_v.size()-1 << endl;
-        //cerr << "dense:" << dense << endl;
+        cerr << "dense:" << dense << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
     }
@@ -142,7 +142,7 @@ class CompressedColorSets {
         std::ofstream L_out(index_prefix + ".L.BIN", std::ios::binary);
         size_t L_size = L.size();
         L_out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
-        L_out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint32_t));
+        L_out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
         L_out.close();
 
         // EF
@@ -175,7 +175,7 @@ class CompressedColorSets {
         size_t L_size;
         L_in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
         L.resize(L_size);
-        L_in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint32_t));
+        L_in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
         L_in.close();
 
         // EF

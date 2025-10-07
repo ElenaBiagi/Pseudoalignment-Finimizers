@@ -531,7 +531,7 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
 
 void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     const sdsl::bit_vector& BV = CCS.getBV();
-    const vector<uint32_t>& L = CCS.getL();
+    const vector<uint16_t>& L = CCS.getL();
     const sdsl::enc_vector<>& EF = CCS.getEF();
 
     /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
