@@ -545,6 +545,8 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     for ( i=0; i< fmin_v.size(); i++) {
         const auto& [pos,freq] = fmin_v[i];
         if (pos < L_size){  // sparse -> read from L
+            //if (pos >= EF.size()){ cerr << "pos = "<< pos << "== EF.size() = "<< EF.size() << endl;}
+            //cerr << pos << ", " << EF.size() << endl;
             const size_t end = EF[pos]; // exclusive end
             size_t start = EF[pos-1]; // inclusive start
             while(start < end){ results[L[start++]]+=freq;}

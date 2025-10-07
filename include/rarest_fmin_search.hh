@@ -109,7 +109,7 @@ void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint6
     } else{
         Fmin.push_back(-1); // This ensures that Fmin and r_Fmin have the same length
         //k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
-        cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << endl;// " " << input.substr(kmer_start, min((uint64_t)k, str_len - kmer_start)) << endl;
+        cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << endl;// " " << input.substr(kmer_start, min((uint64_t)k, input.length() - kmer_start)) << endl;
     }
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
@@ -144,7 +144,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> curr_candidates(k); // sort based on len, int (color, start)
     BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> next_candidates(k); // sort by end (start+len-1)
     tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = {k+1,0,0,kmer_start};
-    curr_candidates.push_back(k_fmin);
+    //curr_candidates.push_back(k_fmin);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
     uint8_t s_len = k-plen;
