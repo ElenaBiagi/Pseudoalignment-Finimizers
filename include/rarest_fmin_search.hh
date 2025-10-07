@@ -131,7 +131,7 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
     BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> curr_candidates(k); // sort based on len, int (color, start)
     BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> next_candidates(k); // sort by end (start+len-1)
     tuple<uint64_t, uint64_t, uint64_t, uint64_t> k_fmin = {k+1,0,0,kmer_start};
-    curr_candidates.push_back(k_fmin);
+    //curr_candidates.push_back(k_fmin);
     
     uint64_t int_p = prefix2int(input, start, plen); // start = 0
     char s_len = k-plen;
