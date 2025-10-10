@@ -7,3 +7,9 @@
 [submodule "finimizer_matrix"]
 	path = finimizer_matrix
 	url = https://github.com/jnalanko/finimizer_matrix.git
+[submodule "bits"]
+	path = bits
+	url = https://github.com/jermp/bits.git
+[submodule "external/bits"]
+	path = external/bits
+	url = https://github.com/jermp/bits.git
