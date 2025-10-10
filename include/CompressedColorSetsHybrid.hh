@@ -1,17 +1,15 @@
 #pragma once
 
 #include <vector>
-#include <cstring>
 #include <unordered_map>
+#include <iostream>
+#include <fstream>
+#include <cassert>
 
-
+#include "hybrid.hpp"  // from fulgor
 #include "sdsl/bit_vectors.hpp"
-#include <sdsl/enc_vector.hpp>
-
-#include "hybrid.hpp"
 
 using namespace std;
-
 struct BVHash {
     size_t operator()(const sdsl::bit_vector& bv) const noexcept {
         const uint64_t* data = bv.data();
@@ -38,64 +36,139 @@ struct BVEqual {
     }
 };
 
+namespace fulgor {
 
-class CompressedColorSets {
-    public:
- 
-    fulgor::hybrid m_hybrid;
-    uint64_t n_colors;
-    std::vector<uint64_t> color_set_ids;
+class CompressedColorSetsHybrid {
+private:
+    hybrid m_hybrid;                     // Stores all color sets in hybrid format
+    //vector<uint64_t> m_color_set_ids;    // Maps original color set IDs to hybrid indices
+    //uint64_t m_num_colors;               // Total number of colors
 
-    CompressedColorSets() = default;
+public:
+    CompressedColorSetsHybrid() = default;
 
-    CompressedColorSets (const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids ){
+    /** 
+     * Build the hybrid color set structure from deduplicated color sets.
+     * @param deduplicated_cs: unordered_map of bit_vector -> vector of original color set IDs
+     * @param n_colors: number of distinct colors
+     * @param color_set_ids: output vector mapping original color set IDs to hybrid indices
+     * 
+     * Stores color sets in m_hybrid. Updates color_set_ids to map old IDs to their hybrid indices.
+     */
+    CompressedColorSetsHybrid(
+        const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual>& deduplicated_cs,
+        uint64_t n_colors,
+        vector<uint64_t>& color_set_ids
+    ) {
         if (n_colors == 0) throw runtime_error("n_colors must be > 0");
-        
-        fulgor::hybrid::builder hb(n_colors);
+        //m_num_colors = n_colors;
 
-        uint64_t next_id = 0;
-        for (const auto& [bv, offsets] : deduplicated_cs) {
-            vector<uint32_t> color_indices;
-            for (size_t i = 0; i < bv.size(); ++i)
-                if (bv[i]) {color_indices.push_back(static_cast<uint32_t>(i));}
+        hybrid::builder hb(n_colors);
+        color_set_ids.resize(0);
 
-            hb.encode_color_set(color_indices.data(), color_indices.size());
+        // Determine total number of original color sets
+        size_t total_color_sets = 0;
+        for (auto& [bv, ids] : deduplicated_cs) {
+            total_color_sets += ids.size();
+        }
+        color_set_ids.resize(total_color_sets);
 
-            for (auto oid : offsets) color_set_ids[oid] = next_id;
-            next_id++;
+        uint64_t idx = 0; // global color set index
+        for (auto& [bv, ids] : deduplicated_cs) {
+            // Convert sdsl::bit_vector to sorted uint32_t array
+            vector<uint32_t> colors;
+            for (uint32_t c = 0; c < n_colors; ++c) {
+                if (bv[c]) colors.push_back(c);
+            }
+
+            // Encode in hybrid
+            hb.encode_color_set(colors.data(), colors.size());
+
+            // Assign hybrid indices to original IDs
+            for (auto id : ids) {
+                color_set_ids[id] = idx;
+                idx++;
+            }
         }
 
         hb.build(m_hybrid);
+        //m_color_set_ids = color_set_ids;
+
+        cerr << "Hybrid color sets built: " << total_color_sets << " sets, "
+             << "total colors: " << n_colors << endl;
     }
 
-    // Access a color set by its ID
-    fulgor::hybrid::forward_iterator color_set(uint64_t id) const {
-        return m_hybrid.color_set(id);
+    /**
+     * Access a color set by its hybrid index.
+     * @param hybrid_idx: index in the hybrid structure
+     * @return fulgor::hybrid::forward_iterator to iterate through color set elements
+     */
+    hybrid::forward_iterator get_color_set(uint64_t hybrid_idx) const {
+        assert(hybrid_idx < m_hybrid.num_color_sets());
+        return m_hybrid.color_set(hybrid_idx);
     }
 
-    uint32_t num_colors() const { return m_hybrid.num_colors(); }
-    uint64_t num_color_sets() const { return m_hybrid.num_color_sets(); }
+    /** 
+     * Map original color set ID to hybrid index.
+     * @param original_id: original color set ID
+     * @return hybrid index in m_hybrid
+     */
+    /* uint64_t get_hybrid_index(uint64_t original_id) const {
+        assert(original_id < m_color_set_ids.size());
+        return m_color_set_ids[original_id];
+    } */
 
+    /**
+     * Get total number of colors
+     */
+    //uint64_t num_colors() const { return m_num_colors; }
+
+    /**
+     * Get total number of color sets stored
+     */
+    //uint64_t num_color_sets() const { return m_hybrid.num_color_sets(); }
+
+    /**
+     * Serialize the hybrid color sets to disk
+     * @param prefix: file prefix for saving
+     */
+    void serialize(const std::string& filename) const {
+        std::ofstream out(filename, std::ios::binary);
+        if (!out) {
+            throw std::runtime_error("Failed to open file for writing: " + filename);
+        }
+
+        auto visitor = [&](auto& x) {
+            sdsl::serialize(x, out);
+        };
+        m_hybrid.visit(visitor);
+    }
+
+    /**
+     * Load hybrid color sets from disk
+     * @param prefix: file prefix for loading
+     */
+    void load(const std::string& filename) {
+        std::ifstream in(filename, std::ios::binary);
+        if (!in) {
+            throw std::runtime_error("Failed to open file for reading: " + filename);
+        }
+
+        auto loader = [&](auto& x) {
+            sdsl::load(x, in);
+        };
+        m_hybrid.visit(loader);
+    }
+
+    /**
+     * Print statistics about the hybrid structure
+     */
     void print_stats() const {
-        std::cout << "CompressedColorSets statistics:\n";
-        std::cout << "  Number of colors: " << num_colors() << "\n";
-        std::cout << "  Number of color sets: " << num_color_sets() << "\n";
-        std::cout << "  Total bits used: " << m_hybrid.num_bits() << "\n";
+        cerr << "Hybrid stats: " << endl;
+        //cerr << "Number of colors: " << m_num_colors << endl;
+        //cerr << "Number of color sets: " << num_color_sets() << endl;
+        cerr << "Hybrid num bits: " << m_hybrid.num_bits() << endl;
     }
-
-    void serialize(const std::string& prefix) const {
-        // For simplicity, using SDsl to serialize offsets and color sets
-        std::ofstream out(prefix + ".hybrid.sdsl", std::ios::binary);
-        if (!out) throw std::runtime_error("Cannot open file for serialization.");
-        sdsl::serialize(m_hybrid, out);
-        out.close();
-    }
-
-    void load(const std::string& prefix) {
-        std::ifstream in(prefix + ".hybrid.sdsl", std::ios::binary);
-        if (!in) throw std::runtime_error("Cannot open file for deserialization.");
-        sdsl::load(m_hybrid, in);
-        in.close();
-    }
-
 };
+
+} // namespace fulgor
