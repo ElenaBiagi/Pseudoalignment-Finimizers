@@ -6,7 +6,7 @@
 
 #include "sdsl/bit_vectors.hpp"
 #include "rarest_fmin_search.hh"
-#include "CompressedColorSets.hh"
+#include "CompressedColorSetsHybrid.hh"
 #include "Buckets.hh"
 
 #include <chrono>
@@ -98,9 +98,9 @@ void true_or_crash(bool b, const char* error_message){
     }
 }
 
-inline uint16_t pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float t );
+inline uint16_t pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSetsHybrid& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float t );
 
-inline void pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans);
+inline void pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSetsHybrid& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans);
 
 
 class CompressedColoredFinimizers {
@@ -111,7 +111,7 @@ private:
     vector<uint64_t> color_set_ids;
 
 public:
-    CompressedColorSets CCS; // L, EF, BV
+    CompressedColorSetsHybrid CCS; // L, EF, BV
 
     vector<optional<Bucket>> buckets; 
     unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
@@ -179,7 +179,7 @@ public:
 
 
         this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
-        CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
+        CompressedColorSetsHybrid CCS(deduplicated_cs, n_colors, this->color_set_ids);
 
         
         // Assign to final structure
@@ -529,7 +529,7 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     //cerr << "end" << endl;
 }
 
-void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
+void read_colors(const CompressedColorSetsHybrid& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     const sdsl::bit_vector& BV = CCS.getBV();
     const vector<uint16_t>& L = CCS.getL();
     const sdsl::enc_vector<>& EF = CCS.getEF();
@@ -560,7 +560,7 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
 }
 
 
-inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSetsHybrid& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
     vector<uint64_t> results(n_colors,0);
     /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);  
@@ -596,7 +596,7 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
     return;
 }
 
-inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
+inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSetsHybrid& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
     //if (Fmin.empty()){return 0;}
     
     vector<uint64_t> results(n_colors,0);
