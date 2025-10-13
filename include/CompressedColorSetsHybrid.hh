@@ -47,14 +47,11 @@ private:
 public:
     CompressedColorSetsHybrid() = default;
 
-    /** 
-     * Build the hybrid color set structure from deduplicated color sets.
-     * @param deduplicated_cs: unordered_map of bit_vector -> vector of original color set IDs
-     * @param n_colors: number of distinct colors
-     * @param color_set_ids: output vector mapping original color set IDs to hybrid indices
-     * 
-     * Stores color sets in m_hybrid. Updates color_set_ids to map old IDs to their hybrid indices.
-     */
+    
+    // Build the hybrid color set structure from deduplicated color sets.
+    // deduplicated_cs: unordered_map of bit_vector -> vector of original color set IDs
+    // n_colors
+    // color_set_ids: output vector mapping original color set IDs to hybrid indices    
     CompressedColorSetsHybrid(
         const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual>& deduplicated_cs,
         uint64_t n_colors,
@@ -66,7 +63,6 @@ public:
         hybrid::builder hb(n_colors);
         color_set_ids.resize(0);
 
-        // Determine total number of original color sets
         size_t total_color_sets = 0;
         for (auto& [bv, ids] : deduplicated_cs) {
             total_color_sets += ids.size();
@@ -81,10 +77,9 @@ public:
                 if (bv[c]) colors.push_back(c);
             }
 
-            // Encode in hybrid
             hb.encode_color_set(colors.data(), colors.size());
 
-            // Assign hybrid indices to original IDs
+            // assign hybrid indices to original IDs
             for (auto id : ids) {
                 color_set_ids[id] = idx;
                 idx++;
@@ -98,40 +93,24 @@ public:
              << "total colors: " << n_colors << endl;
     }
 
-    /**
-     * Access a color set by its hybrid index.
-     * @param hybrid_idx: index in the hybrid structure
-     * @return fulgor::hybrid::forward_iterator to iterate through color set elements
-     */
+
+    // Access a color set by its hybrid index.
     hybrid::forward_iterator get_color_set(uint64_t hybrid_idx) const {
         assert(hybrid_idx < m_hybrid.num_color_sets());
         return m_hybrid.color_set(hybrid_idx);
     }
 
-    /** 
-     * Map original color set ID to hybrid index.
-     * @param original_id: original color set ID
-     * @return hybrid index in m_hybrid
-     */
-    /* uint64_t get_hybrid_index(uint64_t original_id) const {
+    // Map original color set ID to hybrid index.
+    uint64_t get_hybrid_index(uint64_t original_id) const {
         assert(original_id < m_color_set_ids.size());
         return m_color_set_ids[original_id];
-    } */
+    }
 
-    /**
-     * Get total number of colors
-     */
     //uint64_t num_colors() const { return m_num_colors; }
 
-    /**
-     * Get total number of color sets stored
-     */
+    // total number of colors_sets
     //uint64_t num_color_sets() const { return m_hybrid.num_color_sets(); }
 
-    /**
-     * Serialize the hybrid color sets to disk
-     * @param prefix: file prefix for saving
-     */
     void serialize(const std::string& filename) const {
         std::ofstream out(filename, std::ios::binary);
         if (!out) {
@@ -144,10 +123,6 @@ public:
         m_hybrid.visit(visitor);
     }
 
-    /**
-     * Load hybrid color sets from disk
-     * @param prefix: file prefix for loading
-     */
     void load(const std::string& filename) {
         std::ifstream in(filename, std::ios::binary);
         if (!in) {
@@ -160,9 +135,6 @@ public:
         m_hybrid.visit(loader);
     }
 
-    /**
-     * Print statistics about the hybrid structure
-     */
     void print_stats() const {
         cerr << "Hybrid stats: " << endl;
         //cerr << "Number of colors: " << m_num_colors << endl;
