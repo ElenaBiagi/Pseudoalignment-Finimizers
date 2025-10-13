@@ -32,8 +32,6 @@ void print_search_timing_stats() {
 
     std::cerr << "Time in rarest_fmin_streaming_search (fwd): "
                 << duration_cast<milliseconds>(time_rarest_fmin).count() << " ms\n";
-    std::cerr << "Time in rarest_fmin_streaming_search (rev): "
-                << duration_cast<milliseconds>(time_rarest_fmin_rc).count() << " ms\n";
     std::cerr << "Time in combine_f_rc: "
                 << duration_cast<milliseconds>(time_combine).count() << " ms\n";
     std::cerr << "Time to output results: "
@@ -106,18 +104,16 @@ void true_or_crash(bool b, const char* error_message){
 }
 
 // Forward declarations for the combine_f_rc variants (implemented below)
-void combine_f_rc(const std::vector<int64_t>& Fmin,
-                  const std::vector<int64_t>& r_Fmin,
+void pseudoalignment_stats( vector<int64_t>& Fmin,
                   const class Color_Set_Storage<SDSL_Variant_Color_Set>& CCS,
                   const uint64_t n_colors,
                   std::vector<std::pair<uint16_t, uint16_t>>& ans);
 
-uint64_t combine_f_rc(const std::vector<int64_t>& Fmin,
-                      const std::vector<int64_t>& r_Fmin,
+uint16_t pseudoalignment_stats( vector<int64_t>& Fmin,
                       const class Color_Set_Storage<SDSL_Variant_Color_Set>& CCS,
                       const uint64_t n_colors,
                       std::vector<std::pair<uint16_t, uint16_t>>& ans,
-                      const float& t);
+                      const float t);
 
 class CompressedColoredFinimizers {
 
@@ -161,7 +157,9 @@ public:
         true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
         n_colors = cf.color_sets_concat.size() / n_finimizers;
         cerr << "n_colors: "<< (int)n_colors << endl;
+        
 
+        // TODO duplicate colorsets
         // Deduplicate color sets (same approach as before)
         cerr << "Deduplicate color sets" << endl;
         unordered_map<string, vector<size_t>> deduplicated_cs; // {cs:[fmin indices]}
@@ -276,21 +274,9 @@ public:
             time_rarest_fmin += (end - start);
         }
 
-        // Reverse complement search
-        vector<int64_t> r_Finimizers;
-        r_Finimizers.reserve(query_len - k + 1);
-        string r_query = sbwt::get_rc(query);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_rarest_fmin_rc += (end - start);
-        }
-
-        // Combine forward and reverse results
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans);
+            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -313,21 +299,10 @@ public:
             time_rarest_fmin += (end - start);
         }
 
-        // reverse complement
-        vector<int64_t> r_Finimizers;
-        string r_query = sbwt::get_rc(query);
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(r_query, this->buckets, this->sB, this->plen, this->k, r_Finimizers);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_rarest_fmin_rc += (end - start);
-        }
-
-        // Combine the results of finimizers color ids for forward and reverse
         uint16_t min_value;
         {
             auto start = std::chrono::high_resolution_clock::now();
-            min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t);
+            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -485,150 +460,79 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
     //cerr << "end" << endl;
 }
 
-// Combine (union) of two sets and add frequencies (used for forward/reverse pairs)
-void read_f_rc_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<pair<uint64_t, uint64_t>, uint64_t>>& p_fmin_v){
-    //cerr << "read_f_rc_colors (view-based)" << endl;
 
-    for (const auto& kv : p_fmin_v) {
-        uint64_t start = kv.first.first;
-        uint64_t r_start = kv.first.second;
-        uint64_t freq = kv.second;
+inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
+    vector<uint64_t> results(n_colors,0);
+    std::sort(Fmin.begin(), Fmin.end()); 
+    vector<pair<int64_t, uint64_t>> fmin_v;
+    fmin_v.reserve(Fmin.size());
 
-        // Fetch views
-        auto view1 = CCS_storage.get_color_set_by_id((int64_t)start);
-        auto view2 = CCS_storage.get_color_set_by_id((int64_t)r_start);
-
-        // Create a mutable set from view1 and union with view2
-        SDSL_Variant_Color_Set combined(view1);
-        combined.do_union(view2);
-
-        vector<int64_t> colors = combined.get_colors_as_vector();
-        for (auto c : colors) {
-            if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
-        }
-
-        uint64_t maxv = *std::max_element(results.begin(), results.end());
-        //cerr << "Max value after union: " << maxv << std::endl;
+    for (size_t i = 0; i < Fmin.size();) {
+        size_t j = i + 1;
+        while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
+        fmin_v.emplace_back(Fmin[i], j - i);
+        i = j;
+    }
+    
+    /* // Count freq of each fmin
+    std::unordered_map<int64_t, uint64_t> fmin_counts;
+    for (auto v : Fmin) {
+        fmin_counts[v]++;
     }
 
-    //cerr << "end read_f_rc_colors" << endl;
+    // vector for sorted output so that it is possible to scan color_set_concat
+    vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    std::sort(fmin_v.begin(), fmin_v.end()); */
+
+    read_colors(CCS_storage, n_colors, results, fmin_v);
+
+    const size_t found_fmin = Fmin.size(); // # total finimizers
+    counting_sort(results, ans, found_fmin, n_colors);
+    return;
 }
 
+inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
+    //if (Fmin.empty()){return 0;}
+    
+    vector<uint64_t> results(n_colors,0);
+    /* if (results.size() != n_colors) {
+        results.assign(n_colors, 0);  
+    } else {
+        std::fill(results.begin(), results.end(), 0);
+    } */
 
-// Two overlapping k-mers are likely to have the same fmin so they are likely to share the same fmin on both strands
-// This should anyways keep the number of false pos low
+ 
+    std::sort(Fmin.begin(), Fmin.end()); 
+    vector<pair<int64_t, uint64_t>> fmin_v;
+    fmin_v.reserve(Fmin.size());
 
-void combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
-    //cerr << "combine_f_rc" << endl;
-
-    vector<uint64_t> results(n_colors, 0);
-
-    const int n_fmin = (int)Fmin.size();
-    vector<pair<int64_t, int64_t>> p_Fmin; // pairs where f != r
-    p_Fmin.reserve(n_fmin);
-    vector<int64_t> i_Fmin; // identical or single-sided
-    i_Fmin.reserve(n_fmin);
-
-    for (int i = 0; i < n_fmin; ++i){
-        int64_t f = Fmin[i];
-        int64_t r = r_Fmin[n_fmin - i - 1];
-        if (f != r && f != -1 && r != -1){
-            p_Fmin.emplace_back(f, r);
-        } else if (f != -1){
-            i_Fmin.push_back(f);
-        } else if (r != -1){
-            i_Fmin.push_back(r);
-        }
+    for (size_t i = 0; i < Fmin.size();) {
+        size_t j = i + 1;
+        while (j < Fmin.size() && Fmin[j] == Fmin[i]) ++j;
+        fmin_v.emplace_back(Fmin[i], j - i);
+        i = j;
+    }
+    
+    /* // Count freq of each fmin
+    std::unordered_map<int64_t, uint64_t> fmin_counts;
+    for (auto v : Fmin) {
+        fmin_counts[v]++;
     }
 
-    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
+    // vector for sorted output so that it is possible to scan color_set_concat
 
-    // Handle singletons: count frequencies and read
-    unordered_map<int64_t, uint64_t> i_fmin_counts;
-    i_fmin_counts.reserve(i_Fmin.size());
-    for (auto v : i_Fmin) i_fmin_counts[v]++;
+    vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+    std::sort(fmin_v.begin(), fmin_v.end()); */
 
-    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
-    sort(i_fmin_v.begin(), i_fmin_v.end());
-    read_colors(CCS_storage, n_colors, results, i_fmin_v);
+    read_colors(CCS_storage, n_colors, results, fmin_v);
 
-    //uint64_t maxv = *std::max_element(results.begin(), results.end());
-    //cerr << "Max value after read_colors: " << maxv << std::endl;
-
-    // Handle pairs
-    struct pair_hash {
-        size_t operator()(const pair<int64_t, int64_t>& p) const {
-            return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
-        }
-    };
-    unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash> p_fmin_counts;
-    p_fmin_counts.reserve(p_Fmin.size());
-    for (auto &v : p_Fmin) p_fmin_counts[v]++;
-
-    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
-    read_f_rc_colors(CCS_storage, n_colors, results, p_fmin_v);
-
-    /* cerr << "results: " << results.size() << endl;
-    maxv = *std::max_element(results.begin(), results.end());
-    cerr << "Max value: " << maxv << std::endl;
-    cerr << "found_fmin: " << found_fmin << endl;
-    cerr << "ans: " << ans.size() << endl;
-    cerr << "n_colors: " << n_colors << endl; */
+    // Check the values above the minimum
+    const size_t found_fmin = Fmin.size(); // # total finimizers
 
     counting_sort(results, ans, found_fmin, n_colors);
-    //cerr << "end combine_f_rc" << endl;
-}
+    
+    // TODO use min value here?
+    const uint64_t min_value = found_fmin * t;
 
-uint64_t combine_f_rc(const vector<int64_t>& Fmin, const vector<int64_t>& r_Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float& t){
-    //cerr << "combine_f_rc (threshold)" << endl;
-
-    vector<uint64_t> results(n_colors, 0);
-
-    const int n_fmin = (int)Fmin.size();
-    vector<pair<int64_t, int64_t>> p_Fmin;
-    p_Fmin.reserve(n_fmin);
-    vector<int64_t> i_Fmin;
-    i_Fmin.reserve(n_fmin);
-
-    for (int i = 0; i < n_fmin; ++i){
-        int64_t f = Fmin[i];
-        int64_t r = r_Fmin[n_fmin - i - 1];
-        if (f != r && f != -1 && r != -1){
-            p_Fmin.emplace_back(f, r);
-        } else if (f != -1){
-            i_Fmin.push_back(f);
-        } else if (r != -1){
-            i_Fmin.push_back(r);
-        }
-    }
-
-    const size_t found_fmin = p_Fmin.size() + i_Fmin.size();
-
-    // singletons
-    unordered_map<int64_t, uint64_t> i_fmin_counts;
-    i_fmin_counts.reserve(i_Fmin.size());
-    for (auto v : i_Fmin) i_fmin_counts[v]++;
-
-    vector<pair<int64_t, uint64_t>> i_fmin_v(i_fmin_counts.begin(), i_fmin_counts.end());
-    sort(i_fmin_v.begin(), i_fmin_v.end());
-    read_colors(CCS_storage, n_colors, results, i_fmin_v);
-
-    // pairs
-    struct pair_hash2 {
-        size_t operator()(const pair<int64_t, int64_t>& p) const {
-            return std::hash<int64_t>()(p.first) ^ (std::hash<int64_t>()(p.second) << 1);
-        }
-    };
-    unordered_map<pair<int64_t,int64_t>, uint64_t, pair_hash2> p_fmin_counts;
-    p_fmin_counts.reserve(p_Fmin.size());
-    for (auto &v : p_Fmin) p_fmin_counts[v]++;
-
-    vector<pair<pair<uint64_t, uint64_t>, uint64_t>> p_fmin_v(p_fmin_counts.begin(), p_fmin_counts.end());
-    read_f_rc_colors(CCS_storage, n_colors, results, p_fmin_v);
-
-    counting_sort(results, ans, found_fmin, n_colors);
-
-    const uint64_t min_value = (uint64_t)found_fmin * (uint64_t)t;
-    //cerr << "end" << endl;
     return min_value;
 }
