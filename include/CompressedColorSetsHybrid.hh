@@ -41,8 +41,8 @@ namespace fulgor {
 class CompressedColorSetsHybrid {
 private:
     hybrid m_hybrid;                     // Stores all color sets in hybrid format
-    //vector<uint64_t> m_color_set_ids;    // Maps original color set IDs to hybrid indices
-    //uint64_t m_num_colors;               // Total number of colors
+    vector<uint64_t> m_color_set_ids;    // Maps original color set IDs to hybrid indices
+    uint64_t m_num_colors;               // Total number of colors
 
 public:
     CompressedColorSetsHybrid() = default;
@@ -58,7 +58,7 @@ public:
         vector<uint64_t>& color_set_ids
     ) {
         if (n_colors == 0) throw runtime_error("n_colors must be > 0");
-        //m_num_colors = n_colors;
+        m_num_colors = n_colors;
 
         hybrid::builder hb(n_colors);
         color_set_ids.resize(0);
@@ -87,7 +87,7 @@ public:
         }
 
         hb.build(m_hybrid);
-        //m_color_set_ids = color_set_ids;
+        m_color_set_ids = color_set_ids;
 
         cerr << "Hybrid color sets built: " << total_color_sets << " sets, "
              << "total colors: " << n_colors << endl;
@@ -106,34 +106,18 @@ public:
         return m_color_set_ids[original_id];
     }
 
-    //uint64_t num_colors() const { return m_num_colors; }
+    uint64_t num_colors() const { return m_num_colors; }
 
     // total number of colors_sets
-    //uint64_t num_color_sets() const { return m_hybrid.num_color_sets(); }
+    uint64_t num_color_sets() const { return m_hybrid.num_color_sets(); }
 
-    void serialize(const std::string& filename) const {
-        std::ofstream out(filename, std::ios::binary);
-        if (!out) {
-            throw std::runtime_error("Failed to open file for writing: " + filename);
-        }
-
-        auto visitor = [&](auto& x) {
-            sdsl::serialize(x, out);
-        };
-        m_hybrid.visit(visitor);
+/*     void serialize(const std::string& filename) const {
+        // TODO
     }
 
     void load(const std::string& filename) {
-        std::ifstream in(filename, std::ios::binary);
-        if (!in) {
-            throw std::runtime_error("Failed to open file for reading: " + filename);
-        }
-
-        auto loader = [&](auto& x) {
-            sdsl::load(x, in);
-        };
-        m_hybrid.visit(loader);
-    }
+        // TODO
+    } */
 
     void print_stats() const {
         cerr << "Hybrid stats: " << endl;
