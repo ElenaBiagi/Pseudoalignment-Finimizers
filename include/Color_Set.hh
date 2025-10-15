@@ -8,6 +8,8 @@
 #include "SeqIO.hh"
 #include <variant>
 
+#include "ReadColorSets.hh"
+
 /*
 
 This file defines a hybrid color set that is either a bit map or an integer array.
@@ -87,6 +89,14 @@ static inline vector<int64_t> colorset_get_colors_as_vector(const colorset_t& cs
     std::vector<int64_t> vec;
     colorset_push_colors_to_vector(cs, vec);
     return vec;
+}
+
+template<typename colorset_t> 
+static inline void read_colorset(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
+    // TODO cs.data_ptr = const std::variant<sdsl::int_vector<1>*, sdsl::int_vector<0>*>
+    auto* vec_ptr = std::get<0>(cs.data_ptr);   // or use std::visit if needed
+    const uint64_t* data = reinterpret_cast<const uint64_t*>(vec_ptr->data());
+    read_bv(data, cs.start, freq, cs.length, counts, non_zero_count_indices);
 }
 
 template<typename colorset_t> 
@@ -181,7 +191,7 @@ public:
     bool contains(int64_t color) const {return colorset_contains(*this, color);}
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
-
+    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices);
 };
 
 class SDSL_Variant_Color_Set{
@@ -295,22 +305,27 @@ class SDSL_Variant_Color_Set{
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
 
-    void increment_color_counters(vector<int64_t>& counts, vector<int64_t>& non_zero_count_indices) const {
+    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const {
 
-        auto visitor = [](auto&& arg) {
+        auto visitor = [this, &counts, &non_zero_count_indices, freq](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, bit_vector*>) {
-                // Increment counters 
+                // I need the starting point in the bitvector
+
+                // const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t>& results
+                // const colorset_t& cs
+                return read_colorset(*this, freq, counts, non_zero_count_indices);
                 // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
             }
-            else if constexpr (std::is_same_v<T, int_vector*>) {
+            else if constexpr (std::is_same_v<T, sdsl::int_vector<>*>) {
                 // Increment counters 
                 //std::cout << "It's a string: " << arg << '\n';
+                return;
             }
         };
 
-        TODO
+        //TODO
 
         std::visit(visitor, this->data_ptr);
     }

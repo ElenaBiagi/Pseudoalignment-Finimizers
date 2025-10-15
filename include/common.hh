@@ -86,7 +86,7 @@ inline void print_bit_vector(const std::unique_ptr<sdsl::bit_vector>& T) {
 
 
 // TODO remove
-void print_results(const std::unordered_map<int, uint64_t>& results) {
+inline void print_results(const std::unordered_map<int, uint64_t>& results) {
     std::cout << "results (position → count):" << endl;
     for (const auto& [pos, count] : results) {
         std::cout << "  " << pos << " → " << count << endl;
@@ -113,6 +113,7 @@ uint64_t prefix2int_old(const string& s, uint64_t offset, char plen){
     //cerr << h << '\n';
     return h;
 }
+
 inline uint64_t prefix2int(const std::string& s, uint64_t offset, char plen){ // if fmin length = 31 we need 62 bits in total, 20 for the prefix if plen=10
     uint64_t h = 0;
     for (uint64_t i = 0; i < (uint64_t)plen; i++) {

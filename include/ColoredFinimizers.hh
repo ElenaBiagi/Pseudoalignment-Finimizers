@@ -438,31 +438,31 @@ public:
         meta_in.close();
     }
 
-}; // class CompressedColoredFinimizers end
+};
 
-
-// ------------------------------ helper routines that use the storage abstraction ------------------------------
 
 // Read from many single-set accesses (i_fmin_v: vector of {set_id, freq})
 void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
-    //cerr << "read_colors (view-based)" << endl;
 
-    vector<int64_t> buf;
-    buf.reserve(n_colors);
+    //vector<int64_t> buf;
+    //buf.reserve(n_colors);
+    vector<uint64_t> non_zero_count_indices;
+    non_zero_count_indices.reserve(n_colors);
     for (const auto& [pos, freq] : fmin_v) {
         if (pos < 0) continue;
         // pos corresponds to deduplicated set id
-        auto view = CCS_storage.get_color_set_by_id((int64_t)pos);
+        auto view = CCS_storage.get_color_set_by_id((int64_t)pos); // SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
         // get colors and add
+        view.increment_color_counters(freq, results, non_zero_count_indices); // increment results directly
         //vector<int64_t> colors = view.get_colors_as_vector();
-        view.push_colors_to_vector(&buf);
-        for (auto c : buf) {
+        //view.push_colors_to_vector(&buf);
+        /* for (auto c : buf) {
             if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
-        }
+        } */
 
-        buf.clear();
+        //buf.clear();
+        non_zero_count_indices.clear();
     }
-    //cerr << "end" << endl;
 }
 
 
