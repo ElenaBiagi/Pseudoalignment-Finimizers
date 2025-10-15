@@ -447,15 +447,20 @@ public:
 void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     //cerr << "read_colors (view-based)" << endl;
 
+    vector<int64_t> buf;
+    buf.reserve(n_colors);
     for (const auto& [pos, freq] : fmin_v) {
         if (pos < 0) continue;
         // pos corresponds to deduplicated set id
         auto view = CCS_storage.get_color_set_by_id((int64_t)pos);
         // get colors and add
-        vector<int64_t> colors = view.get_colors_as_vector();
-        for (auto c : colors) {
+        //vector<int64_t> colors = view.get_colors_as_vector();
+        view.push_colors_to_vector(&buf);
+        for (auto c : buf) {
             if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
         }
+
+        buf.clear();
     }
     //cerr << "end" << endl;
 }

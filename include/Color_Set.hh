@@ -295,6 +295,26 @@ class SDSL_Variant_Color_Set{
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
 
+    void increment_color_counters(vector<int64_t>& counts) const {
+
+        auto visitor = [](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+
+            if constexpr (std::is_same_v<T, bit_vector*>) {
+                // Increment counters 
+                //std::cout << "It's an int: " << arg << '\n';
+            }
+            else if constexpr (std::is_same_v<T, int_vector*>) {
+                // Increment counters 
+                //std::cout << "It's a string: " << arg << '\n';
+            }
+        };
+
+        TODO
+
+        std::visit(visitor, this->data_ptr);
+    }
+
     // Stores the intersection back to to this object
     void intersection(const SDSL_Variant_Color_Set_View& other){
         if(is_bitmap() && other.is_bitmap()){
