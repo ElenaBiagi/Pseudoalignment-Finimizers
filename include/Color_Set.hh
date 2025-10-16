@@ -92,12 +92,22 @@ static inline vector<int64_t> colorset_get_colors_as_vector(const colorset_t& cs
 }
 
 template<typename colorset_t> 
-static inline void read_colorset(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
-    // TODO cs.data_ptr = const std::variant<sdsl::int_vector<1>*, sdsl::int_vector<0>*>
+static inline void read_colorset_bv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
     auto* vec_ptr = std::get<0>(cs.data_ptr);   // or use std::visit if needed
     const uint64_t* data = reinterpret_cast<const uint64_t*>(vec_ptr->data());
     read_bv(data, cs.start, freq, cs.length, counts, non_zero_count_indices);
 }
+
+template<typename colorset_t> 
+static inline void read_colorset_iv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
+    for(int64_t i = 0; i < cs.length; i++){
+        uint64_t color_id = (*std::get<1>(cs.data_ptr))[cs.start + i];
+        counts[color_id] += freq;
+        // TODO use this to reset only the indices that have been modified
+        //non_zero_count_indices.push_back(color_id);
+    }
+}
+
 
 template<typename colorset_t> 
 static inline void colorset_push_colors_to_vector(const colorset_t& cs, vector<int64_t>& vec){
@@ -124,6 +134,27 @@ static inline bool colorset_contains(const colorset_t& cs, int64_t color){
         }
         return false;
     }
+}
+
+template<typename colorset_t> 
+void increment_color_counters(const colorset_t& cs, const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) {
+
+    auto visitor = [cs, &counts, &non_zero_count_indices, freq](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+
+        if constexpr (std::is_same_v<T, sdsl::bit_vector*>) {
+            return read_colorset_bv(cs, freq, counts, non_zero_count_indices);
+            // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
+        }
+        else if constexpr (std::is_same_v<T, sdsl::int_vector<>*>) {
+            // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
+            return read_colorset_iv(cs, freq, counts, non_zero_count_indices);
+        }
+    };
+
+    //TODO
+
+    std::visit(visitor, cs.data_ptr);
 }
 
 // Stores the intersection into buf1 and returns the number of elements in the
@@ -191,7 +222,9 @@ public:
     bool contains(int64_t color) const {return colorset_contains(*this, color);}
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
-    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices);
+    void pre_increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const {
+        return increment_color_counters(*this, freq, counts, non_zero_count_indices);}
+
 };
 
 class SDSL_Variant_Color_Set{
@@ -304,31 +337,9 @@ class SDSL_Variant_Color_Set{
     bool contains(int64_t color) const {return colorset_contains(*this, color);}
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
+    void pre_increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const { 
+        return increment_color_counters(*this, freq, counts, non_zero_count_indices);}
 
-    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const {
-
-        auto visitor = [this, &counts, &non_zero_count_indices, freq](auto&& arg) {
-            using T = std::decay_t<decltype(arg)>;
-
-            if constexpr (std::is_same_v<T, bit_vector*>) {
-                // I need the starting point in the bitvector
-
-                // const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t>& results
-                // const colorset_t& cs
-                return read_colorset(*this, freq, counts, non_zero_count_indices);
-                // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
-            }
-            else if constexpr (std::is_same_v<T, sdsl::int_vector<>*>) {
-                // Increment counters 
-                //std::cout << "It's a string: " << arg << '\n';
-                return;
-            }
-        };
-
-        //TODO
-
-        std::visit(visitor, this->data_ptr);
-    }
 
     // Stores the intersection back to to this object
     void intersection(const SDSL_Variant_Color_Set_View& other){

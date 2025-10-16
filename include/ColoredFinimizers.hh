@@ -446,6 +446,7 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
 
     //vector<int64_t> buf;
     //buf.reserve(n_colors);
+    // TODO instead of cleaning it, after every color, use it to clean results after every query
     vector<uint64_t> non_zero_count_indices;
     non_zero_count_indices.reserve(n_colors);
     for (const auto& [pos, freq] : fmin_v) {
@@ -453,7 +454,7 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
         // pos corresponds to deduplicated set id
         auto view = CCS_storage.get_color_set_by_id((int64_t)pos); // SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
         // get colors and add
-        view.increment_color_counters(freq, results, non_zero_count_indices); // increment results directly
+        view.pre_increment_color_counters(freq, results, non_zero_count_indices); // increment results directly
         //vector<int64_t> colors = view.get_colors_as_vector();
         //view.push_colors_to_vector(&buf);
         /* for (auto c : buf) {
@@ -461,7 +462,7 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
         } */
 
         //buf.clear();
-        non_zero_count_indices.clear();
+        non_zero_count_indices.clear(); // TODO DO NOT CLEAN AFTER EVERY COLOR
     }
 }
 

@@ -2,16 +2,18 @@
 
 #include <vector>
 #include<bitset>
-#include "common.hh"
 #include <sdsl/int_vector.hpp>
 #include <sdsl/bits.hpp>
+
+using namespace std;
 
 inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& results, const uint64_t freq, vector<uint64_t>& non_zero_count_indices) {
     while (word) {
         //uint64_t bit = std::countr_zero(word);
         uint64_t bit = __builtin_ctzll(word);
         results[base + bit] += freq;
-        non_zero_count_indices.push_back(base+bit);
+        // TODO use this to reset only the indices that have been modified
+        //non_zero_count_indices.push_back(base+bit);
         word &= word - 1; // clear lowest bit
     }
 }
