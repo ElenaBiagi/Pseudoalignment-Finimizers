@@ -86,12 +86,12 @@ inline void print_bit_vector(const std::unique_ptr<sdsl::bit_vector>& T) {
 
 
 // TODO remove
-inline void print_results(const std::unordered_map<int, uint64_t>& results) {
+/* inline void print_results(const std::unordered_map<int, uint64_t>& results) {
     std::cout << "results (position → count):" << endl;
     for (const auto& [pos, count] : results) {
         std::cout << "  " << pos << " → " << count << endl;
     }
-}
+} */
 
 inline char get_char_idx(char c){
     switch(c){
@@ -103,16 +103,6 @@ inline char get_char_idx(char c){
     }
 }
 
-// TODO remove
-uint64_t prefix2int_old(const string& s, uint64_t offset, char plen){ 
-    uint64_t h = 0;
-    for(uint64_t i=0; i<(uint64_t)plen; i++){
-       uint64_t b = get_char_idx(s[i+offset]);
-       h |= (b << (i<<1));
-    }
-    //cerr << h << '\n';
-    return h;
-}
 
 inline uint64_t prefix2int(const std::string& s, uint64_t offset, char plen){ // if fmin length = 31 we need 62 bits in total, 20 for the prefix if plen=10
     uint64_t h = 0;
@@ -143,7 +133,7 @@ inline uint64_t stream_kmer(uint64_t prev_hash, char new_char, char plen) {
 }
 
 
-vector<uint8_t> vbyte_encode(uint64_t x) {
+inline vector<uint8_t> vbyte_encode(uint64_t x) {
     vector<uint8_t> bytes;
     do {
         uint8_t byte = x & 0x7F;
@@ -203,7 +193,7 @@ inline sdsl::int_vector<1> WriteTailsVector(vector<vector<string>>& tails,vector
     return T;
 }
 
-
+/* 
 // TODO REMOVE
 //used in build-verify
 vector<string> remove_ns(const string& unitig, const int64_t k){
@@ -309,9 +299,9 @@ string print_finimizer_stats(const vector<tuple<int64_t, int64_t, int64_t>>& fin
 
     write_log("Avg length: " + to_string(static_cast<float>(sum_len)/static_cast<float>(new_number_of_fmin)) , LogLevel::MAJOR);
     return result;
-}
+} */
 
-    std::ostream& operator<<(std::ostream& os, const std::set<int>& set) {
+std::ostream& operator<<(std::ostream& os, const std::set<int>& set) {
     os << "{";
     for (auto it = set.begin(); it != set.end(); ++it) {
         os << *it;
