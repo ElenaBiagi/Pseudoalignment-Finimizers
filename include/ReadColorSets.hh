@@ -20,9 +20,8 @@ inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& r
 
 
 inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t>& results, vector<uint64_t>& non_zero_count_indices){
-
-    const uint64_t* ptr = data + (start * n_colors) / 64;
-    uint64_t bit_offset = (start * n_colors) % 64;
+    const uint64_t* ptr = data + start / 64;
+    uint64_t bit_offset = start % 64;
 
     uint64_t color_id = 0;
     uint64_t bits_left = n_colors;
