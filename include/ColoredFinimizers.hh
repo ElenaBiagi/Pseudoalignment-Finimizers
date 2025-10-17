@@ -260,7 +260,6 @@ public:
 
     // Search interface (unchanged externally)
     void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans) const {
-        //cerr << "search"<< endl;
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
 
@@ -280,13 +279,10 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-        //cerr << "search end" << endl;
     }
 
     // Threshold-based search: returns minimum value and fills ans
     uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
-        //cerr << "search"<< endl;
-
         const int64_t query_len = query.length();
         if (query_len < this->k) return 0;
 
@@ -306,7 +302,6 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-        //cerr << "search end" << endl;
 
         return min_value;
     }
@@ -438,14 +433,9 @@ public:
         meta_in.close();
     }
 
-}; // class CompressedColoredFinimizers end
-
-
-// ------------------------------ helper routines that use the storage abstraction ------------------------------
-
+}; 
 // Read from many single-set accesses (i_fmin_v: vector of {set_id, freq})
 void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
-    //cerr << "read_colors (view-based)" << endl;
 
     for (const auto& [pos, freq] : fmin_v) {
         if (pos < 0) continue;
@@ -457,7 +447,6 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
             if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
         }
     }
-    //cerr << "end" << endl;
 }
 
 
@@ -495,12 +484,7 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_st
     //if (Fmin.empty()){return 0;}
     
     vector<uint64_t> results(n_colors,0);
-    /* if (results.size() != n_colors) {
-        results.assign(n_colors, 0);  
-    } else {
-        std::fill(results.begin(), results.end(), 0);
-    } */
-
+    //std::fill(results.begin(), results.end(), 0);
  
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
