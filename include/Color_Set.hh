@@ -94,7 +94,7 @@ static inline vector<int64_t> colorset_get_colors_as_vector(const colorset_t& cs
 template<typename colorset_t> 
 static inline void read_colorset_bv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
     auto* vec_ptr = std::get<0>(cs.data_ptr);   // or use std::visit if needed
-    const uint64_t* data = reinterpret_cast<const uint64_t*>(vec_ptr->data());
+    const uint64_t* data = vec_ptr->data();
     read_bv(data, cs.start, freq, cs.length, counts, non_zero_count_indices);
 }
 
@@ -137,24 +137,36 @@ static inline bool colorset_contains(const colorset_t& cs, int64_t color){
 }
 
 template<typename colorset_t> 
-void increment_color_counters(const colorset_t& cs, const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) {
-
-    auto visitor = [cs, &counts, &non_zero_count_indices, freq](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-
-        if constexpr (std::is_same_v<T, sdsl::bit_vector*>) {
+void colorset_increment_color_counters(const colorset_t& cs, const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) {
+    if(colorset_is_bitmap(cs)){
+        return read_colorset_bv(cs, freq, counts, non_zero_count_indices); // ERROR this segfaults the second time it's called
+        //for(int64_t i = 0; i < cs.length; i++){
+        //    if(colorset_access_bitmap(cs,i)) vec.push_back(i);
+        //}
+    } else{
+        return read_colorset_iv(cs, freq, counts, non_zero_count_indices);
+        //for(int64_t i = 0; i < cs.length; i++){
+        //    vec.push_back(colorset_access_array(cs,i));
+        //}
+    }
+    /* auto visitor = [cs, &counts, &non_zero_count_indices, freq](auto&& arg) {
+        //using T = std::decay_t<decltype(arg)>;
+        using PtrT = std::remove_reference_t<decltype(arg)>;   // sdsl::bit_vector* const&
+        using T = std::remove_cv_t<std::remove_pointer_t<PtrT>>; // sdsl::bit_vector
+        
+        if constexpr (std::is_same_v<PtrT, sdsl::bit_vector*>) { // never ok
+            cerr << "bitmap" << endl;
             return read_colorset_bv(cs, freq, counts, non_zero_count_indices);
             // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
         }
-        else if constexpr (std::is_same_v<T, sdsl::int_vector<>*>) {
+        else if constexpr (std::is_same_v<PtrT, sdsl::int_vector<>*>) { // never ok 
+            cerr << "array" << endl;
             // If count grows from 0 to 1, push the index of the color to non_zero_count_indices
             return read_colorset_iv(cs, freq, counts, non_zero_count_indices);
         }
     };
 
-    //TODO
-
-    std::visit(visitor, cs.data_ptr);
+    std::visit(visitor, cs.data_ptr); */
 }
 
 // Stores the intersection into buf1 and returns the number of elements in the
@@ -222,8 +234,9 @@ public:
     bool contains(int64_t color) const {return colorset_contains(*this, color);}
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
-    void pre_increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const {
-        return increment_color_counters(*this, freq, counts, non_zero_count_indices);}
+    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const {
+        //cerr << "increment_color_counters"<< endl;
+        return colorset_increment_color_counters(*this, freq, counts, non_zero_count_indices);}
 
 };
 
@@ -337,8 +350,8 @@ class SDSL_Variant_Color_Set{
     bool contains(int64_t color) const {return colorset_contains(*this, color);}
     vector<int64_t> get_colors_as_vector() const {return colorset_get_colors_as_vector(*this);}
     void push_colors_to_vector(vector<int64_t>& vec) const {return colorset_push_colors_to_vector(*this, vec);}
-    void pre_increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const { 
-        return increment_color_counters(*this, freq, counts, non_zero_count_indices);}
+    void increment_color_counters(const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) const { 
+        return colorset_increment_color_counters(*this, freq, counts, non_zero_count_indices);}
 
 
     // Stores the intersection back to to this object

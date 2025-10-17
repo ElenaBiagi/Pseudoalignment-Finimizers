@@ -275,14 +275,12 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
-        //cerr << Finimizers.size() << endl;
         {
             auto start = std::chrono::high_resolution_clock::now();
             pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, results);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-        //cerr << "search end" << endl;
     }
 
     // Threshold-based search: returns minimum value and fills ans
@@ -452,20 +450,10 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
     vector<uint64_t> non_zero_count_indices;
     non_zero_count_indices.reserve(n_colors);
     for (const auto& [pos, freq] : fmin_v) {
-        //if (pos < 0) continue;
         // pos corresponds to deduplicated set id
         auto view = CCS_storage.get_color_set_by_id((int64_t)pos); // SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
         // get colors and add
-        view.pre_increment_color_counters(freq, results, non_zero_count_indices); // increment results directly
-        //vector<int64_t> colors = view.get_colors_as_vector();
-        //view.push_colors_to_vector(&buf);
-        /* for (auto c : buf) {
-            if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
-        } */
-       /* for (auto r : results){
-        cerr << r << ", ";
-       }
-        cerr << endl; */
+        view.increment_color_counters(freq, results, non_zero_count_indices); // increment results directly
         //buf.clear();
         non_zero_count_indices.clear(); // TODO DO NOT CLEAN AFTER EVERY COLOR
     }
