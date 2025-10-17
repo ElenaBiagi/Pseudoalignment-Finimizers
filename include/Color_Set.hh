@@ -50,19 +50,24 @@ static inline bool colorset_is_empty(const colorset_t& cs){
 template<typename colorset_t> 
 static inline bool colorset_is_bitmap(const colorset_t& cs){
     // Check variant type by index because it could be const or non-const and we don't want to care
-    return cs.data_ptr.index() == 0;
+    //return cs.data_ptr.index() == 0;
+    return cs.start >= SDSL_Variant_Color_Set_View::arrays_concat_size;
 }
 
 template<typename colorset_t> 
 static inline bool colorset_access_bitmap(const colorset_t& cs, int64_t idx){
     // Using std::holds_alternative by index because it could have a const or a non-const type
     return (*std::get<0>(cs.data_ptr))[cs.start + idx];
+    //const sdsl::bit_vector* bv = std::get<const sdsl::bit_vector*>(cs.data_ptr);
+    //return (*bv)[cs.start + idx];
 }
 
 template<typename colorset_t> 
 static inline int64_t colorset_access_array(const colorset_t& cs, int64_t idx){
     // Using std::holds_alternative by index because it could have a const or a non-const type
-    return (*std::get<1>(cs.data_ptr))[cs.start + idx];
+    //return (*std::get<1>(cs.data_ptr))[cs.start + idx];
+    const sdsl::int_vector<>* iv = std::get<const sdsl::int_vector<>*>(cs.data_ptr);
+    return (*iv)[cs.start + idx];
 }
 
 template<typename colorset_t> 
@@ -80,7 +85,11 @@ static inline int64_t colorset_size(const colorset_t& cs){
 template<typename colorset_t> 
 static inline int64_t colorset_size_in_bits(const colorset_t& cs){
     if(colorset_is_bitmap(cs)) return cs.length;
-    else return cs.length * std::get<1>(cs.data_ptr)->width();
+    //else return cs.length * std::get<1>(cs.data_ptr)->width();
+    else {
+        const sdsl::int_vector<>* iv = std::get<const sdsl::int_vector<>*>(cs.data_ptr);
+    return cs.length * iv->width();
+    }
     // Using std::holds_alternative by index because it could have a const or a non-const type
 }
 
@@ -95,13 +104,17 @@ template<typename colorset_t>
 static inline void read_colorset_bv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
     auto* vec_ptr = std::get<0>(cs.data_ptr);   // or use std::visit if needed
     const uint64_t* data = reinterpret_cast<const uint64_t*>(vec_ptr->data());
+    //const sdsl::bit_vector* bv = std::get<const sdsl::bit_vector*>(cs.data_ptr);
+    //const uint64_t* data = reinterpret_cast<const uint64_t*>(bv->data());
     read_bv(data, cs.start, freq, cs.length, counts, non_zero_count_indices);
 }
 
 template<typename colorset_t> 
 static inline void read_colorset_iv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
+    const sdsl::int_vector<>* iv = std::get<const sdsl::int_vector<>*>(cs.data_ptr);
     for(int64_t i = 0; i < cs.length; i++){
-        uint64_t color_id = (*std::get<1>(cs.data_ptr))[cs.start + i];
+        //uint64_t color_id = (*std::get<1>(cs.data_ptr))[cs.start + i];
+        uint64_t color_id = static_cast<uint64_t>((*iv)[cs.start + i]);
         counts[color_id] += freq;
         // TODO use this to reset only the indices that have been modified
         //non_zero_count_indices.push_back(color_id);
@@ -139,7 +152,7 @@ static inline bool colorset_contains(const colorset_t& cs, int64_t color){
 template<typename colorset_t> 
 void increment_color_counters(const colorset_t& cs, const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices) {
 
-    auto visitor = [cs, &counts, &non_zero_count_indices, freq](auto&& arg) {
+    auto visitor = [&](auto&& arg) {
         using T = std::decay_t<decltype(arg)>;
 
         if constexpr (std::is_same_v<T, sdsl::bit_vector*>) {
@@ -205,7 +218,10 @@ class SDSL_Variant_Color_Set;
 class SDSL_Variant_Color_Set_View{
 
 public:
-
+    
+    static inline int64_t arrays_concat_size = 0;
+    // 1. start < arrays_concat_size -> int_vector (sparse array)
+    // 2. start >= arrays_concat_size -> bit_vector (dense bitmap)
     std::variant<const sdsl::bit_vector*, const sdsl::int_vector<>*> data_ptr; // Non-owning pointer to external data
     int64_t start;
     int64_t length; // Number of bits in case of bit vector, number of elements in case of array
