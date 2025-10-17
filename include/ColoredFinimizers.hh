@@ -107,13 +107,15 @@ void true_or_crash(bool b, const char* error_message){
 void pseudoalignment_stats( vector<int64_t>& Fmin,
                   const class Color_Set_Storage<SDSL_Variant_Color_Set>& CCS,
                   const uint64_t n_colors,
-                  std::vector<std::pair<uint16_t, uint16_t>>& ans);
+                  std::vector<std::pair<uint16_t, uint16_t>>& ans,
+                  vector<uint64_t>& results);
 
 uint16_t pseudoalignment_stats( vector<int64_t>& Fmin,
                       const class Color_Set_Storage<SDSL_Variant_Color_Set>& CCS,
                       const uint64_t n_colors,
                       std::vector<std::pair<uint16_t, uint16_t>>& ans,
-                      const float t);
+                      const float t,
+                      vector<uint64_t>& results);
 
 class CompressedColoredFinimizers {
 
@@ -259,7 +261,7 @@ public:
     } // constructor end
 
     // Search interface (unchanged externally)
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans) const {
+    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results) const {
         //cerr << "search"<< endl;
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
@@ -273,10 +275,10 @@ public:
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
-
+        //cerr << Finimizers.size() << endl;
         {
             auto start = std::chrono::high_resolution_clock::now();
-            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans);
+            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, results);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -284,7 +286,7 @@ public:
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t) const {
+    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float& t, vector<uint64_t>& results) const {
         //cerr << "search"<< endl;
 
         const int64_t query_len = query.length();
@@ -302,7 +304,7 @@ public:
         uint16_t min_value;
         {
             auto start = std::chrono::high_resolution_clock::now();
-            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t);
+            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t, results);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
@@ -450,7 +452,7 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
     vector<uint64_t> non_zero_count_indices;
     non_zero_count_indices.reserve(n_colors);
     for (const auto& [pos, freq] : fmin_v) {
-        if (pos < 0) continue;
+        //if (pos < 0) continue;
         // pos corresponds to deduplicated set id
         auto view = CCS_storage.get_color_set_by_id((int64_t)pos); // SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
         // get colors and add
@@ -460,15 +462,21 @@ void read_colors(const CCS_t& CCS_storage, const uint64_t n_colors, vector<uint6
         /* for (auto c : buf) {
             if ((uint64_t)c < n_colors) results[(size_t)c] += freq;
         } */
-
+       /* for (auto r : results){
+        cerr << r << ", ";
+       }
+        cerr << endl; */
         //buf.clear();
         non_zero_count_indices.clear(); // TODO DO NOT CLEAN AFTER EVERY COLOR
     }
 }
 
 
-inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
-    vector<uint64_t> results(n_colors,0);
+inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, vector<uint64_t>& results){
+    //vector<uint64_t> results(n_colors,0);
+    std::fill(results.begin(), results.end(), 0);
+    // TODO reset to zero only the values that have been modified in the previous query
+
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -497,10 +505,12 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storag
     return;
 }
 
-inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
+inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CCS_t& CCS_storage, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t, vector<uint64_t>& results){ //vector<uint64_t>& results,
     //if (Fmin.empty()){return 0;}
     
-    vector<uint64_t> results(n_colors,0);
+    //vector<uint64_t> results(n_colors,0);
+    std::fill(results.begin(), results.end(), 0);
+    // TODO reset to zero only the values that have been modified in the previous query
     /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);  
     } else {

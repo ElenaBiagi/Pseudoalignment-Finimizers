@@ -16,9 +16,6 @@
 #include <sdsl/int_vector.hpp>
 #include <sdsl/bits.hpp>
 
-
-#include "common.hh"
-
 using namespace std;
 
 // TODO remove
