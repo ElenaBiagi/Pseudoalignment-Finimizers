@@ -111,7 +111,6 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
 
     sdsl::int_vector<> arrays_concat;
     sdsl::int_vector<> arrays_starts; // arrays_starts[i] = starting position of the i-th subarray
-    uint64_t arrays_concat_size; // # sparse sets
 
     //sdsl::bit_vector is_bitmap_marks;
     //sdsl::rank_support_v5<> is_bitmap_marks_rs;
@@ -204,7 +203,6 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
 
             // Add is_bitmap_mark
             set_type.emplace_back(0);
-            arrays_concat_size++; // How many sparse sets are there ?
             //temp_is_bitmap_marks.push_back(0);// Remove this and store first all sparse sets and later all dense sets 
 
             // Store array start
@@ -241,7 +239,6 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
             // Sparse -> Array
 
             // Add is_bitmap_mark
-            arrays_concat_size++; // How many sparse sets are there ?
             //temp_is_bitmap_marks.push_back(0);// Remove this and store first all sparse sets and later all dense sets 
 
             // Store array start
@@ -274,7 +271,8 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
         arrays_starts = to_sdsl_int_vector(temp_arrays_starts);
         bitmap_concat = to_sdsl_bit_vector(temp_bitmap_concat);
 
-        SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size()-1; // # sparse sets
+        // TODO remove?
+        //SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size()-1; // # sparse sets
 
         // Free memory
         temp_arrays_concat.clear(); temp_arrays_concat.shrink_to_fit();    
@@ -293,8 +291,9 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
         bytes_written += arrays_concat.serialize(os);
         bytes_written += arrays_starts.serialize(os);
 
-        os.write(reinterpret_cast<const char*>(&arrays_concat_size), sizeof(uint64_t));
-        bytes_written += sizeof(uint64_t);
+        // TODO remove?
+        //os.write(reinterpret_cast<const char*>(&arrays_concat_size), sizeof(uint64_t));
+        //bytes_written += sizeof(uint64_t);
 
         return bytes_written;
 
@@ -306,9 +305,10 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
         bitmap_starts.load(is);
         arrays_concat.load(is);
         arrays_starts.load(is);
-        
-        is.read(reinterpret_cast<char*>(&arrays_concat_size), sizeof(uint64_t));
-        SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size() - 1;
+
+        // TODO remove?
+        //is.read(reinterpret_cast<char*>(&arrays_concat_size), sizeof(uint64_t));
+        //SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size() - 1;
     }
 
     int64_t number_of_sets_stored() const{
