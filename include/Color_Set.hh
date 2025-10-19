@@ -217,7 +217,9 @@ class SDSL_Variant_Color_Set;
 class SDSL_Variant_Color_Set_View{
 
 public:
-
+    static inline int64_t arrays_concat_size = 0;
+    // 1. start < arrays_concat_size -> int_vector (sparse array)
+    // 2. start >= arrays_concat_size -> bit_vector (dense bitmap)
     std::variant<const sdsl::bit_vector*, const sdsl::int_vector<>*> data_ptr; // Non-owning pointer to external data
     int64_t start;
     int64_t length; // Number of bits in case of bit vector, number of elements in case of array

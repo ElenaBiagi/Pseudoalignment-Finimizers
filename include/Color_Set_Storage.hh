@@ -111,9 +111,10 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
 
     sdsl::int_vector<> arrays_concat;
     sdsl::int_vector<> arrays_starts; // arrays_starts[i] = starting position of the i-th subarray
+    uint64_t arrays_concat_size; // # sparse sets
 
-    sdsl::bit_vector is_bitmap_marks;
-    sdsl::rank_support_v5<> is_bitmap_marks_rs;
+    //sdsl::bit_vector is_bitmap_marks;
+    //sdsl::rank_support_v5<> is_bitmap_marks_rs;
 
     // Dynamic-length vectors used during construction only
     // TODO: refactor these out of the class to a separate construction class
@@ -121,7 +122,7 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
     vector<int64_t> temp_arrays_concat;
     vector<int64_t> temp_bitmap_starts;
     vector<int64_t> temp_arrays_starts;
-    vector<bool> temp_is_bitmap_marks;
+    //vector<bool> temp_is_bitmap_marks;
 
     // Number of bits required to represent x
     int64_t bits_needed(uint64_t x){
@@ -158,36 +159,40 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
     }
 
     SDSL_Variant_Color_Set::view_t get_color_set_by_id(int64_t id) const{
-        if(is_bitmap_marks[id]){
-            int64_t bitmap_idx = is_bitmap_marks_rs.rank(id); // This many bitmaps come before this bitmap
-            int64_t start = bitmap_starts[bitmap_idx];
-            int64_t end = bitmap_starts[bitmap_idx+1]; // One past the end
+        int64_t start = 0, end = 0;
+        std::variant<const sdsl::bit_vector*, const sdsl::int_vector<>*> data_ptr;
 
-            std::variant<const sdsl::bit_vector*, const sdsl::int_vector<>*> data_ptr = &bitmap_concat;
-            return SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
-        } else{
-            int64_t arrays_idx = id - is_bitmap_marks_rs.rank(id); // Rank-0. This many arrays come before this bitmap
-            int64_t start = arrays_starts[arrays_idx];
-            int64_t end = arrays_starts[arrays_idx+1]; // One past the end
-
-            std::variant<const sdsl::bit_vector*, const sdsl::int_vector<>*> data_ptr = &arrays_concat;
-            return SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
+        if (id < arrays_starts.size() - 1) {
+            // sparse (array)
+            start = arrays_starts[id];
+            end = arrays_starts[id + 1];
+            data_ptr = &arrays_concat;
+        } else {
+            // dense (bitmap)
+            int64_t bitmap_idx = id -(arrays_starts.size() - 1);
+            start = bitmap_starts[bitmap_idx];
+            end = bitmap_starts[bitmap_idx + 1];
+            data_ptr = &bitmap_concat;
         }
+
+        return SDSL_Variant_Color_Set::view_t(data_ptr, start, end-start);
     }
 
     // Need to call prepare_for_queries() after all sets have been added
     // Set must be sorted
-    void add_set(const vector<int64_t>& set){
+    void add_set(const vector<int64_t>& set, vector<bool>& set_type){
 
         int64_t max_element = *std::max_element(set.begin(), set.end());
         if(log2(max_element) * set.size() > max_element){
             // Dense -> bitmap
 
             // Add is_bitmap_mark
-            temp_is_bitmap_marks.push_back(1);
+            set_type.emplace_back(1);
+            //temp_is_bitmap_marks.push_back(1);// Remove this and store first all sparse sets and later all dense sets 
+
 
             // Store bitmap start
-            temp_bitmap_starts.push_back(temp_bitmap_concat.size());
+            temp_bitmap_starts.push_back(temp_bitmap_concat.size());// at the very end add to this values the size of temp_arrays_starts A_start_size so that if found_value > A_start_size, then it's a bitmap
 
             // Create bitmap
             vector<bool> bitmap(max_element+1, 0);
@@ -198,7 +203,46 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
             // Sparse -> Array
 
             // Add is_bitmap_mark
-            temp_is_bitmap_marks.push_back(0);
+            set_type.emplace_back(0);
+            arrays_concat_size++; // How many sparse sets are there ?
+            //temp_is_bitmap_marks.push_back(0);// Remove this and store first all sparse sets and later all dense sets 
+
+            // Store array start
+            temp_arrays_starts.push_back(temp_arrays_concat.size());
+
+            if(set.size() > 0){
+                for(int64_t i = 0; i < set.size(); i++){
+                    temp_arrays_concat.push_back(set[i]);
+                }
+            }
+        }
+
+    }
+    
+    void add_set(const vector<int64_t>& set){
+
+        int64_t max_element = *std::max_element(set.begin(), set.end());
+        if(log2(max_element) * set.size() > max_element){
+            // Dense -> bitmap
+
+            // Add is_bitmap_mark
+            //temp_is_bitmap_marks.push_back(1);// Remove this and store first all sparse sets and later all dense sets 
+
+
+            // Store bitmap start
+            temp_bitmap_starts.push_back(temp_bitmap_concat.size());// at the very end add to this values the size of temp_arrays_starts A_start_size so that if found_value > A_start_size, then it's a bitmap
+
+            // Create bitmap
+            vector<bool> bitmap(max_element+1, 0);
+            for(int64_t x : set) bitmap[x] = 1;
+            for(bool b : bitmap) temp_bitmap_concat.push_back(b);
+
+        } else{
+            // Sparse -> Array
+
+            // Add is_bitmap_mark
+            arrays_concat_size++; // How many sparse sets are there ?
+            //temp_is_bitmap_marks.push_back(0);// Remove this and store first all sparse sets and later all dense sets 
 
             // Store array start
             temp_arrays_starts.push_back(temp_arrays_concat.size());
@@ -215,24 +259,27 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
 
     // Call this after done with add_set
     void prepare_for_queries(){
+        // Add temp_arrays_start.size() to every value of temp_bitmap_starts 
+        for (auto& s : temp_bitmap_starts)
+            s += temp_arrays_starts.size();
+        //if found_value >= temp_arrays_starts.size(), then it's a bitmap
 
         // Add extra starts points one past the end
         // These eliminate a special case when querying for the size of the last color set
         temp_bitmap_starts.push_back(temp_bitmap_concat.size());
         temp_arrays_starts.push_back(temp_arrays_concat.size());
-
+        
         arrays_concat = to_sdsl_int_vector(temp_arrays_concat);
         bitmap_starts = to_sdsl_int_vector(temp_bitmap_starts);
         arrays_starts = to_sdsl_int_vector(temp_arrays_starts);
         bitmap_concat = to_sdsl_bit_vector(temp_bitmap_concat);
-        is_bitmap_marks = to_sdsl_bit_vector(temp_is_bitmap_marks);
 
-        sdsl::util::init_support(is_bitmap_marks_rs, &is_bitmap_marks);
+        SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size()-1; // # sparse sets
 
         // Free memory
         temp_arrays_concat.clear(); temp_arrays_concat.shrink_to_fit();    
         temp_bitmap_concat.clear(); temp_bitmap_concat.shrink_to_fit();
-        temp_is_bitmap_marks.clear(); temp_is_bitmap_marks.shrink_to_fit();
+        //temp_is_bitmap_marks.clear(); temp_is_bitmap_marks.shrink_to_fit();
         temp_arrays_starts.clear(); temp_arrays_starts.shrink_to_fit();
         temp_bitmap_starts.clear(); temp_bitmap_starts.shrink_to_fit();
     }
@@ -246,8 +293,8 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
         bytes_written += arrays_concat.serialize(os);
         bytes_written += arrays_starts.serialize(os);
 
-        bytes_written += is_bitmap_marks.serialize(os);
-        bytes_written += is_bitmap_marks_rs.serialize(os);
+        os.write(reinterpret_cast<const char*>(&arrays_concat_size), sizeof(uint64_t));
+        bytes_written += sizeof(uint64_t);
 
         return bytes_written;
 
@@ -259,15 +306,13 @@ class Color_Set_Storage<SDSL_Variant_Color_Set>{
         bitmap_starts.load(is);
         arrays_concat.load(is);
         arrays_starts.load(is);
-        is_bitmap_marks.load(is);
-
-        is_bitmap_marks_rs.load(is, &is_bitmap_marks);
-
-        // Do not load temp structures
+        
+        is.read(reinterpret_cast<char*>(&arrays_concat_size), sizeof(uint64_t));
+        SDSL_Variant_Color_Set_View::arrays_concat_size = arrays_starts.size() - 1;
     }
 
     int64_t number_of_sets_stored() const{
-        return is_bitmap_marks.size();
+        return (arrays_starts.size()-1) + (bitmap_starts.size()-1);
     }
 
     vector<SDSL_Variant_Color_Set::view_t> get_all_sets() const{

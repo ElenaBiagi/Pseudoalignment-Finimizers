@@ -178,7 +178,8 @@ public:
 
         // Build CCS storage from deduplicated_cs
         // For each deduplicated pattern, create vector<int64_t> of set members and add_set to storage
-        size_t next_set_id = 0;
+        vector<bool> set_type;
+        set_type.reserve(deduplicated_cs.size());
         for (const auto& [key, old_offsets] : deduplicated_cs) {
             // reconstruct bitvector and push indices of 1-bits into vector<int64_t>
             sdsl::bit_vector bv(n_colors);
@@ -192,20 +193,39 @@ public:
             }
 
             // Add set to storage
-            CCS.add_set(members);
-
-            // Assign color_set_ids for each original finimizer that had this pattern
-            for (auto idx : old_offsets) {
-                this->color_set_ids[idx] = next_set_id;
-            }
-
-            ++next_set_id;
+            CCS.add_set(members, set_type);
         }
 
         // Finalize storage for queries
         CCS.prepare_for_queries();
-        cerr << "Number of stored (deduplicated) color sets: " << next_set_id << endl;
+        cerr << "Number of stored (deduplicated) color sets: " << deduplicated_cs.size() << endl;
 
+        // TODO improve
+        uint64_t n_sparse_sets = 0;
+        for (auto b : set_type){
+            if (b){ n_sparse_sets++;}
+        }
+        // Now that the colorsets are based on the density of the colorset, 
+        // colorset ids should be modified after all sets have been added
+        // Assign color_set_ids for each original finimizer that had this pattern
+        uint64_t i = 0;
+        uint64_t i_l = 0; // list/ array
+        uint64_t i_bv = 0; // bitmap
+        for (const auto& [key, old_offsets] : deduplicated_cs) {
+            if (set_type[i]){ // bitmap
+                for (auto idx : old_offsets) {
+                    this->color_set_ids[idx] = i_bv + n_sparse_sets; // TODO: # sets stored in vector/list = # sparse sets
+                }
+                i_bv++; // increment bitmap
+            }
+            else {
+                for (auto idx : old_offsets) { this->color_set_ids[idx] = i_l; }
+                i_l++; // increment list
+            }
+            i++;
+        }
+        assert(i+1== i_l+i_bv);
+        
         // Assign to final structure (done)
 
         // Deal with tails and buckets (same logic as before)
