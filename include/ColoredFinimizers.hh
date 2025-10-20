@@ -20,7 +20,6 @@ static std::chrono::nanoseconds time_index_loading(0);
 static std::chrono::nanoseconds time_output(0);
 
 
-
 void print_search_timing_stats() {
     using namespace std::chrono;
     std::cerr << "Time to load the index: "
