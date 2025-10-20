@@ -529,32 +529,69 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     //cerr << "end" << endl;
 }
 
+void read_verydense (const int64_t pos, const uint64_t freq, const sdsl::enc_vector<>& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<uint64_t>& results){
+    const size_t end = EF[pos]; // exclusive end
+    size_t start = EF[pos-1]; // inclusive start
+    auto c = 0;
+    while(start < end and c<n_colors){ 
+        if (L[start]==c){
+            start++;
+            c++;
+        } else { 
+            results[c]+= freq;
+            c++;
+        }
+    }
+    if (start < end){ 
+        while (c<n_colors){
+            results[c]+= freq;
+            c++;
+        }
+    }
+}
+
 void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     const sdsl::bit_vector& BV = CCS.getBV();
+    const uint64_t* data = BV.data();
     const vector<uint16_t>& L = CCS.getL();
     const sdsl::enc_vector<>& EF = CCS.getEF();
 
-    /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
+    cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
     cerr << "EF: " << EF.size() << endl;
-    cerr << "L: " << L.size() << endl; */
+    cerr << "L: " << L.size() << endl;
 
-    const uint64_t* data = BV.data();
-    const uint64_t L_size = EF.size();
+    // pos < sparse_count; [sparse]
+    // sparse_count <= pos < dense_count; [very dense]
+    // pos >= dense; [bitmap]
+
+    const uint64_t sparse_count = CCS.sparse_count;
+    const uint64_t dense_count = CCS.dense_count;
+
     // Exploit the fact that the pos are sorted
     uint64_t i;
-    for ( i=0; i< fmin_v.size(); i++) {
+    for (i=0; i< fmin_v.size(); i++) {
         const auto& [pos,freq] = fmin_v[i];
-        if (pos < L_size){  // sparse -> read from L
-            //if (pos >= EF.size()){ cerr << "pos = "<< pos << "== EF.size() = "<< EF.size() << endl;}
-            //cerr << pos << ", " << EF.size() << endl;
+        // sparse
+        if (pos < sparse_count){  
+            // read from L
             const size_t end = EF[pos]; // exclusive end
             size_t start = EF[pos-1]; // inclusive start
             while(start < end){ results[L[start++]]+=freq;}
         } else { break;}
     }
-    for (auto j=i; j< fmin_v.size(); j++) {
+    // very dense
+    uint64_t j;
+    for (j=i; j < fmin_v.size(); j++) {
         const auto& [pos,freq] = fmin_v[j];
-        uint64_t start = pos - L_size;
+        if (pos < dense_count){  
+            // read complementary values from L
+            read_verydense(pos, freq, EF, L, n_colors, results);
+        } else { break;}
+    }
+    // read from BV
+    for (auto i=j; i< fmin_v.size(); i++) {
+        const auto& [pos,freq] = fmin_v[i];
+        uint64_t start = pos - dense_count;
         read_bv(data, start, freq, n_colors, results);
     }
 }

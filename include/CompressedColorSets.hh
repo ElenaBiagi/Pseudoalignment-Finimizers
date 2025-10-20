@@ -50,15 +50,8 @@ class CompressedColorSets {
     const std::vector<uint16_t>& getL() const { return L; }
     const sdsl::enc_vector<>& getEF() const { return EF; }
     const sdsl::bit_vector& getBV() const { return BV; }
-
-    // TODO compress colorset like Themisto
-            // L + EF + BV
-            // L = list of concatenated color sets
-            // EF = Elias-Fano compressed ending pos in L, first pos is 0
-            // BV = bitvector of concatenated color sets
-            // color set ids x = if x < EF.size() {rank in L+1} (L[EF[x-1]...EF[x]])
-            //                   if x >= EF.size() {x-EF.size()} (multiply by n_colors to get the index in BV[x*colors..(x+1)*colors])
-            // BV indices will be added EF.size() at the end
+    uint64_t sparse_count = 0;
+    uint64_t dense_count = 0;
 
     CompressedColorSets() = default;
 
@@ -66,16 +59,19 @@ class CompressedColorSets {
         if (n_colors == 0) throw runtime_error("n_colors must be > 0");
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
-        vector<size_t> EF_v = {0}; // the first value has to be 0
-        sdsl::bit_vector BV_v(deduplicated_cs.size() * n_colors,0); // ensure that it's all 0s
-        BV.swap(BV_v);
+        
+        vector<uint16_t> temp_cL;
+        
+        vector<size_t> temp_EF_v = {0}; // the first value has to be 0
+        vector<size_t> temp_cEF_v = {}; // the first value is the last value of L
+        sdsl::bit_vector temp_BV(deduplicated_cs.size() * n_colors,0); // ensure that it's all 0s
+        //BV.swap(temp_BV);
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
+        sdsl::bit_vector cL_color_set_ids(color_set_ids.size(), 0);
         uint64_t new_offset = 0;
-        const size_t sparse_thr = n_colors / 16; //*0.25
-        const size_t dense_thr = n_colors * 0.937; //(3 * n_colors) / 4; // *0.75
-
-        uint64_t dense=0;
+        const size_t sparse_thr = n_colors / 16;
+        const size_t dense_thr = (n_colors * 15) / 16;
 
         for (auto& [bv, old_offsets] : deduplicated_cs) {
             const uint64_t start = old_offsets[0];
@@ -91,16 +87,16 @@ class CompressedColorSets {
                     if (bv[c]) {L.push_back(static_cast<uint16_t>(c));}    
                 }
                 // color set ids = rank in L
-                uint64_t ef_index = EF_v.size();
+                uint64_t ef_index = temp_EF_v.size();
                 for (auto& c_id : old_offsets){ color_set_ids[c_id] = ef_index; } // the minimum is 1
-                EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
-            } else {
-                if (size > dense_thr){dense++;}
+                temp_EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
+            } else if (size < dense_thr){
+            
                 const uint64_t old_offset = old_offsets[0] * n_colors;
                 //BV.resize(BV.size()+n_colors); // Resize BV every time.. not very efficient
                 BV_size++; // augment every time a new color set is added
                 for (size_t j = 0; j < n_colors; ++j) {
-                    BV[new_offset + j] = bv[j];
+                    temp_BV[new_offset + j] = bv[j];
                 }
                 
                 // mark BV color set ids
@@ -109,83 +105,99 @@ class CompressedColorSets {
                     BV_color_set_ids[c_id] = 1;
                 }
                 new_offset += n_colors;
+            } else {
+                // very dense
+                for (size_t c = 0; c < n_colors; c++) {
+                    if (!bv[c]) {temp_cL.push_back(static_cast<uint16_t>(c));}    
+                }
+                // color set ids = rank in temp_cL
+                uint64_t cef_index = temp_cEF_v.size();
+                for (auto& c_id : old_offsets){ 
+                    color_set_ids[c_id] = cef_index;
+                    cL_color_set_ids[c_id] = 1; 
+                } // the minimum is 0 (+ sparse)
+                temp_cEF_v.push_back(temp_cL.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
+            
             }
         }
-        // Add EF.size() (after the loop) to the indices of BV
-        for (auto b = 0; b < color_set_ids.size(); b++){
-            if (BV_color_set_ids[b]){ color_set_ids[b]+= EF_v.size();}
+
+        // counts
+        this->sparse_count = temp_EF_v.size();
+        
+        // concatenate EF
+        for (auto& v : temp_cEF_v){
+            v+= temp_EF_v.back();
         }
-        BV.resize((BV_size * n_colors)+63);
+        temp_EF_v.insert( temp_EF_v.end(), temp_cEF_v.begin()+1, temp_cEF_v.end() ); // temp_cEF_v[0] == temp_EF_v[-1]
 
-        // Convert EF_v into real Elias-Fano econding 
-        sdsl::enc_vector<> ef(EF_v);
+        this->dense_count = temp_EF_v.size();
+
+        // concatenate L
+        L.insert( L.end(), temp_cL.begin(), temp_cL.end() );
+
+        // shift color_set_ids 
+        for (size_t b = 0; b < color_set_ids.size(); b++){
+            // Add temp_EF_v.size() (after the loop) to the indices of cEF
+            if (cL_color_set_ids[b]){ color_set_ids[b]+= sparse_count;}
+            // Add temp_EF_v.size()+cEF.size() (after the loop) to the indices of BV
+            if (BV_color_set_ids[b]){ color_set_ids[b]+= dense_count;}
+        }
+        temp_BV.resize((((BV_size * n_colors)+63)/64)*64); // only add the minimum number of bits to make it word aligned
+
+
+        // Convert temp_EF_v into real Elias-Fano econding 
+        sdsl::enc_vector<> ef(temp_EF_v);
+        // 
         this->EF = std::move(ef);
+        this->BV = std::move(temp_BV);
 
-        cerr << "BV: "<< (int)BV_size - dense << endl;
-        cerr << "L: " << EF_v.size()-1 << endl;
-        cerr << "dense:" << dense << endl;
+        cerr << "BV: "<< (int)BV_size << endl;
+        cerr << "sparse : " << sparse_count-1 << endl;
+        cerr << "very dense:" << dense_count - sparse_count << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
     }
 
     void serialize(const string& index_prefix) const {
+
+        std::ofstream out(index_prefix + ".ccs.bin", std::ios::binary);
+        if (!out) throw runtime_error("Failed to open file for writing: " + index_prefix + ".ccs.bin");
+
+        // counts
+        out.write(reinterpret_cast<const char*>(&sparse_count), sizeof(sparse_count));
+        out.write(reinterpret_cast<const char*>(&dense_count), sizeof(dense_count));
         // BV
-        std::ofstream BV_out(index_prefix + ".BV.sdsl", std::ios::binary);
-        if (!BV_out) {
-            std::cerr << "Error: Could not open BV file!" << std::endl;
-            return;
-        }
-        sdsl::serialize(BV, BV_out);
-        BV_out.close();
-
-        // L
-        std::ofstream L_out(index_prefix + ".L.BIN", std::ios::binary);
-        size_t L_size = L.size();
-        L_out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
-        L_out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
-        L_out.close();
-
+        sdsl::serialize(BV, out);
         // EF
-        std::ofstream EF_out(index_prefix + ".EF.sdsl", std::ios::binary);
-        if (!EF_out) {
-            std::cerr << "Error: Could not open EF file!" << std::endl;
-            return;
-        }
-        sdsl::serialize(EF, EF_out);
-        EF_out.close();
-        cerr << "BV: "<< (BV.size()-63)/43 << endl; // TODO 43 SALMONELLA N-COLORS
-        cerr << "EF: " << EF.size() << endl;
+        sdsl::serialize(EF, out);
+        // L
+        size_t L_size = L.size();
+        out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
+        out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
 
-        cerr << "L: " << L.size() << endl;
+        out.close();
+        cerr << "CCS saved to " << index_prefix + ".ccs.bin" << endl;
     }
 
     void load(const string& index_prefix) {
+        
+        std::ifstream in(index_prefix + ".ccs.bin", std::ios::binary);
+        if (!in) throw runtime_error("Failed to open file for reading: " + index_prefix + ".ccs.bin");
+
+        // counts
+        in.read(reinterpret_cast<char*>(&sparse_count), sizeof(sparse_count));
+        in.read(reinterpret_cast<char*>(&dense_count), sizeof(dense_count));
         // BV
-        std::ifstream colors_in(index_prefix + ".BV.sdsl", std::ios::binary);
-        if (!colors_in) {
-            std::cerr << "Error: Could not open colors file!" << std::endl;
-            return;
-        }
-        sdsl::load(BV, colors_in);
-
-        colors_in.close();
-
-        // L
-        std::ifstream L_in(index_prefix + ".L.BIN", std::ios::binary);
-        size_t L_size;
-        L_in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
-        L.resize(L_size);
-        L_in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
-        L_in.close();
-
+        sdsl::load(BV, in);
         // EF
-        std::ifstream EF_in(index_prefix + ".EF.sdsl", std::ios::binary);
-        if (!EF_in) {
-            std::cerr << "Error: Could not open EF.sdsl !" << std::endl;
-            return;
-        }
-        sdsl::load(EF, EF_in);
-        EF_in.close();
+        sdsl::load(EF, in);
+        // L
+        size_t L_size = 0;
+        in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
+        L.resize(L_size);
+        in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
+
+        in.close();
     }
 
 };
