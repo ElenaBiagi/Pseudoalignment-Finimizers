@@ -94,14 +94,19 @@ static inline vector<int64_t> colorset_get_colors_as_vector(const colorset_t& cs
 template<typename colorset_t> 
 static inline void read_colorset_bv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
     auto* vec_ptr = std::get<0>(cs.data_ptr);   // or use std::visit if needed
+    //const auto* vec_ptr = std::get< sdsl::bit_vector*>(cs.data_ptr);
     const uint64_t* data = vec_ptr->data();
     read_bv(data, cs.start, freq, cs.length, counts, non_zero_count_indices);
 }
 
 template<typename colorset_t> 
 static inline void read_colorset_iv(const colorset_t& cs,  const uint64_t freq, vector<uint64_t>& counts, vector<uint64_t>& non_zero_count_indices ){
-    for(int64_t i = 0; i < cs.length; i++){
-        uint64_t color_id = (*std::get<1>(cs.data_ptr))[cs.start + i];
+    //const auto* arr = std::get<sdsl::int_vector<>*>(cs.data_ptr);
+
+    for(int64_t i = cs.start; i < cs.start + cs.length; i++){
+        // TODO chehck that start is correct
+        //uint64_t color_id = (*arr)[i];
+        uint64_t color_id = (*std::get<1>(cs.data_ptr))[i];
         counts[color_id] += freq;
         // TODO use this to reset only the indices that have been modified
         //non_zero_count_indices.push_back(color_id);
