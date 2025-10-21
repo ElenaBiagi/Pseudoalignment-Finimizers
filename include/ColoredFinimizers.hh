@@ -25,9 +25,9 @@ void print_search_timing_stats() {
     using namespace std::chrono;
     std::cerr << "Time to load the index: "
                 << duration_cast<milliseconds>(time_index_loading).count() << " ms\n";
-    std::cerr << "Time in rarest_fmin_streaming_search (fwd): "
+    std::cerr << "Time in rarest_fmin_streaming_search: "
                 << duration_cast<milliseconds>(time_rarest_fmin).count() << " ms\n";
-    std::cerr << "Time in combine_f_rc: "
+    std::cerr << "Time to check colors: "
                 << duration_cast<milliseconds>(time_combine).count() << " ms\n";
     std::cerr << "Time to output results: "
                 << duration_cast<milliseconds>(time_output).count() << " ms\n";
@@ -597,7 +597,7 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
     std::sort(fmin_v.begin(), fmin_v.end()); */
 
     read_colors(CCS, n_colors, results, fmin_v);
-
+    
     const size_t found_fmin = Fmin.size(); // # total finimizers
     counting_sort(results, ans, found_fmin, n_colors);
     return;

@@ -5,7 +5,7 @@
 
 //find/replace 64 wih 32 to speed up // DONE
 //find/replace uint8_t with uint16_t if needed
-
+using namespace std;
 class DeltaSet{
 private:
     // vectors fro easier memory management (avoid issues with serialize and load)
@@ -20,17 +20,17 @@ public:
         _n = (uint64_t)starts.size();
         if (_n == 0 ){return;}
             _period = 32;
-        _prefix_sums.assign( _n/_period,0);
+        _prefix_sums.assign( (_n/_period)+1,0);
         _diffs.assign(_n,0);
-        _diffs[0] = starts[0];
-        uint64_t pi = 0;
+        _prefix_sums[0] = starts[0];
+        uint64_t pi = 1;
         for(uint64_t i=1;i<_n;i++){
             if((i%_period)==0){
                 _prefix_sums[pi++] = starts[i];
             }
             uint64_t diff = starts[i] - starts[i-1]; // TODO could check this value fits in 8 bits
             if (diff > UINT8_MAX){ throw std::overflow_error("diff too large for uint8_t");}
-            _diffs[i] = (uint16_t)diff;
+            _diffs[i-1] = (uint16_t)diff;
         }
     }
 
@@ -42,7 +42,7 @@ public:
         return p;
     }
 
-    void read_all(uint64_t start, uint64_t end, uint64_t freq, vector<uint64_t>& results){
+/*     void read_all(uint64_t start, uint64_t end, uint64_t freq, vector<uint64_t>& results){
         uint64_t p = 0;
         for (auto i = start; i<end; i++){
             // no need to use a prefix sum right?
@@ -51,7 +51,8 @@ public:
             p += _diffs[i];
             results[p]+= freq;
         }
-    }
+    } */
+
    size_t size() const {
         return _n;
    }
@@ -60,7 +61,7 @@ public:
         out.write(reinterpret_cast<const char*>(&_n), sizeof(_n));
         out.write(reinterpret_cast<const char*>(&_period), sizeof(_period));
 
-        out.write(reinterpret_cast<const char*>(_prefix_sums.data()), (_n / _period) * sizeof(uint64_t));
+        out.write(reinterpret_cast<const char*>(_prefix_sums.data()), ((_n / _period)+1) * sizeof(uint64_t));
 
         out.write(reinterpret_cast<const char*>(_diffs.data()), static_cast<size_t>(_n) * sizeof(uint16_t));
     }
@@ -69,10 +70,10 @@ public:
         in.read(reinterpret_cast<char*>(&_n), sizeof(_n));
         in.read(reinterpret_cast<char*>(&_period), sizeof(_period));
 
-        _prefix_sums.assign(_n / _period, 0);
+        _prefix_sums.assign((_n / _period)+1, 0);
         _diffs.assign(static_cast<size_t>(_n), 0);
 
-        in.read(reinterpret_cast<char*>(_prefix_sums.data()), (_n / _period) * sizeof(uint64_t));
+        in.read(reinterpret_cast<char*>(_prefix_sums.data()), ((_n / _period)+1) * sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(_diffs.data()), static_cast<size_t>(_n) * sizeof(uint16_t));
     }
 };
