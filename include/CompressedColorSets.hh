@@ -147,7 +147,7 @@ class CompressedColorSets {
         for (auto& v : temp_cEF_v){
             v+= temp_EF_v.back();
         }
-        temp_EF_v.insert( temp_EF_v.end(), temp_cEF_v.begin()+1, temp_cEF_v.end() ); // temp_cEF_v[0] == temp_EF_v[-1]
+        temp_EF_v.insert( temp_EF_v.end(), temp_cEF_v.begin(), temp_cEF_v.end() ); // temp_cEF_v[0] == temp_EF_v[-1]
 
         this->dense_count = temp_EF_v.size();
 
