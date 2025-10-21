@@ -135,7 +135,7 @@ class CompressedColorSets {
                     cL_color_set_ids[c_id] = 1; 
                 } // the minimum is 0 (+ sparse)
                 temp_cEF_v.push_back(temp_cL.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
-                dense_sizes.push_back((float)size);
+                dense_sizes.push_back((float)(n_colors - size));
 
             }
         }
