@@ -4,11 +4,11 @@
 #include <vector>
 
 //find/replace 64 wih 32 to speed up // DONE
-//find/replace uint8_t with uint16_t if needed
+//find/replace uint8_t with uint16_t if needed // DONE but also added a check to see if it's necessary
 using namespace std;
 class DeltaSet{
 private:
-    // vectors fro easier memory management (avoid issues with serialize and load)
+    // arrays -> vectors, for easier memory management (avoid issues with serialize and load)
     std::vector<uint64_t> _prefix_sums;
     std::vector<uint16_t> _diffs;
     uint64_t _period = 32;
@@ -19,7 +19,7 @@ public:
     DeltaSet(std::vector<uint64_t> &starts){
         _n = (uint64_t)starts.size();
         if (_n == 0 ){return;}
-            _period = 32;
+        _period = 32;
         _prefix_sums.assign( (_n/_period)+1,0);
         _diffs.assign(_n,0);
         _prefix_sums[0] = starts[0];
@@ -28,8 +28,8 @@ public:
             if((i%_period)==0){
                 _prefix_sums[pi++] = starts[i];
             }
-            uint64_t diff = starts[i] - starts[i-1]; // TODO could check this value fits in 8 bits
-            if (diff > UINT8_MAX){ throw std::overflow_error("diff too large for uint8_t");}
+            uint64_t diff = starts[i] - starts[i-1]; 
+            if (diff > UINT8_MAX){ throw std::overflow_error("diff too large for uint8_t");} // check this value would fit in 8 bits
             _diffs[i-1] = (uint16_t)diff;
         }
     }
@@ -71,7 +71,7 @@ public:
         in.read(reinterpret_cast<char*>(&_period), sizeof(_period));
 
         _prefix_sums.assign((_n / _period)+1, 0);
-        _diffs.assign(static_cast<size_t>(_n), 0);
+        _diffs.assign(_n, 0);
 
         in.read(reinterpret_cast<char*>(_prefix_sums.data()), ((_n / _period)+1) * sizeof(uint64_t));
         in.read(reinterpret_cast<char*>(_diffs.data()), static_cast<size_t>(_n) * sizeof(uint16_t));
