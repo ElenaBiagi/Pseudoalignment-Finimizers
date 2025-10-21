@@ -55,7 +55,22 @@ class CompressedColorSets {
 
     CompressedColorSets() = default;
 
+
+    float average(std::vector<float> const& v){
+        if(v.empty()){
+            return 0;
+        }
+
+        auto const count = static_cast<float>(v.size());
+        return std::reduce(v.begin(), v.end()) / count;
+    }
+
     CompressedColorSets (const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual>& deduplicated_cs, const uint64_t n_colors,  vector<uint64_t>& color_set_ids){
+        
+        vector<float> BV_sizes;
+        vector<float> L_sizes;
+        vector<float> dense_sizes;
+        
         if (n_colors == 0) throw runtime_error("n_colors must be > 0");
         // Fills in L, EF, BV
         //sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
@@ -90,6 +105,7 @@ class CompressedColorSets {
                 uint64_t ef_index = temp_EF_v.size();
                 for (auto& c_id : old_offsets){ color_set_ids[c_id] = ef_index; } // the minimum is 1
                 temp_EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
+                L_sizes.push_back((float)size);
             } else if (size < dense_thr){
             
                 const uint64_t old_offset = old_offsets[0] * n_colors;
@@ -105,6 +121,8 @@ class CompressedColorSets {
                     BV_color_set_ids[c_id] = 1;
                 }
                 new_offset += n_colors;
+                BV_sizes.push_back((float)size);
+
             } else {
                 // very dense
                 for (size_t c = 0; c < n_colors; c++) {
@@ -117,7 +135,8 @@ class CompressedColorSets {
                     cL_color_set_ids[c_id] = 1; 
                 } // the minimum is 0 (+ sparse)
                 temp_cEF_v.push_back(temp_cL.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
-            
+                dense_sizes.push_back((float)size);
+
             }
         }
 
@@ -156,6 +175,23 @@ class CompressedColorSets {
         cerr << "very dense:" << dense_count - (sparse_count-1) << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
+
+        float BV_sizes_averge = average(BV_sizes);
+        float L_sizes_averge = average(L_sizes);
+        float dense_sizes_averge = average(dense_sizes);
+
+        double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
+        double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
+        double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
+
+        cerr << "BV sizes average = " << BV_sizes_averge << endl;
+        cerr << "BV sizes max = " << max_BV << endl;
+
+        cerr << "L sizes average = " << L_sizes_averge << endl;
+        cerr << "L sizes max = " << max_L << endl;
+
+        cerr << "dense sizes average = " << dense_sizes_averge << endl;
+        cerr << "dense sizes max = " << max_dense << endl;
     }
 
     void serialize(const string& index_prefix) const {
