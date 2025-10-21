@@ -532,17 +532,13 @@ void read_verydense (const int64_t pos, const uint64_t freq, const sdsl::enc_vec
     const size_t end = EF[pos]; // exclusive end
     size_t start = EF[pos-1]; // inclusive start
     auto c = 0;
-    while(start < end and c<n_colors){ 
-        if (L[start]==c){
-            start++;
-            c++;
-        } else { 
-            results[c]+= freq;
-            c++;
-        }
+    while(start < end and c < n_colors){ 
+        if (L[start]==c){start++;}
+        else { results[c]+= freq;}
+        c++;
     }
     if (start < end){ 
-        while (c<n_colors){
+        while (c < n_colors){
             results[c]+= freq;
             c++;
         }

@@ -153,7 +153,7 @@ class CompressedColorSets {
 
         cerr << "BV: "<< (int)BV_size << endl;
         cerr << "sparse : " << sparse_count-1 << endl;
-        cerr << "very dense:" << dense_count - sparse_count << endl;
+        cerr << "very dense:" << dense_count - (sparse_count-1) << endl;
         //uint64_t max = *std::max_element(L.begin(), L.end());
         //cerr << "Max value in L: " << max << std::endl;
     }
