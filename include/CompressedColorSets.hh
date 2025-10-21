@@ -154,63 +154,38 @@ class CompressedColorSets {
     }
 
     void serialize(const string& index_prefix) const {
+
+        std::ofstream out(index_prefix + ".ccs.bin", std::ios::binary);
+        if (!out) throw runtime_error("Failed to open file for writing: " + index_prefix + ".ccs.bin");
+
         // BV
-        std::ofstream BV_out(index_prefix + ".BV.sdsl", std::ios::binary);
-        if (!BV_out) {
-            std::cerr << "Error: Could not open BV file!" << std::endl;
-            return;
-        }
-        sdsl::serialize(BV, BV_out);
-        BV_out.close();
-
-        // L
-        std::ofstream L_out(index_prefix + ".L.BIN", std::ios::binary);
-        size_t L_size = L.size();
-        L_out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
-        L_out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
-        L_out.close();
-
+        sdsl::serialize(BV, out);
         // EF
-        std::ofstream EF_out(index_prefix + ".EF.sdsl", std::ios::binary);
-        if (!EF_out) {
-            std::cerr << "Error: Could not open EF file!" << std::endl;
-            return;
-        }
-        sdsl::serialize(EF, EF_out);
-        EF_out.close();
-        cerr << "BV: "<< (BV.size()-63)/43 << endl; // TODO 43 SALMONELLA N-COLORS
-        cerr << "EF: " << EF.size() << endl;
+        sdsl::serialize(EF, out);
+        // L
+        size_t L_size = L.size();
+        out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
+        out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
 
-        cerr << "L: " << L.size() << endl;
+        out.close();
+        cerr << "CCS saved to " << index_prefix + ".ccs.bin" << endl;
     }
 
     void load(const string& index_prefix) {
+        
+        std::ifstream in(index_prefix + ".ccs.bin", std::ios::binary);
+        if (!in) throw runtime_error("Failed to open file for reading: " + index_prefix + ".ccs.bin");
+
         // BV
-        std::ifstream colors_in(index_prefix + ".BV.sdsl", std::ios::binary);
-        if (!colors_in) {
-            std::cerr << "Error: Could not open colors file!" << std::endl;
-            return;
-        }
-        sdsl::load(BV, colors_in);
-
-        colors_in.close();
-
-        // L
-        std::ifstream L_in(index_prefix + ".L.BIN", std::ios::binary);
-        size_t L_size;
-        L_in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
-        L.resize(L_size);
-        L_in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
-        L_in.close();
-
+        sdsl::load(BV, in);
         // EF
-        std::ifstream EF_in(index_prefix + ".EF.sdsl", std::ios::binary);
-        if (!EF_in) {
-            std::cerr << "Error: Could not open EF.sdsl !" << std::endl;
-            return;
-        }
-        sdsl::load(EF, EF_in);
-        EF_in.close();
-    }
+        sdsl::load(EF, in);
+        // L
+        size_t L_size = 0;
+        in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
+        L.resize(L_size);
+        in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
 
+        in.close();
+    }
 };
