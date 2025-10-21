@@ -531,17 +531,9 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
 void read_verydense (const int64_t pos, const uint64_t freq, const sdsl::enc_vector<>& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<uint64_t>& results){
     const size_t end = EF[pos]; // exclusive end
     size_t start = EF[pos-1]; // inclusive start
-    auto c = 0;
-    while(start < end and c < n_colors){ 
-        if (L[start]==c){start++;}
-        else { results[c]+= freq;}
-        c++;
-    }
-    if (start < end){ 
-        while (c < n_colors){
-            results[c]+= freq;
-            c++;
-        }
+    for (size_t c = 0; c< n_colors; c++){
+        if (start < end && L[start]==c){start++;}
+        else {results[c]+= freq;}
     }
 }
 
@@ -551,9 +543,9 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     const vector<uint16_t>& L = CCS.getL();
     const sdsl::enc_vector<>& EF = CCS.getEF();
 
-    cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
+    /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
     cerr << "EF: " << EF.size() << endl;
-    cerr << "L: " << L.size() << endl;
+    cerr << "L: " << L.size() << endl; */
 
     // pos < sparse_count; [sparse]
     // sparse_count <= pos < dense_count; [very dense]
