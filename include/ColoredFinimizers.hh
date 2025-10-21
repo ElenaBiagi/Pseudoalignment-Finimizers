@@ -529,6 +529,10 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     //cerr << "end" << endl;
 }
 
+/* void read_deltaset (const DeltaSet& DS, vector<uint64_t>& results){
+
+} */
+
 void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
     const sdsl::bit_vector& BV = CCS.getBV();
     const vector<uint16_t>& L = CCS.getL();
