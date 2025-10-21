@@ -528,9 +528,9 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     //cerr << "end" << endl;
 }
 
-void read_verydense (const int64_t pos, const uint64_t freq, const sdsl::enc_vector<>& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<uint64_t>& results){
-    const size_t end = EF[pos]; // exclusive end
-    size_t start = EF[pos-1]; // inclusive start
+void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<uint64_t>& results){
+    const size_t end = EF.get_start(pos); // exclusive end
+    size_t start = EF.get_start(pos-1); // inclusive start
     for (size_t c = 0; c< n_colors; c++){
         if (start < end && L[start]==c){start++;}
         else {results[c]+= freq;}
@@ -541,7 +541,7 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     const sdsl::bit_vector& BV = CCS.getBV();
     const uint64_t* data = BV.data();
     const vector<uint16_t>& L = CCS.getL();
-    const sdsl::enc_vector<>& EF = CCS.getEF();
+    const DeltaSet& EF = CCS.getEF();
 
     /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
     cerr << "EF: " << EF.size() << endl;
@@ -561,8 +561,8 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
         // sparse
         if (pos < sparse_count){  
             // read from L
-            const size_t end = EF[pos]; // exclusive end
-            size_t start = EF[pos-1]; // inclusive start
+            const size_t end = EF.get_start(pos); // exclusive end
+            size_t start = EF.get_start(pos-1); // inclusive start
             while(start < end){ results[L[start++]]+=freq;}
         } else { break;}
     }

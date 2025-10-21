@@ -8,6 +8,7 @@
 #include "sdsl/bit_vectors.hpp"
 #include <sdsl/enc_vector.hpp>
 
+#include "deltaset.hpp"
 
 using namespace std;
 
@@ -43,12 +44,12 @@ class CompressedColorSets {
     // TODO Combine BV and L in a 
     // add a bitvector instead of branch 
     vector<uint16_t> L;
-    sdsl::enc_vector<> EF;
+    DeltaSet EF;
     sdsl::bit_vector BV;
 
     public:
     const std::vector<uint16_t>& getL() const { return L; }
-    const sdsl::enc_vector<>& getEF() const { return EF; }
+    const DeltaSet& getEF() const { return EF; }
     const sdsl::bit_vector& getBV() const { return BV; }
     uint64_t sparse_count = 0;
     uint64_t dense_count = 0;
@@ -163,10 +164,9 @@ class CompressedColorSets {
         }
         temp_BV.resize((((BV_size * n_colors)+63)/64)*64); // only add the minimum number of bits to make it word aligned
 
+        // Convert EF_v into a DeltaSet
+        DeltaSet ef(temp_EF_v);
 
-        // Convert temp_EF_v into real Elias-Fano econding 
-        sdsl::enc_vector<> ef(temp_EF_v);
-        // 
         this->EF = std::move(ef);
         this->BV = std::move(temp_BV);
 
@@ -205,7 +205,7 @@ class CompressedColorSets {
         // BV
         sdsl::serialize(BV, out);
         // EF
-        sdsl::serialize(EF, out);
+        EF.serialize(out);
         // L
         size_t L_size = L.size();
         out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
@@ -226,7 +226,7 @@ class CompressedColorSets {
         // BV
         sdsl::load(BV, in);
         // EF
-        sdsl::load(EF, in);
+        EF.load(in);
         // L
         size_t L_size = 0;
         in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
