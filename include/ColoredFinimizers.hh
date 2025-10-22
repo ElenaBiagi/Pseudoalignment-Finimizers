@@ -97,9 +97,9 @@ void true_or_crash(bool b, const char* error_message){
     }
 }
 
-inline uint16_t pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans, const float t );
+inline int16_t pseudoalignment_stats( const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin,  vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const float t );
 
-inline void pseudoalignment_stats( vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans);
+inline void pseudoalignment_stats( const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans);
 
 
 class CompressedColoredFinimizers {
@@ -288,7 +288,7 @@ public:
 
     
 
-    void search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, vector<int64_t>& Finimizers) const {
+    void search(const std::string& query, vector<uint64_t>& Finimizers, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans) const {
         const int64_t query_len = query.length();
         if (query_len < this->k) return;
 
@@ -306,14 +306,14 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             //combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans);
+            pseudoalignment_stats(this->CCS, this->n_colors, Finimizers, results, ans);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string& query, vector<pair<uint16_t, uint16_t>>& ans, const float t, vector<int64_t>& Finimizers) const {
+    uint16_t search(const std::string& query, vector<uint64_t>& Finimizers, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const float t) const {
 
         const int64_t query_len = query.length();
         if (query_len < this->k) return 0;
@@ -334,7 +334,7 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             //min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-            min_value = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t);
+            min_value = pseudoalignment_stats(this->CCS, this->n_colors, Finimizers, results, ans, t);
 
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
@@ -458,7 +458,7 @@ public:
 
 };
 
-inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& results, const uint64_t freq) {
+inline void process_word(uint64_t word, const uint64_t base, vector<int16_t>& results, const uint64_t freq) {
     //cerr << "process_word" << endl;
     while (word) {
         //uint64_t bit = std::countr_zero(word);
@@ -470,8 +470,7 @@ inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& r
 
 }
 
-inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t>& results){
-    //cerr << "read_bv" << endl;
+inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t>& results){
 
     const uint64_t* ptr = data + (start * n_colors) / 64;
     uint64_t bit_offset = (start * n_colors) % 64;
@@ -486,13 +485,7 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
         uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
         uint64_t word = (*ptr >> bit_offset) & mask;
 
-        /* while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            results[bit]+=freq;
-            word &= word - 1;
-        } */
         process_word(word,color_id, results, freq);
-
         ptr++;
         color_id += bits_to_read;
         bits_left -= bits_to_read;
@@ -502,12 +495,6 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     while (bits_left >= 64) {
         uint64_t word = *ptr++;
         process_word(word, color_id, results, freq);
-        /* for (uint64_t w = word; w != 0;) {
-            
-            uint64_t bit = __builtin_ctzll(w);
-            results[color_id + bit]+=freq;
-            w &= w - 1;
-        } */
         color_id += 64;
         bits_left -= 64;
     }
@@ -516,19 +503,13 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
     if (bits_left > 0) {
         uint64_t mask = ((1ULL << bits_left) - 1);
         uint64_t word = *ptr & mask;
-
-        /* while (word != 0) {
-            uint64_t bit = __builtin_ctzll(word);
-            results[color_id + bit]+=freq;
-            word &= word - 1;
-        } */
         process_word(word,color_id, results, freq);
 
     }
-    //cerr << "end" << endl;
 }
 
-void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<uint64_t>& results){
+// first approach OK
+void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results){
     const size_t end = EF.get_start(pos); // exclusive end
     size_t start = EF.get_start(pos-1); // inclusive start
     for (size_t c = 0; c< n_colors; c++){
@@ -537,11 +518,65 @@ void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF,
     }
 }
 
-void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
+// second approach . is this ok? 
+void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results, int16_t& T){
+    T-=freq;
+    const size_t end = EF.get_start(pos); // exclusive end
+    size_t start = EF.get_start(pos-1); // inclusive start
+    while (start<end){
+        results[L[start++]]-=freq; 
+    }
+}
+
+void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<int16_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v, int16_t& T){
     const sdsl::bit_vector& BV = CCS.getBV();
     const uint64_t* data = BV.data();
     const vector<uint16_t>& L = CCS.getL();
     const DeltaSet& EF = CCS.getEF();
+
+    // pos < sparse_count; [sparse]
+    // sparse_count <= pos < dense_count; [very dense]
+    // pos >= dense; [bitmap]
+
+    const uint64_t sparse_count = CCS.sparse_count;
+    const uint64_t dense_count = CCS.dense_count;
+
+    // Exploit the fact that the pos are sorted
+    uint64_t i;
+    for (i=0; i< fmin_v.size(); i++) {
+        const auto& [pos,freq] = fmin_v[i];
+        // sparse
+        if (pos < sparse_count){  
+            // read from L
+            const size_t end = EF.get_start(pos); // exclusive end
+            size_t start = EF.get_start(pos-1); // inclusive start
+            while(start < end){ results[L[start++]]+=freq;}
+        } else { break;}
+    }
+    // very dense
+    uint64_t j;
+    for (j=i; j < fmin_v.size(); j++) {
+        const auto& [pos,freq] = fmin_v[j];
+        if (pos < dense_count){  
+            // read complementary values from L
+            read_verydense(pos, freq, EF, L, n_colors, results, T);
+        } else { break;}
+    }
+    // read from BV
+    for (auto i=j; i< fmin_v.size(); i++) {
+        const auto& [pos,freq] = fmin_v[i];
+        uint64_t start = pos - dense_count;
+        read_bv(data, start, freq, n_colors, results);
+    }
+}
+
+void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<int16_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
+    const sdsl::bit_vector& BV = CCS.getBV();
+    const uint64_t* data = BV.data();
+    const vector<uint16_t>& L = CCS.getL();
+    const DeltaSet& EF = CCS.getEF();
+
+
 
     /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
     cerr << "EF: " << EF.size() << endl;
@@ -584,14 +619,15 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
 }
 
 
-inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans){
-    vector<uint64_t> results(n_colors,0);
-    /* if (results.size() != n_colors) {
-        results.assign(n_colors, 0);  
-    } else {
-        std::fill(results.begin(), results.end(), 0);
-    }
- */
+inline void pseudoalignment_stats(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans){
+    // TODO
+    // Treshold 0
+    // report a color if at leas 1 occ is found
+    // int64_t t=0;
+
+    std::fill(results.begin(), results.end(), 0); // do not create a new vector but set everything to 0
+    // TODO even better: set to zero the values that have been modified
+    
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -620,17 +656,14 @@ inline void pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSe
     return;
 }
 
-inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColorSets& CCS, const uint64_t n_colors, vector<pair<uint16_t, uint16_t>>& ans,  const float t ){ //vector<uint64_t>& results,
+inline int16_t pseudoalignment_stats(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const float t){
     //if (Fmin.empty()){return 0;}
+    // TODO do not create a new vector but set everything to 0 //results.assign(n_colors, 0);
+    //      even better: set to zero the values that have been modified
+    //vector<int16_t> results(n_colors,0);
+    //results.assign(n_colors,0); // TODO is it better .fill? 
+    std::fill(results.begin(), results.end(), 0);
     
-    vector<uint64_t> results(n_colors,0);
-    /* if (results.size() != n_colors) {
-        results.assign(n_colors, 0);  
-    } else {
-        std::fill(results.begin(), results.end(), 0);
-    } */
-
- 
     std::sort(Fmin.begin(), Fmin.end()); 
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -653,15 +686,11 @@ inline uint16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedCol
     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end()); */
 
-    read_colors(CCS, n_colors, results, fmin_v);
-
     // Check the values above the minimum
     const size_t found_fmin = Fmin.size(); // # total finimizers
-
-    counting_sort(results, ans, found_fmin, n_colors);
-    
     // TODO use min value here?
-    const uint64_t min_value = found_fmin * t;
-
-    return min_value;
+    int16_t T = found_fmin * t;
+    read_colors(CCS, n_colors, results, fmin_v, T);
+    counting_sort(results, ans, found_fmin, n_colors);
+    return T;
 }

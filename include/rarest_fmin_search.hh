@@ -100,14 +100,13 @@ inline void FindPrefix_short(const vector<optional<Bucket>>& buckets, const uint
     }
 }
 
-void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
+void PickFinimizer(vector<uint64_t>& Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>& next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t>& k_fmin){//, const string& input){
     if (!curr_candidates.empty()){
         k_fmin= curr_candidates.front();
         
         // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
     } else{
-        Fmin.push_back(-1); // This ensures that Fmin and r_Fmin have the same length
         //k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
         cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << endl;// " " << input.substr(kmer_start, min((uint64_t)k, input.length() - kmer_start)) << endl;
     }
@@ -135,7 +134,7 @@ void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint6
         }
     }
 }
-void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<int64_t>& Fmin){ 
+void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<uint64_t>& Fmin){ 
     const int64_t str_len = input.size();
 
     uint64_t start = 0;
@@ -325,7 +324,8 @@ void read_colors_old(const uint64_t* data, const uint64_t n_colors, vector<uint6
     }
 }
 
-void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
+// TODO REMOVE now used if t=0
+void counting_sort (const vector<int16_t>& results, vector<pair<uint16_t, uint16_t>>& ans, const size_t found_fmin, const uint16_t n_colors){    
     vector<uint16_t> counts(found_fmin+1); 
 
     for (size_t idx = 0; idx < n_colors; idx++) {
@@ -338,7 +338,6 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
         counts[c]+=counts[c-1];
     }
 
-    ans.resize(n_colors);
     for (size_t idx = 0; idx < n_colors; idx++) {
         ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
         counts[results[idx]]--;
@@ -346,6 +345,30 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
 
 }
 
+// works for negative values in results
+void counting_sort(const vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const size_t found_fmin, const uint16_t n_colors) {
+    if (results.empty()) return;
 
+    // min & max 
+    int16_t min_val = *min_element(results.begin(), results.end());
+    int16_t max_val = *max_element(results.begin(), results.end());
 
+    int16_t range = static_cast<size_t>(max_val - min_val + 1);
+    vector<int16_t> counts(range, 0);
 
+    for (uint16_t idx = 0; idx < n_colors; idx++) {
+        counts[static_cast<int16_t>(results[idx] - min_val)]++; // offset by min_val
+    }
+
+    // Cumulative sums
+    for (size_t i = 1; i < range; i++) {
+        counts[i] += counts[i - 1];
+    }
+
+    for (uint16_t idx = n_colors; idx-- > 0;) {
+        int16_t val = results[idx];
+        size_t pos = counts[static_cast<int16_t>(val - min_val)] - 1;
+        ans[pos] = {static_cast<uint16_t>(idx), val};
+        counts[static_cast<int16_t>(val - min_val)]--;
+    }
+}
