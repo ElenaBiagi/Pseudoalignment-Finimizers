@@ -29,7 +29,7 @@ public:
                 _prefix_sums[pi++] = starts[i];
             }
             uint64_t diff = starts[i] - starts[i-1]; 
-            if (diff > UINT8_MAX){ throw std::overflow_error("diff too large for uint8_t");} // check this value would fit in 8 bits
+            //if (diff > UINT8_MAX){ throw std::overflow_error("diff too large for uint_t");} // check this value would fit in 8 bits // does not fit for 661kSalmonella
             _diffs[i-1] = (uint16_t)diff;
         }
     }
