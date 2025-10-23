@@ -63,7 +63,6 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 buffer_size += to_string(idx).size() + to_string(count).size() + 2; // 2 for ':', ' '
 
             }
-            cerr << endl;
             //buffer.push_back('\n');
             buffer << '\n';
             buffer_size += 1;
