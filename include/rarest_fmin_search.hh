@@ -347,5 +347,31 @@ void counting_sort (const vector<uint64_t>& results, vector<pair<uint16_t, uint1
 }
 
 
+// works for negative values in results
+void counting_sort(const vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const size_t found_fmin, const uint16_t n_colors) {
+    if (results.empty()) return;
 
+    // min & max 
+    int16_t min_val = *min_element(results.begin(), results.end());
+    int16_t max_val = *max_element(results.begin(), results.end());
+
+    int16_t range = static_cast<size_t>(max_val - min_val + 1);
+    vector<int16_t> counts(range, 0);
+
+    for (uint16_t idx = 0; idx < n_colors; idx++) {
+        counts[static_cast<int16_t>(results[idx] - min_val)]++; // offset by min_val
+    }
+
+    // Cumulative sums
+    for (size_t i = 1; i < range; i++) {
+        counts[i] += counts[i - 1];
+    }
+
+    for (uint16_t idx = n_colors; idx-- > 0;) {
+        int16_t val = results[idx];
+        size_t pos = counts[static_cast<int16_t>(val - min_val)] - 1;
+        ans[pos] = {static_cast<uint16_t>(idx), val};
+        counts[static_cast<int16_t>(val - min_val)]--;
+    }
+}
 

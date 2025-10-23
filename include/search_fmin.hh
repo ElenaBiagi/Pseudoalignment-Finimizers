@@ -49,14 +49,11 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             //string seq = remove_N_from_string(reader.read_buf);
             const string& seq = reader.read_buf;
 
-            vector<pair<uint16_t, uint16_t>> ans;
-            ans.reserve(seq.size());
-
-            const uint16_t min_value = index.search(seq, ans, t, Finimizers);
-
+            vector<pair<uint16_t, int16_t>> ans;
+            ans.resize(index.n_colors);
+            const int16_t min_value = index.search(seq, ans, t, Finimizers);
             auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
-
                 const auto& [idx, count] = ans[a];
                 if (count < min_value){break;}
 
@@ -66,6 +63,7 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
                 buffer_size += to_string(idx).size() + to_string(count).size() + 2; // 2 for ':', ' '
 
             }
+            cerr << endl;
             //buffer.push_back('\n');
             buffer << '\n';
             buffer_size += 1;
