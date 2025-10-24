@@ -734,13 +734,16 @@ inline int16_t pseudoalignment_stats(vector<int64_t>& Fmin, const CompressedColo
 
     // Check the values above the minimum in search
     const size_t found_fmin = Fmin.size(); // # total finimizers
-    const int16_t T = found_fmin * t;
+    int16_t T = found_fmin * t;
     uint16_t dense = 0;
 
     read_colors(CCS, n_colors, results, fmin_v, dense);
-    // TODO keep track of which counters were incremented and set to zero only those
-    // Add number of dense sets
-    for (auto& r: results){r+=dense;}
+    
+    // If we care about the number of matches, dd number of dense sets
+    //for (auto& r: results){r+=dense;} 
+    
+    // adjust T 
+    T-=dense;
     // Sort results so that the output is sorted
     counting_sort(results, ans, found_fmin, n_colors);
     return T;
