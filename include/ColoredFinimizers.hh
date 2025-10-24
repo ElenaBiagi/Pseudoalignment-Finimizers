@@ -509,7 +509,7 @@ inline void read_bv(const uint64_t* data, const uint64_t start, const uint64_t f
 }
 
 // first approach OK
-void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results){
+void read_verydense_all (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results){
     const size_t end = EF.get_start(pos); // exclusive end
     size_t start = EF.get_start(pos-1); // inclusive start
     for (size_t c = 0; c< n_colors; c++){
@@ -518,9 +518,8 @@ void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF,
     }
 }
 
-// second approach . is this ok? 
-void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results, int16_t& T){
-    T-=freq;
+// count number of dense sets
+void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF, const vector<uint16_t>& L, const uint64_t n_colors, vector<int16_t>& results){
     const size_t end = EF.get_start(pos); // exclusive end
     size_t start = EF.get_start(pos-1); // inclusive start
     while (start<end){
@@ -528,59 +527,11 @@ void read_verydense (const int64_t pos, const uint64_t freq, const DeltaSet& EF,
     }
 }
 
-void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<int16_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v, int16_t& T){
+void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<int16_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v, uint16_t dense){
     const sdsl::bit_vector& BV = CCS.getBV();
     const uint64_t* data = BV.data();
     const vector<uint16_t>& L = CCS.getL();
     const DeltaSet& EF = CCS.getEF();
-
-    // pos < sparse_count; [sparse]
-    // sparse_count <= pos < dense_count; [very dense]
-    // pos >= dense; [bitmap]
-
-    const uint64_t sparse_count = CCS.sparse_count;
-    const uint64_t dense_count = CCS.dense_count;
-
-    // Exploit the fact that the pos are sorted
-    uint64_t i;
-    for (i=0; i< fmin_v.size(); i++) {
-        const auto& [pos,freq] = fmin_v[i];
-        // sparse
-        if (pos < sparse_count){  
-            // read from L
-            const size_t end = EF.get_start(pos); // exclusive end
-            size_t start = EF.get_start(pos-1); // inclusive start
-            while(start < end){ results[L[start++]]+=freq;}
-        } else { break;}
-    }
-    // very dense
-    uint64_t j;
-    for (j=i; j < fmin_v.size(); j++) {
-        const auto& [pos,freq] = fmin_v[j];
-        if (pos < dense_count){  
-            // read complementary values from L
-            read_verydense(pos, freq, EF, L, n_colors, results, T);
-        } else { break;}
-    }
-    // read from BV
-    for (auto i=j; i< fmin_v.size(); i++) {
-        const auto& [pos,freq] = fmin_v[i];
-        uint64_t start = pos - dense_count;
-        read_bv(data, start, freq, n_colors, results);
-    }
-}
-
-void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector<int16_t>& results, const vector<pair<int64_t, uint64_t>>& fmin_v){
-    const sdsl::bit_vector& BV = CCS.getBV();
-    const uint64_t* data = BV.data();
-    const vector<uint16_t>& L = CCS.getL();
-    const DeltaSet& EF = CCS.getEF();
-
-
-
-    /* cerr << "BV: "<< (BV.size()-63)/n_colors << endl;
-    cerr << "EF: " << EF.size() << endl;
-    cerr << "L: " << L.size() << endl; */
 
     // pos < sparse_count; [sparse]
     // sparse_count <= pos < dense_count; [very dense]
@@ -608,6 +559,7 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
         if (pos < dense_count){  
             // read complementary values from L
             read_verydense(pos, freq, EF, L, n_colors, results);
+            dense+=freq;
         } else { break;}
     }
     // read from BV
@@ -618,12 +570,7 @@ void read_colors(const CompressedColorSets& CCS, const uint64_t n_colors, vector
     }
 }
 
-
 inline void pseudoalignment_stats(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans){
-    // TODO
-    // Treshold 0
-    // report a color if at leas 1 occ is found
-    // int64_t t=0;
 
     std::fill(results.begin(), results.end(), 0); // do not create a new vector but set everything to 0
     // TODO even better: set to zero the values that have been modified
@@ -648,19 +595,21 @@ inline void pseudoalignment_stats(const CompressedColorSets& CCS, const uint64_t
     // vector for sorted output so that it is possible to scan color_set_concat
     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end()); */
-
-    read_colors(CCS, n_colors, results, fmin_v);
+    uint16_t dense = 0;
+    read_colors(CCS, n_colors, results, fmin_v, dense);
+    // add back dense sets
+    for (auto& r: results){r+=dense;}
 
     const size_t found_fmin = Fmin.size(); // # total finimizers
+    // sort results so that the output will be sorted
     counting_sort(results, ans, found_fmin, n_colors);
     return;
 }
 
 inline int16_t pseudoalignment_stats(const CompressedColorSets& CCS, const uint64_t n_colors, vector<uint64_t>& Fmin, vector<int16_t>& results, vector<pair<uint16_t, int16_t>>& ans, const float t){
-    //if (Fmin.empty()){return 0;}
-    // TODO do not create a new vector but set everything to 0 //results.assign(n_colors, 0);
+    if (Fmin.empty()){return 1;}
+    // TODO do not create a new vector but set everything to 0
     //      even better: set to zero the values that have been modified
-    //vector<int16_t> results(n_colors,0);
     //results.assign(n_colors,0); // TODO is it better .fill? 
     std::fill(results.begin(), results.end(), 0);
     
@@ -687,10 +636,14 @@ inline int16_t pseudoalignment_stats(const CompressedColorSets& CCS, const uint6
     std::sort(fmin_v.begin(), fmin_v.end()); */
 
     // Check the values above the minimum
+    
+    const uint16_t dense = 0;
+    read_colors(CCS, n_colors, results, fmin_v, dense);
+    // add back dense sets
+    for (auto& r: results){r+=dense;}
     const size_t found_fmin = Fmin.size(); // # total finimizers
-    // TODO use min value here?
-    int16_t T = found_fmin * t;
-    read_colors(CCS, n_colors, results, fmin_v, T);
+    const uint16_t T = found_fmin * t;
+    // sort results so that the output will be sorted
     counting_sort(results, ans, found_fmin, n_colors);
     return T;
 }
