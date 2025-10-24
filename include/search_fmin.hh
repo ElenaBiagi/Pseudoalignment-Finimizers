@@ -31,6 +31,8 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
     std::ostringstream buffer;
 
     vector<int64_t> Finimizers;
+    vector<pair<uint16_t, int16_t>> ans;
+    ans.resize(index.n_colors);
 
     if (t > 0){
         
@@ -49,8 +51,6 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             //string seq = remove_N_from_string(reader.read_buf);
             const string& seq = reader.read_buf;
 
-            vector<pair<uint16_t, int16_t>> ans;
-            ans.resize(index.n_colors);
             const int16_t min_value = index.search(seq, ans, t, Finimizers);
             auto start = std::chrono::high_resolution_clock::now();
             for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--) {
@@ -93,8 +93,6 @@ int64_t run_fmin_queries_streaming(reader_t& reader, out_stream_t& out, const Co
             //string seq = remove_N_from_string(reader.read_buf);
             const string& seq = reader.read_buf;
 
-            vector<pair<uint16_t, uint16_t>> ans;
-            ans.reserve(seq.size());
             index.search(seq, ans, Finimizers);
             
             auto start = std::chrono::high_resolution_clock::now();
