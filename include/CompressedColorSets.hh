@@ -194,10 +194,7 @@ class CompressedColorSets {
         cerr << "dense sizes max = " << max_dense << endl;
     }
 
-    void serialize(const string& index_prefix) const {
-
-        std::ofstream out(index_prefix + ".ccs.bin", std::ios::binary);
-        if (!out) throw runtime_error("Failed to open file for writing: " + index_prefix + ".ccs.bin");
+    void serialize(std::ostream& out) const {
 
         // counts
         out.write(reinterpret_cast<const char*>(&sparse_count), sizeof(sparse_count));
@@ -210,16 +207,10 @@ class CompressedColorSets {
         size_t L_size = L.size();
         out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
         out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
-
-        out.close();
-        cerr << "CCS saved to " << index_prefix + ".ccs.bin" << endl;
     }
 
-    void load(const string& index_prefix) {
+    void load(std::istream& in) {
         
-        std::ifstream in(index_prefix + ".ccs.bin", std::ios::binary);
-        if (!in) throw runtime_error("Failed to open file for reading: " + index_prefix + ".ccs.bin");
-
         // counts
         in.read(reinterpret_cast<char*>(&sparse_count), sizeof(sparse_count));
         in.read(reinterpret_cast<char*>(&dense_count), sizeof(dense_count));
@@ -232,8 +223,6 @@ class CompressedColorSets {
         in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
         L.resize(L_size);
         in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
-
-        in.close();
     }
 
 };

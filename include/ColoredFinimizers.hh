@@ -342,120 +342,100 @@ public:
         return T;
     }
 
-
-    void serialize(const string& index_prefix) const {
-        cerr << "Save the index" << endl;
-
-        CCS.serialize(index_prefix);
-
-        // buckets (std::optional<Bucket>)
-        std::ofstream buckets_out(index_prefix + ".buckets.BIN", std::ios::binary);
-        if (!buckets_out) {
-            std::cerr << "Error: Could not open buckets file!" << std::endl;
-            return;
-        }
-
-        size_t num_buckets = buckets.size();
-        buckets_out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
-        for (const auto& bucket_opt : buckets) {
-            bool present = bucket_opt.has_value();
-            buckets_out.write(reinterpret_cast<const char*>(&present), sizeof(present));
-            if (present) {
-                bucket_opt->serialize(buckets_out);
-            }
-        }
-        buckets_out.close();
-
-        // sB
-        std::ofstream sB_out(index_prefix + ".sB.BIN", std::ios::binary);
-        if (!sB_out) {
-            std::cerr << "Error: Could not open sB file!" << std::endl;
-            return;
-        }
-
-        size_t map_size = sB.size();
-        sB_out.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
-        for (const auto& [key, val] : sB) {
-            sB_out.write(reinterpret_cast<const char*>(&key), sizeof(uint32_t));
-            sB_out.write(reinterpret_cast<const char*>(&val.first), sizeof(uint8_t));
-            sB_out.write(reinterpret_cast<const char*>(&val.second), sizeof(int64_t));
-        }
-        sB_out.close();
-
-        // metadata
-        std::ofstream meta_out(index_prefix + ".meta", std::ios::binary);
-        if (!meta_out) {
-            std::cerr << "Error: Could not write metadata!" << std::endl;
-            return;
-        }
-        meta_out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
-        meta_out.write(reinterpret_cast<const char*>(&n_finimizers), sizeof(n_finimizers));
-        meta_out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
-        meta_out.write(reinterpret_cast<const char*>(&k), sizeof(k));
-        meta_out.close();
-        cerr << "DONE"<< endl;
+    void serialize(const std::string& index_prefix) const {        
+    string filename = index_prefix + ".fmin";
+    std::ofstream out(filename, std::ios::binary);
+    if (!out) {
+        cerr << "Error: Could not open file for writing: " << filename << endl;
+        return;
     }
 
-    void load(const string& index_prefix) {
+    cerr << "Save the index to " << filename << endl;
 
-        CCS.load(index_prefix);
+    CCS.serialize(out);
 
-        // buckets
-        std::ifstream buckets_in(index_prefix + ".buckets.BIN", std::ios::binary);
-        if (!buckets_in) {
-            std::cerr << "Error: Could not open buckets file!" << std::endl;
-            return;
+    // 2️⃣ Serialize buckets
+    size_t num_buckets = buckets.size();
+    out.write(reinterpret_cast<const char*>(&num_buckets), sizeof(num_buckets));
+    for (const auto& bucket_opt : buckets) {
+        bool present = bucket_opt.has_value();
+        out.write(reinterpret_cast<const char*>(&present), sizeof(present));
+        if (present) {
+            bucket_opt->serialize(out);
         }
-
-        size_t num_buckets;
-        buckets_in.read(reinterpret_cast<char*>(&num_buckets), sizeof(num_buckets));
-        buckets.resize(num_buckets);
-        for (size_t i = 0; i < num_buckets; ++i) {
-            bool present;
-            buckets_in.read(reinterpret_cast<char*>(&present), sizeof(present));
-            if (present) {
-                Bucket bucket;
-                bucket.load(buckets_in);  // Make sure Bucket has a `load(std::istream&)` method
-                buckets[i] = bucket;
-            } else {
-                buckets[i] = std::nullopt;
-            }
-        }
-        buckets_in.close();
-
-        // sB
-        std::ifstream sB_in(index_prefix + ".sB.BIN", std::ios::binary);
-        if (!sB_in) {
-            std::cerr << "Error: Could not open sB file!" << std::endl;
-            return;
-        }
-
-        size_t map_size;
-        sB_in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
-        sB.clear();
-        for (size_t i = 0; i < map_size; ++i) {
-            uint32_t key;
-            std::pair<uint8_t,int64_t> val;
-            sB_in.read(reinterpret_cast<char*>(&key), sizeof(uint32_t));
-            sB_in.read(reinterpret_cast<char*>(&val.first), sizeof(uint8_t));
-            sB_in.read(reinterpret_cast<char*>(&val.second), sizeof(int64_t));
-            sB[key] = val;
-        }
-        sB_in.close();
-
-        // metadata
-        std::ifstream meta_in(index_prefix + ".meta", std::ios::binary);
-        if (!meta_in) {
-            std::cerr << "Error: Could not read metadata!" << std::endl;
-            return;
-        }
-        meta_in.read(reinterpret_cast<char*>(&n_colors), sizeof(n_colors));
-        meta_in.read(reinterpret_cast<char*>(&n_finimizers), sizeof(n_finimizers));
-        meta_in.read(reinterpret_cast<char*>(&plen), sizeof(plen));
-        meta_in.read(reinterpret_cast<char*>(&k), sizeof(k));
-        meta_in.close();
     }
 
+    // sB
+    size_t map_size = sB.size();
+    out.write(reinterpret_cast<const char*>(&map_size), sizeof(map_size));
+    for (const auto& [key, val] : sB) {
+        out.write(reinterpret_cast<const char*>(&key), sizeof(uint32_t));
+        out.write(reinterpret_cast<const char*>(&val.first), sizeof(uint8_t));
+        out.write(reinterpret_cast<const char*>(&val.second), sizeof(int64_t));
+    }
+
+    // metadata
+    out.write(reinterpret_cast<const char*>(&n_colors), sizeof(n_colors));
+    out.write(reinterpret_cast<const char*>(&n_finimizers), sizeof(n_finimizers));
+    out.write(reinterpret_cast<const char*>(&plen), sizeof(plen));
+    out.write(reinterpret_cast<const char*>(&k), sizeof(k));
+
+    out.close();
+    cerr << "DONE"<< endl;
+
+}
+void load(const std::string& index_prefix) {
+    string filename = index_prefix + ".fmin";
+    std::ifstream in(filename, std::ios::binary);
+    if (!in) {
+        cerr << "Error: Could not open file for reading: " << filename << endl;
+        return;
+    }
+
+    cerr << "Loading index from " << filename << endl;
+
+    CCS.load(in);
+
+    // 2️⃣ Load buckets
+    size_t num_buckets;
+    in.read(reinterpret_cast<char*>(&num_buckets), sizeof(num_buckets));
+    buckets.resize(num_buckets);
+    for (size_t i = 0; i < num_buckets; ++i) {
+        bool present;
+        in.read(reinterpret_cast<char*>(&present), sizeof(present));
+        if (present) {
+            Bucket bucket;
+            bucket.load(in);
+            buckets[i] = bucket;
+        } else {
+            buckets[i] = std::nullopt;
+        }
+    }
+
+    // sB
+    size_t map_size;
+    in.read(reinterpret_cast<char*>(&map_size), sizeof(map_size));
+    sB.clear();
+    for (size_t i = 0; i < map_size; ++i) {
+        uint32_t key;
+        std::pair<uint8_t, int64_t> val;
+        in.read(reinterpret_cast<char*>(&key), sizeof(uint32_t));
+        in.read(reinterpret_cast<char*>(&val.first), sizeof(uint8_t));
+        in.read(reinterpret_cast<char*>(&val.second), sizeof(int64_t));
+        sB[key] = val;
+    }
+
+    // metadata
+    in.read(reinterpret_cast<char*>(&n_colors), sizeof(n_colors));
+    in.read(reinterpret_cast<char*>(&n_finimizers), sizeof(n_finimizers));
+    in.read(reinterpret_cast<char*>(&plen), sizeof(plen));
+    in.read(reinterpret_cast<char*>(&k), sizeof(k));
+
+    in.close();
+    cerr << "DONE" << endl;
+}
+
+    
 };
 
 inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t>& results, const uint64_t freq) {
