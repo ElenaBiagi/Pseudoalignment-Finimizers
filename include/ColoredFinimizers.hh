@@ -186,6 +186,11 @@ public:
         
 
         cerr << "Deal with tails" << endl;
+        vector<uint8_t> real_tlen_freq;
+        for (auto& f: cf.lengths_by_freq){ 
+            if (f>10){real_tlen_freq.push_back(f-10);} // One could modify cf.lengths_by_freq directly if no value was <= plen 
+        }
+        
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
         for(int64_t i = 0; i < n_finimizers; i++){
@@ -218,7 +223,7 @@ public:
                 
                 if(prefix != cur_prefix) {
                     // Bucket changes -> encode currently collected tails
-                    buckets[p_int]=Bucket(cur_tails, cur_color_set_ids, cf.lengths_by_freq);
+                    buckets[p_int]=Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
                     p_int = prefix2int(prefix, 0, plen);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
@@ -231,7 +236,7 @@ public:
         }
 
         if (!cur_tails.empty()) { // Last bucket
-            buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, cf.lengths_by_freq);
+            buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
         }
 
     }
