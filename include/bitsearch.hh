@@ -107,7 +107,7 @@ static constexpr uint64_t masks23[21][2] = {
    {0x0000000000000001, 0x0000020000000000}, // 42-bit
 };
 
-static constexpr uint16_t tails[] = {
+static constexpr uint64_t tails[] = {
     32, // 2 
     16, // 4
     10, // 6
@@ -149,7 +149,7 @@ static constexpr uint16_t tails[] = {
    return first_w | second_w;
 }
 
-inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint16_t ntails){
+inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
 
    // Look at 64 bits at a time starting from offset (skip tlen and ntail (5+8+?))
@@ -160,11 +160,11 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
    const uint64_t mask3 = masks23[(W/2)-1][1];
    const uint64_t mask = mask2*key; //~0ULL/255 * key;
 
-   const uint16_t tails_per_word = std::min<uint16_t>(tails[(W/2)-1], ntails);
+   const uint64_t tails_per_word = std::min<uint64_t>(tails[(W/2)-1], ntails);
 
 
    uint64_t j = 0;
-   for (uint16_t i = 0; i < ntails; i+=tails_per_word) {
+   for (uint64_t i  = 0; i < ntails; i+=tails_per_word) {
       size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
       const uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset);
 

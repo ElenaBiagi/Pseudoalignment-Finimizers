@@ -106,11 +106,12 @@ void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint6
         
         // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
-    } else{
-        Fmin.push_back(-1); // This ensures that Fmin and r_Fmin have the same length
-        //k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
-        cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << endl;// " " << input.substr(kmer_start, min((uint64_t)k, input.length() - kmer_start)) << endl;
     }
+/*      } else{ // TODO remove this 
+        //Fmin.push_back(-1); // This ensures that Fmin and r_Fmin have the same length
+        //k_fmin = static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k+1,0,0,kmer_start+1));
+        cerr << "finimizer not found for kmer " << kmer_start << "-"<< kmer_start + k-1  << " " << input.substr(kmer_start, min((uint64_t)k, input.length() - kmer_start)) << endl;
+    } */
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
     while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start){
@@ -135,6 +136,7 @@ void PickFinimizer(vector<int64_t>& Fmin, const uint64_t kmer_start, const uint6
         }
     }
 }
+
 void rarest_fmin_streaming_search(const string& input, const vector<optional<Bucket>>& buckets, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>>& sB, const uint64_t plen, const uint64_t k, vector<int64_t>& Fmin){ 
     const int64_t str_len = input.size();
 
@@ -161,8 +163,10 @@ void rarest_fmin_streaming_search(const string& input, const vector<optional<Buc
         FindShortFinimizer(plen-1, int_sp, sB, start, kmer_start+k-1, curr_candidates, next_candidates, k_fmin); // , input); 
     }
     
+    // TODO START HAS TO BE >=K TO PICKFINIMIZER
+
     // The first k-1 characters do not contail all possible finimizers for the first k-mer
-    for (start = 1; start < k-1; start++ ){ 
+    for (start = 1; start < k-1 & start <= str_len - plen; start++ ){ 
         int_p = stream_kmer(int_p, input[start + plen - 1], plen); // shorten by 1 at every loop iteration 
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
         s_len = (str_len >= start+k) ? k-plen : str_len-start-plen;
