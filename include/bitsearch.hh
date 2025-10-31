@@ -132,8 +132,7 @@ static constexpr uint64_t tails[] = {
 };
 
 
- uint64_t read_unaligned_64bits(const uint64_t* data, size_t total_bits, size_t offset_bits) {
-   //assert(offset_bits + 64 <= total_bits); // total_bits is useless
+ uint64_t read_unaligned_64bits(const uint64_t* data, size_t offset_bits) {
 
    size_t word_index = offset_bits / 64;
    size_t bit_offset = offset_bits % 64;
@@ -144,7 +143,7 @@ static constexpr uint64_t tails[] = {
 
    const uint64_t first_w = data[word_index] >> bit_offset;
    
-   const uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128 // ERROR heap-buffer-overflow
+   const uint64_t second_w = data[word_index + 1] << (64-bit_offset);  // Padding is now 128
 
    return first_w | second_w;
 }
@@ -162,11 +161,10 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
 
    const uint64_t tails_per_word = std::min<uint64_t>(tails[(W/2)-1], ntails);
 
-
    uint64_t j = 0;
    for (uint64_t i  = 0; i < ntails; i+=tails_per_word) {
-      size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
-      const uint64_t w = read_unaligned_64bits(data, T.size(), bit_offset);
+      const size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
+      const uint64_t w = read_unaligned_64bits(data, bit_offset);
 
       uint64_t tails_in_this_group = tails_per_word - ((i + tails_per_word - ntails) * (((ntails - i) / tails_per_word) == 0));
 
@@ -180,7 +178,7 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
          int needsCorrection = (found>>(63-lz-W))&1;
          return (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
       }
-      j++; 
+      j++;
    // 1. I'm only looking at words that start at 0 -> no need to shift masks [OK]
    // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
    // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
@@ -201,7 +199,7 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
    uint8_t w_offset = 0;
 
    const uint64_t* data = T.data();
-   // Check first the LONGER lengths.
+   // Check first the MOST FREQUENT lengths.
    while (pos < T.size()-128-4){ // break the loop once something is found
       // 1. check the length of the first tail, 5‐bit tlen
       word_index = pos/64;
