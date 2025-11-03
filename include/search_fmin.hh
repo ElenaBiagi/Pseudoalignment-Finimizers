@@ -12,7 +12,6 @@
 #include "SeqIO.hh"
 #include "ColoredFinimizers.hh"
 
-
 using namespace std;
 
 template <typename out_stream_t>
@@ -33,10 +32,11 @@ uint16_t fast_int_to_string(uint16_t x, char *buffer)
 {
     uint16_t i = 0;
     // Write the digits in reverse order (reversed back at the end)
-    do {
-            buffer[i++] = '0' + (x % 10);
-            x /= 10;
-        } while (x > 0);
+    do
+    {
+        buffer[i++] = '0' + (x % 10);
+        x /= 10;
+    } while (x > 0);
     std::reverse(buffer, buffer + i);
     buffer[i] = '\0';
     return i;
@@ -57,8 +57,10 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     char int_buf[32]; // Enough space for a 64-bit integer in ascii
 
     vector<int64_t> Finimizers;
-    vector<pair<uint16_t, uint16_t>> ans;
-    ans.resize(index.n_colors);
+    // vector<pair<uint16_t, uint16_t>> ans;
+    // ans.resize(index.n_colors)
+
+    vector<int16_t> results(index.n_colors, 0);
 
     if (t > 0)
     {
@@ -75,26 +77,28 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            const int16_t min_value = index.search(seq, ans, t, Finimizers);
+            const int16_t min_value = index.search(seq, results, t, Finimizers);
             auto start = std::chrono::high_resolution_clock::now();
-            for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
+            for (auto idx = 0; idx < results.size(); idx++)
+            {
+                const auto &count = results[idx];
+                if (count >= min_value)
+                {
+                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    write_out(" ", 1, out, output_buffer, flush_t);
+                }
+            }
+            /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
             {
                 const auto &[idx, count] = ans[a];
-                if (count < min_value)
+                if (count >= min_value)
                 {
-                    break;
+                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    write_out(" ", 1, out, output_buffer, flush_t);
                 }
-
-                
-                uint16_t idx_len = fast_int_to_string(idx, int_buf);
-                write_out(int_buf, idx_len, out, output_buffer, flush_t);
-                write_out(":", 1, out, output_buffer, flush_t);
-
-                uint16_t cnt_len = fast_int_to_string(count, int_buf);
-                write_out(int_buf, cnt_len, out, output_buffer, flush_t);
-                write_out(" ", 1, out, output_buffer, flush_t);
-
-            }
+            } */
 
             write_out("\n", 1, out, output_buffer, flush_t);
 
@@ -118,26 +122,31 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            index.search(seq, ans, Finimizers);
+            index.search(seq, results, Finimizers);
 
             auto start = std::chrono::high_resolution_clock::now();
-            for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
+            for (auto idx = 0; idx < results.size(); idx++)
+            {
+                const auto &count = results[idx];
+                if (count >= 0)
+                {
+                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    write_out(" ", 1, out, output_buffer, flush_t);
+                }
+            }
+
+            /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
             {
 
                 const auto &[idx, count] = ans[a];
-                if (count == 0)
+                if (count >= 0)
                 {
-                    break;
+                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    write_out(" ", 1, out, output_buffer, flush_t);
                 }
-
-                uint16_t idx_len = fast_int_to_string(idx, int_buf);
-                write_out(int_buf, idx_len, out, output_buffer, flush_t);
-                write_out(":", 1, out, output_buffer, flush_t);
-
-                uint16_t cnt_len = fast_int_to_string(count, int_buf);
-                write_out(int_buf, cnt_len, out, output_buffer, flush_t);
-                write_out(" ", 1, out, output_buffer, flush_t);
-            }
+            } */
 
             write_out("\n", 1, out, output_buffer, flush_t);
 
@@ -148,7 +157,6 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     }
     auto start = std::chrono::high_resolution_clock::now();
 
-
     if (!output_buffer.empty())
     {
         out.write(output_buffer.data(), output_buffer.size());
@@ -157,7 +165,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     auto end = std::chrono::high_resolution_clock::now();
     time_output += (end - start);
 
-   print_search_timing_stats();
+    print_search_timing_stats();
     return 1;
 }
 
@@ -226,13 +234,7 @@ int search_fmin(int argc, char **argv)
 
     cxxopts::Options options(argv[0], "Query all Finimizers of all input reads.");
 
-    options.add_options()
-        ("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
-        ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
-        ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
-        ("t", "Threshold", cxxopts::value<float>()->default_value("0"))
-        ("h,help", "Print usage")
-    ;
+    options.add_options()("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())("i,index-file", "Index filename prefix.", cxxopts::value<string>())("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())("t", "Threshold", cxxopts::value<float>()->default_value("0"))("h,help", "Print usage");
 
     int64_t old_argc = argc; // Must store this because the parser modifies it
     auto opts = options.parse(argc, argv);
@@ -311,5 +313,4 @@ int search_fmin(int argc, char **argv)
     */
 
     return 0;
-
 }

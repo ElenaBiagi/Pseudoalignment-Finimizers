@@ -118,9 +118,9 @@ void true_or_crash(bool b, const char *error_message)
     }
 }
 
-inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<pair<uint16_t, int16_t>> &ans, const float t);
+inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t);
 
-inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<pair<uint16_t, int16_t>> &ans);
+inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results);
 
 class CompressedColoredFinimizers
 {
@@ -214,9 +214,9 @@ public:
         vector<uint8_t> real_tlen_freq;
         for (auto &f : cf.lengths_by_freq)
         {
-            if (f > 10)
+            if (f > plen)
             {
-                real_tlen_freq.push_back(f - 10);
+                real_tlen_freq.push_back(f - plen);
             } // One could modify cf.lengths_by_freq directly if no value was <= plen
         }
 
@@ -333,7 +333,7 @@ public:
         }
     }
 
-    void search(const std::string &query, vector<pair<uint16_t, int16_t>> &ans, vector<int64_t> &Finimizers) const
+    void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
     {
         const int64_t query_len = query.length();
         if (query_len < this->k)
@@ -353,14 +353,14 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans);
+            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string &query, vector<pair<uint16_t, int16_t>> &ans, const float t, vector<int64_t> &Finimizers) const
+    uint16_t search(const std::string &query, vector<int16_t> &results, const float t, vector<int64_t> &Finimizers) const
     {
 
         const int64_t query_len = query.length();
@@ -383,7 +383,7 @@ public:
         {
             auto start = std::chrono::high_resolution_clock::now();
             // min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-            T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, ans, t);
+            T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
 
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
@@ -419,6 +419,11 @@ public:
         }
 
         // sB
+        /* bool has_sB = !sB.empty();
+        out.write(reinterpret_cast<const char *>(&has_sB), sizeof(has_sB));
+
+        if (has_sB)
+        { */
         size_t map_size = sB.size();
         out.write(reinterpret_cast<const char *>(&map_size), sizeof(map_size));
         for (const auto &[key, val] : sB)
@@ -427,6 +432,7 @@ public:
             out.write(reinterpret_cast<const char *>(&val.first), sizeof(uint8_t));
             out.write(reinterpret_cast<const char *>(&val.second), sizeof(int64_t));
         }
+        //}
 
         // metadata
         out.write(reinterpret_cast<const char *>(&n_colors), sizeof(n_colors));
@@ -472,6 +478,12 @@ public:
         }
 
         // sB
+        /* bool has_sB = false;
+        in.read(reinterpret_cast<char *>(&has_sB), sizeof(has_sB));
+
+        sB.clear();
+        if (has_sB)
+        { */
         size_t map_size;
         in.read(reinterpret_cast<char *>(&map_size), sizeof(map_size));
         sB.clear();
@@ -484,10 +496,11 @@ public:
             in.read(reinterpret_cast<char *>(&val.second), sizeof(int64_t));
             sB[key] = val;
         }
+        //}
 
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
-        in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers));
+        in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers)); // TODO do we need this?
         in.read(reinterpret_cast<char *>(&plen), sizeof(plen));
         in.read(reinterpret_cast<char *>(&k), sizeof(k));
 
@@ -686,15 +699,17 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
     }
 }
 
-inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<pair<uint16_t, int16_t>> &ans)
+inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results)
 {
-    vector<int16_t> results(n_colors, 0);
+    // vector<int16_t> results(n_colors, 0);
     /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);
     } else {
         std::fill(results.begin(), results.end(), 0);
     }
  */
+    std::fill(results.begin(), results.end(), 0);
+
     std::sort(Fmin.begin(), Fmin.end());
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
@@ -727,23 +742,25 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
     }
     const size_t found_fmin = Fmin.size(); // # total finimizers
     // Sort results so that the output is sorted
-    counting_sort(results, ans, found_fmin, n_colors);
+    // counting_sort(results, ans, found_fmin, n_colors);
     return;
 }
 
-inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<pair<uint16_t, int16_t>> &ans, const float t)
+inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t)
 { // vector<uint64_t>& results,
     if (Fmin.empty())
     {
         return 1;
     } // not 0 as everything wuold be >=
 
-    vector<int16_t> results(n_colors, 0);
+    // vector<int16_t> results(n_colors, 0);
     /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);
     } else {
         std::fill(results.begin(), results.end(), 0);
     } */
+
+    std::fill(results.begin(), results.end(), 0);
 
     std::sort(Fmin.begin(), Fmin.end());
     vector<pair<int64_t, uint64_t>> fmin_v;
@@ -781,7 +798,8 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
 
     // adjust T
     T -= dense;
-    // Sort results so that the output is sorted
-    counting_sort(results, ans, found_fmin, n_colors);
+    // for (auto& r :results){ r+= dense;}
+    //  Sort results so that the output is sorted
+    // counting_sort(results, ans, found_fmin, n_colors);
     return T;
 }
