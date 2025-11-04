@@ -6,6 +6,7 @@
 #include "globals.hh"
 #include "build_fmin.hh"
 #include "search_fmin.hh"
+#include "get_stats_fmin.hh"
 
 using namespace std;
 
@@ -41,6 +42,7 @@ int main(int argc, char** argv){
     try{
         if(command == "build-fmin") {return build_fmin(argc, argv);}
         else if(command == "search-fmin") {return search_fmin(argc, argv);}
+        else if(command == "stats-fmin") {return get_stats_fmin(argc, argv);}
         else{
             throw std::runtime_error("Invalid command: " + command);
             return 1;

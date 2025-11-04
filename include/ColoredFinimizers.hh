@@ -133,7 +133,9 @@ private:
 public:
     CompressedColorSets CCS; // L, EF, BV
 
-    vector<optional<Bucket>> buckets;
+    vector<Bucket> non_empty_buckets;
+    sdsl::bit_vector non_empty_bv;
+    sdsl::rank_support_v5<1> non_empty_bv_rs;           // try _v only ?
     unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
     uint64_t n_colors;
     uint64_t n_finimizers;
@@ -147,14 +149,14 @@ public:
     CompressedColoredFinimizers(ColoredFinimizers &&cf, int64_t prefix_len, uint64_t kmer_size)
     {
         cerr << "Let's compress it!" << endl;
-        plen = prefix_len;
+        this->plen = prefix_len;
         cerr << "prefix length: " << plen << endl;
-        k = kmer_size;
+        this->k = kmer_size;
         cerr << "k-mer size: " << k << endl;
 
         uint64_t n_buckets = (1ULL << (prefix_len * 2));
-        buckets.resize(n_buckets);
         cerr << "total buckets: " << (int)n_buckets << endl;
+        this->non_empty_bv = sdsl::int_vector<1>(n_buckets, 0);
 
         n_finimizers = cf.lengths.size();
         cerr << "total finimizers: " << (int)n_finimizers << endl;
@@ -211,6 +213,8 @@ public:
         this->CCS = std::move(CCS);
 
         cerr << "Deal with tails" << endl;
+        vector<optional<Bucket>> buckets(n_buckets);
+
         vector<uint8_t> real_tlen_freq;
         for (auto &f : cf.lengths_by_freq)
         {
@@ -235,7 +239,7 @@ public:
 
         std::string_view cur_prefix(cf.concat.data() + f_start, plen);
         vector<std::string_view> cur_tails;
-        vector<uint32_t> cur_color_set_ids;
+        vector<uint64_t> cur_color_set_ids;
 
         uint64_t p_int = prefix2int(cur_prefix, 0, plen);
 
@@ -258,6 +262,7 @@ public:
                 if (prefix != cur_prefix)
                 {
                     // Bucket changes -> encode currently collected tails
+                    non_empty_bv[p_int] = 1; // mark non-empty buckets
                     buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
                     p_int = prefix2int(prefix, 0, plen);
                     cur_tails.clear();
@@ -271,9 +276,34 @@ public:
         }
 
         if (!cur_tails.empty())
-        { // Last bucket
+        {                            // Last bucket
+            non_empty_bv[p_int] = 1; // mark non-empty buckets
             buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
         }
+
+        // CHECK the density of non-empty buckets
+        // read the number of ones
+        // select_support_mcl non_empty_bv_ss(&non_empty_bv);
+
+        sdsl::util::init_support(non_empty_bv_rs, &non_empty_bv);
+
+        auto n_full_buckets = non_empty_bv_rs(non_empty_bv.size());
+        cerr << "Full buckets: " << n_full_buckets << endl;
+        size_t marked = sdsl::util::cnt_one_bits(non_empty_bv);
+        cerr << "Full buckets: " << marked << endl;
+
+        non_empty_buckets.reserve(n_full_buckets);
+
+        // read bv
+        for (auto &opt_bucket : buckets)
+        {
+            if (opt_bucket)
+            {
+                non_empty_buckets.emplace_back(std::move(*opt_bucket)); // avoid a copy
+            }
+        }
+        cerr << "Marked " << marked << " non-empty buckets out of " << n_buckets << endl;
+        cerr << "Non-empty buckets vector size: " << non_empty_buckets.size() << endl;
     }
 
     void read_colors_to_bv(const uint64_t *data, const uint64_t n_colors, const uint64_t start, sdsl::bit_vector &bv)
@@ -345,7 +375,7 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
@@ -373,7 +403,7 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->buckets, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
@@ -405,18 +435,17 @@ public:
 
         CCS.serialize(out);
 
-        // buckets
-        size_t num_buckets = buckets.size();
+        // non_empty_buckets
+        size_t num_buckets = non_empty_buckets.size();
         out.write(reinterpret_cast<const char *>(&num_buckets), sizeof(num_buckets));
-        for (const auto &bucket_opt : buckets)
+        for (const auto &bucket : non_empty_buckets)
         {
-            bool present = bucket_opt.has_value();
-            out.write(reinterpret_cast<const char *>(&present), sizeof(present));
-            if (present)
-            {
-                bucket_opt->serialize(out);
-            }
+            bucket.serialize(out);
         }
+        cerr << non_empty_buckets.size() << endl;
+
+        // non_empty_bv
+        non_empty_bv.serialize(out);
 
         // sB
         /* bool has_sB = !sB.empty();
@@ -457,25 +486,19 @@ public:
 
         CCS.load(in);
 
-        // buckets
+        // non_empty_buckets
         size_t num_buckets;
         in.read(reinterpret_cast<char *>(&num_buckets), sizeof(num_buckets));
-        buckets.resize(num_buckets);
+        non_empty_buckets.resize(num_buckets);
         for (size_t i = 0; i < num_buckets; ++i)
         {
-            bool present;
-            in.read(reinterpret_cast<char *>(&present), sizeof(present));
-            if (present)
-            {
-                Bucket bucket;
-                bucket.load(in);
-                buckets[i] = bucket;
-            }
-            else
-            {
-                buckets[i] = std::nullopt;
-            }
+            non_empty_buckets[i].load(in);
         }
+        cerr << "non_empty_buckets: " << non_empty_buckets.size() << endl;
+
+        // non_empty_bv
+        non_empty_bv.load(in);
+        sdsl::util::init_support(non_empty_bv_rs, &non_empty_bv); // build tables
 
         // sB
         /* bool has_sB = false;
