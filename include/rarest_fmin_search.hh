@@ -103,9 +103,8 @@ inline void FindPrefix(const Bucket &bucket_p, const uint64_t plen, const uint8_
 }
 
 // The query is shorter than (k - plen)
-inline void FindPrefix_short(const vector<optional<Bucket>> &buckets, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+inline void FindPrefix_short(const Bucket &bucket_p, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
 {
-    const Bucket &bucket_p = *buckets[int_p];
     auto [pos, len] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);
     if (pos > -1)
     {
@@ -268,7 +267,7 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         {
             // 1. prefix found
             const Bucket &correct_bucket = buckets[correct_bucket_idx - 1];
-            FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            FindPrefix_short(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
         else
         {

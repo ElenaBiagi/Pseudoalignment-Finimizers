@@ -213,7 +213,6 @@ public:
         this->CCS = std::move(CCS);
 
         cerr << "Deal with tails" << endl;
-        vector<optional<Bucket>> buckets(n_buckets);
 
         vector<uint8_t> real_tlen_freq;
         for (auto &f : cf.lengths_by_freq)
@@ -263,7 +262,7 @@ public:
                 {
                     // Bucket changes -> encode currently collected tails
                     non_empty_bv[p_int] = 1; // mark non-empty buckets
-                    buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
+                    non_empty_buckets.push_back(Bucket(cur_tails, cur_color_set_ids, real_tlen_freq));
                     p_int = prefix2int(prefix, 0, plen);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
@@ -278,32 +277,12 @@ public:
         if (!cur_tails.empty())
         {                            // Last bucket
             non_empty_bv[p_int] = 1; // mark non-empty buckets
-            buckets[p_int] = Bucket(cur_tails, cur_color_set_ids, real_tlen_freq);
+            non_empty_buckets.push_back(Bucket(cur_tails, cur_color_set_ids, real_tlen_freq));
         }
 
-        // CHECK the density of non-empty buckets
-        // read the number of ones
-        // select_support_mcl non_empty_bv_ss(&non_empty_bv);
-
-        sdsl::util::init_support(non_empty_bv_rs, &non_empty_bv);
-
-        auto n_full_buckets = non_empty_bv_rs(non_empty_bv.size());
-        cerr << "Full buckets: " << n_full_buckets << endl;
+        // Check the density of non-empty buckets
         size_t marked = sdsl::util::cnt_one_bits(non_empty_bv);
-        cerr << "Full buckets: " << marked << endl;
-
-        non_empty_buckets.reserve(n_full_buckets);
-
-        // read bv
-        for (auto &opt_bucket : buckets)
-        {
-            if (opt_bucket)
-            {
-                non_empty_buckets.emplace_back(std::move(*opt_bucket)); // avoid a copy
-            }
-        }
         cerr << "Marked " << marked << " non-empty buckets out of " << n_buckets << endl;
-        cerr << "Non-empty buckets vector size: " << non_empty_buckets.size() << endl;
     }
 
     void read_colors_to_bv(const uint64_t *data, const uint64_t n_colors, const uint64_t start, sdsl::bit_vector &bv)
