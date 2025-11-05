@@ -130,6 +130,16 @@ private:
 
     vector<uint64_t> color_set_ids;
 
+    std::unordered_map<int, int> tlen_rank_map;
+
+    void set_tlen_order(const std::vector<uint8_t> &ordered_tlens)
+    {
+        for (size_t i = 0; i < ordered_tlens.size(); ++i)
+        {
+            tlen_rank_map[ordered_tlens[i]] = static_cast<int>(i);
+        }
+    }
+
 public:
     CompressedColorSets CCS; // L, EF, BV
 
@@ -244,6 +254,7 @@ public:
 
         f_start = 0; // Go back to zero
 
+        non_empty_buckets.reserve(n_buckets);
         for (int64_t i = 0; i < n_finimizers; i++)
         {
             if (cf.lengths[i] < plen)
@@ -262,7 +273,7 @@ public:
                 {
                     // Bucket changes -> encode currently collected tails
                     non_empty_bv[p_int] = 1; // mark non-empty buckets
-                    non_empty_buckets.push_back(Bucket(cur_tails, cur_color_set_ids, real_tlen_freq));
+                    non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
                     p_int = prefix2int(prefix, 0, plen);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
@@ -277,8 +288,9 @@ public:
         if (!cur_tails.empty())
         {                            // Last bucket
             non_empty_bv[p_int] = 1; // mark non-empty buckets
-            non_empty_buckets.push_back(Bucket(cur_tails, cur_color_set_ids, real_tlen_freq));
+            non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
         }
+        non_empty_buckets.shrink_to_fit();
 
         // Check the density of non-empty buckets
         size_t marked = sdsl::util::cnt_one_bits(non_empty_bv);
@@ -473,7 +485,6 @@ public:
         {
             non_empty_buckets[i].load(in);
         }
-        cerr << "non_empty_buckets: " << non_empty_buckets.size() << endl;
 
         // non_empty_bv
         non_empty_bv.load(in);

@@ -11,17 +11,6 @@ class Bucket
 public:
     Bucket() = default; // TODO store nullptr for missing values instead of optional
 
-    std::unordered_map<int, int> tlen_rank_map;
-
-    void set_tlen_order(const std::vector<uint8_t> &ordered_tlens)
-    {
-        tlen_rank_map.clear();
-        for (size_t i = 0; i < ordered_tlens.size(); ++i)
-        {
-            tlen_rank_map[ordered_tlens[i]] = static_cast<int>(i);
-        }
-    }
-
     // Compressed tail data
     // tail length = tlen
     // Bit layout for evry prefix:  [tlen: 5bits][#tails: vbyte][concat of bitpacked tails: #tails * tlen * 2]
@@ -33,7 +22,7 @@ public:
     // Color set ids for each tail
     vector<uint64_t> color_set_ids;
 
-    Bucket(vector<std::string_view> &tails, vector<uint64_t> &unsorted_color_set_ids, vector<uint8_t> &tlen_freq)
+    Bucket(const vector<std::string_view> &tails, const vector<uint64_t> &unsorted_color_set_ids, std::unordered_map<int, int> &tlen_rank_map)
     {
 
         if (tails.size() == 1)
@@ -59,12 +48,11 @@ public:
             ct.color_set_id = unsorted_color_set_ids[i];
             B_tails.push_back(ct);
         }
-        set_tlen_order(tlen_freq);
 
         // This permutes also the color_set_ids (later)
         // std::sort(B_tails.begin(), B_tails.end());
         // Sort using lambda comparator with tlen_rank_map
-        std::sort(B_tails.begin(), B_tails.end(), [this](const Compact_tails &a, const Compact_tails &b)
+        std::sort(B_tails.begin(), B_tails.end(), [&tlen_rank_map](const Compact_tails &a, const Compact_tails &b)
                   {
             int rank_a = tlen_rank_map.count(a.tlen) ? tlen_rank_map[a.tlen] : INT_MAX;
             int rank_b = tlen_rank_map.count(b.tlen) ? tlen_rank_map[b.tlen] : INT_MAX;
@@ -179,10 +167,6 @@ public:
     {
         // tail_data
         sdsl::load(tail_data, in);
-        if (tail_data.size() == 0)
-        {
-            std::cerr << "[ERROR] Bucket::load loaded tail_data.size()==0; file likely corrupted\n";
-        }
 
         // color_set_ids
         size_t num_ids;
