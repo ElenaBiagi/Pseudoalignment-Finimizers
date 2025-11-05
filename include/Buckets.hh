@@ -32,7 +32,9 @@ public:
             { // if tlen is not 0, just act normally
                 tail_data.resize(5);
                 uint64_t *data = tail_data.data();
+                color_set_ids.reserve(1);
                 color_set_ids.push_back(unsorted_color_set_ids[0]); // only one color id so nothing changed
+                color_set_ids.shrink_to_fit();
                 sdsl::bits::write_int(&data[0], 0, 0, 5);
                 return;
             }
@@ -149,6 +151,7 @@ public:
             sdsl::bits::write_int(&data[word_index], B_tails[i].int_tail, w_offset, tlen * 2);
             offset += (2 * tlen);
         }
+        color_set_ids.shrink_to_fit();
         return;
     }
 

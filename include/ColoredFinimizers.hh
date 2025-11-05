@@ -366,7 +366,7 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
@@ -394,7 +394,7 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
