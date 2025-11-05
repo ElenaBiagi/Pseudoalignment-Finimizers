@@ -175,7 +175,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
     }
 }
 
-void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::rank_support_v5<1> &buckets_rs, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin)
+void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::int_vector<1> &buckets_bv, const sdsl::rank_support_v5<1> &buckets_rs, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin)
 {
     const int64_t str_len = input.size();
 
@@ -192,11 +192,10 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
     uint64_t int_sp;
 
     // Check the first characters
-    auto correct_bucket_idx = buckets_rs.rank(int_p + 1);
-    if (buckets_rs.rank(int_p) < correct_bucket_idx)
+    if (buckets_bv[int_p])
     {
         // 1. prefix found
-        const Bucket &correct_bucket = buckets[correct_bucket_idx - 1];                                                             // 0 indexed
+        const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];                                                     // 0 indexed
         FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
     }
     else
@@ -215,12 +214,11 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
         s_len = (str_len >= start + k) ? k - plen : str_len - start - plen;
         int_s = prefix2int(input, start + plen, s_len);
-        ; // tail
-        auto correct_bucket_idx = buckets_rs.rank(int_p + 1);
-        if (buckets_rs.rank(int_p) < correct_bucket_idx)
+
+        if (buckets_bv[int_p])
         {
             // 1. prefix found
-            const Bucket &correct_bucket = buckets[correct_bucket_idx - 1];
+            const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
             FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
         else
@@ -238,11 +236,10 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         // extract the LONGEST possible tail starting from start+plen. it will be shortened by bitMagicSearch depending on tlen
         int_s = stream_kmer(int_s, input[start + plen + s_len - 1], s_len);
 
-        auto correct_bucket_idx = buckets_rs.rank(int_p + 1);
-        if (buckets_rs.rank(int_p) < correct_bucket_idx)
+        if (buckets_bv[int_p])
         {
             // 1. prefix found
-            const Bucket &correct_bucket = buckets[correct_bucket_idx - 1];
+            const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
             FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
         else
@@ -262,11 +259,10 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         s_len = str_len - start - plen;
         int_s &= ((1ULL << (2 * s_len)) - 1); // Shorten int_s by 2 at the beginning
 
-        auto correct_bucket_idx = buckets_rs.rank(int_p + 1);
-        if (buckets_rs.rank(int_p) < correct_bucket_idx)
+        if (buckets_bv[int_p])
         {
             // 1. prefix found
-            const Bucket &correct_bucket = buckets[correct_bucket_idx - 1];
+            const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
             FindPrefix_short(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
         else
