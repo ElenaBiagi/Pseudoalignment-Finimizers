@@ -62,20 +62,50 @@ public:
         concat.resize(finimizer_total_length);
         in.read(reinterpret_cast<char *>(concat.data()), finimizer_total_length * sizeof(char));
 
-        int64_t n_bits = n_finimizers * n_colors;
-        // The bits are in u64 Lsb format
-        vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
-        in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
-        color_sets_concat.resize(n_bits);
-        for (int64_t i = 0; i < words.size(); i++)
-        {
-            color_sets_concat.set_int(i * 64, words[i]);
+        uint8_t is_sparse = 0;
+        in.read(reinterpret_cast<char *>(&is_sparse), sizeof(is_sparse));
+
+        if(is_sparse) { // Sparse sets = lists of integers
+            uint64_t n_elements = 0;
+            in.read(reinterpret_cast<char *>(&n_elements), sizeof(n_elements));
+
+            uint64_t n_sets = 0;
+            in.read(reinterpret_cast<char *>(&n_sets), sizeof(n_sets));
+
+            cerr << "Loading " << n_sets << " sparse color sets with total length " << n_elements << endl;
+
+            vector<uint64_t> color_set_concat(n_elements);
+            in.read(reinterpret_cast<char *>(color_set_concat.data()), n_elements * sizeof(uint64_t));
+
+            vector<uint64_t> ends(n_sets);
+            in.read(reinterpret_cast<char *>(ends.data()), n_sets * sizeof(uint64_t));
+
+            cerr << "Color sets loaded" << endl;
+
+            // ELENA: here we have the color_set_concat and the ending positions of each set.
+            // From here you need to put the sets into your color set representation.
+            throw std::runtime_error("Unimplemented");
+
+        } else { // Dense sets (= bitmaps)
+            int64_t n_bits = n_finimizers * n_colors;
+            // The bits are in u64 Lsb format
+            vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
+            in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
+            color_sets_concat.resize(n_bits);
+            for (int64_t i = 0; i < words.size(); i++)
+            {
+                color_sets_concat.set_int(i * 64, words[i]);
+            }
         }
 
+
+        // What are these?
+        /*
         uint64_t lengths_by_freq_size;
         in.read(reinterpret_cast<char *>(&lengths_by_freq_size), sizeof(lengths_by_freq_size));
         lengths_by_freq.resize(lengths_by_freq_size);
         in.read(reinterpret_cast<char *>(lengths_by_freq.data()), lengths_by_freq_size * sizeof(uint8_t));
+        */
 
         cerr << "Reversing finimizer strings" << endl;
         int64_t start_in_concat = 0;
