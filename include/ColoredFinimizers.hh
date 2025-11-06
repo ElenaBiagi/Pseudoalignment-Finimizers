@@ -41,6 +41,10 @@ public:
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors.
     vector<uint8_t> lengths_by_freq;
 
+    uint8_t is_sparse;
+    vector<uint64_t> color_set_concat_v;
+    vector<uint64_t> ends;
+
     // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
     // That format has colexicographically sorted reverse finimizers. We reverse them to
     // get lex-sorted finimizers.
@@ -62,14 +66,41 @@ public:
         concat.resize(finimizer_total_length);
         in.read(reinterpret_cast<char *>(concat.data()), finimizer_total_length * sizeof(char));
 
-        int64_t n_bits = n_finimizers * n_colors;
-        // The bits are in u64 Lsb format
-        vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
-        in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
-        color_sets_concat.resize(n_bits);
-        for (int64_t i = 0; i < words.size(); i++)
-        {
-            color_sets_concat.set_int(i * 64, words[i]);
+        in.read(reinterpret_cast<char *>(&is_sparse), sizeof(is_sparse));
+
+        if (is_sparse)
+        { // Sparse sets = lists of integers
+            uint64_t n_elements = 0;
+            in.read(reinterpret_cast<char *>(&n_elements), sizeof(n_elements));
+
+            uint64_t n_sets = 0;
+            in.read(reinterpret_cast<char *>(&n_sets), sizeof(n_sets));
+
+            cerr << "Loading " << n_sets << " sparse color sets with total length " << n_elements << endl;
+
+            color_set_concat_v.resize(n_elements);
+            in.read(reinterpret_cast<char *>(color_set_concat_v.data()), n_elements * sizeof(uint64_t));
+
+            // exclusive endpoints
+            ends.resize(n_sets);
+            in.read(reinterpret_cast<char *>(ends.data()), n_sets * sizeof(uint64_t));
+
+            // Add a 0
+            // ends.emplace(ends.begin(), 0);
+            cerr << "Color sets loaded" << endl;
+            // throw std::runtime_error("Unimplemented");
+        }
+        else
+        { // Dense sets (= bitmaps)
+            int64_t n_bits = n_finimizers * n_colors;
+            // The bits are in u64 Lsb format
+            vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
+            in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
+            color_sets_concat.resize(n_bits);
+            for (int64_t i = 0; i < words.size(); i++)
+            {
+                color_sets_concat.set_int(i * 64, words[i]);
+            }
         }
 
         uint64_t lengths_by_freq_size;
@@ -172,52 +203,98 @@ public:
         cerr << "total finimizers: " << (int)n_finimizers << endl;
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
 
-        true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
-        n_colors = cf.color_sets_concat.size() / n_finimizers;
-        cerr << "n_colors: " << (int)n_colors << endl;
-        cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
-
-        cerr << "Deduplicate color sets" << endl;
-        const uint64_t *data = cf.color_sets_concat.data();
-        sdsl::bit_vector bv(n_colors);
-
-        unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual> deduplicated_cs;
-
-        for (size_t i = 0; i < n_finimizers; ++i)
+        if (cf.is_sparse)
         {
-            read_colors_to_bv(data, n_colors, i, bv);
 
-            auto it = deduplicated_cs.find(bv);
-            if (it == deduplicated_cs.end())
+            // is the number of colors written somewhere?
+            n_colors = *std::max_element(cf.color_set_concat_v.begin(), cf.color_set_concat_v.end()) + 1;
+            cerr << "n_colors: " << (int)n_colors << endl;
+
+            cerr << "Deduplicate color sets" << endl;
+
+            unordered_map<vector<uint64_t>, vector<size_t>, VectorHash> deduplicated_cs_sparse;
+            uint64_t s = 0;
+            uint64_t e = 0;
+
+            for (size_t i = 0; i < n_finimizers; ++i)
             {
-                // First time seeing this color set
-                deduplicated_cs.emplace(bv, vector<size_t>{i});
+                e = cf.ends[i + 1]; // we added a zero at the beginning of end
+                // read colors to list
+                vector<uint64_t> colorset_v;
+                while (s < e)
+                {
+                    colorset_v.push_back(cf.color_set_concat_v[s]);
+                    s++;
+                }
+
+                auto it = deduplicated_cs_sparse.find(colorset_v);
+                if (it == deduplicated_cs_sparse.end())
+                {
+                    // First time seeing this color set
+                    deduplicated_cs_sparse.emplace(colorset_v, vector<size_t>{i});
+                }
+                else
+                {
+                    // Already seen
+                    it->second.push_back(i);
+                }
             }
-            else
-            {
-                // Already seen
-                it->second.push_back(i);
-            }
+            cerr << "Unique color sets: " << cf.ends.size() << endl;
+
+            this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length TODO CHECK THIS ???
+            CompressedColorSets CCS(deduplicated_cs_sparse, n_colors, this->color_set_ids);
         }
 
-        cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
-
-        // Flatten into a single sdsl::bit_vector (unique_color_sets)
-        unique_color_sets = sdsl::bit_vector(deduplicated_cs.size() * n_colors);
-        uint64_t new_offset = 0;
-
-        for (auto &kv : deduplicated_cs)
+        else
         {
-            const sdsl::bit_vector &ucs = kv.first;
-            for (size_t j = 0; j < n_colors; ++j)
-            {
-                unique_color_sets[new_offset + j] = ucs[j];
-            }
-            new_offset += n_colors;
-        }
 
-        this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
-        CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
+            true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
+            n_colors = cf.color_sets_concat.size() / n_finimizers;
+            cerr << "n_colors: " << (int)n_colors << endl;
+            cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
+
+            cerr << "Deduplicate color sets" << endl;
+            const uint64_t *data = cf.color_sets_concat.data();
+            sdsl::bit_vector bv(n_colors);
+
+            unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual> deduplicated_cs;
+
+            for (size_t i = 0; i < n_finimizers; ++i)
+            {
+                read_colors_to_bv(data, n_colors, i, bv);
+
+                auto it = deduplicated_cs.find(bv);
+                if (it == deduplicated_cs.end())
+                {
+                    // First time seeing this color set
+                    deduplicated_cs.emplace(bv, vector<size_t>{i});
+                }
+                else
+                {
+                    // Already seen
+                    it->second.push_back(i);
+                }
+            }
+
+            cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
+
+            // Flatten into a single sdsl::bit_vector (unique_color_sets)
+            unique_color_sets = sdsl::bit_vector(deduplicated_cs.size() * n_colors);
+            uint64_t new_offset = 0;
+
+            for (auto &kv : deduplicated_cs)
+            {
+                const sdsl::bit_vector &ucs = kv.first;
+                for (size_t j = 0; j < n_colors; ++j)
+                {
+                    unique_color_sets[new_offset + j] = ucs[j];
+                }
+                new_offset += n_colors;
+            }
+
+            this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length TODO CHECK THIS ???
+            CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
+        }
 
         // Assign to final structure
         this->CCS = std::move(CCS);
