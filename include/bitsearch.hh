@@ -148,6 +148,34 @@ static constexpr uint64_t tails[] = {
    return first_w | second_w;
 }
 
+inline uint64_t extract_tail(const uint64_t *data, const int64_t bit_offset, const uint8_t W)
+{
+   const uint64_t w = read_unaligned_64bits(data, bit_offset);
+   const uint64_t mask = (1ULL << W) - 1;
+   return w & mask;
+}
+
+inline int64_t Tails_binary_search(const uint64_t *data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails)
+{
+   // BINARY SEARCH
+   int64_t k = 0;
+   // offset == where the tails start
+   // offset + W = where the 2nd tail (at index 1) starts
+   // offset + (b * W) = where the b-th (+1, index 0) tail starts
+   for (int64_t b = ntails / 2; b >= 1; b /= 2)
+   {
+      while (k + b < ntails && extract_tail(data, offset + ((k + b) * W), W) <= key)
+         k += b;
+   }
+   if (k < ntails && extract_tail(data, offset + (k * W), W) == key)
+   {
+      // x found at index k
+      return k;
+   }
+   return -1;
+}
+
+
 inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
 
@@ -230,7 +258,16 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
       uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
          
       // 4. Look for substring where the tails of that length start 
-      int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+      int64_t res = -1;
+      if (ntails > 50 && tlen > 3)
+      { // TODO select a proper tail lenght and tail number
+         // BINARY SEARCH
+         res = Tails_binary_search(data, pos, tlen * 2, key, ntails); // bitwise operations
+      }
+      else
+      {
+         res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+      }
       if (res!=-1) {
          // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
          return {res+tails_so_far, tlen};
@@ -286,7 +323,16 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
          uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
          
          // 4. Look for substring where the tails of that length start 
-         int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+          int64_t res = -1;
+      if (ntails > 50 && tlen > 3)
+      { // TODO select a proper tail lenght and tail number
+         // BINARY SEARCH
+         res = Tails_binary_search(data, pos, tlen * 2, key, ntails); // bitwise operations
+      }
+      else
+      {
+         res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+      }
          if (res!=-1) {
             // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
             return {res+tails_so_far, tlen};
