@@ -209,40 +209,8 @@ inline int64_t Tails_binary_search(const uint64_t* data, const int64_t offset, c
       // x found at index k
       return k;
    }
-}
-
-inline int64_t SearchTail_BS(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
-   const uint64_t mask2 = masks23[(W/2)-1][0];
-   const uint64_t mask3 = masks23[(W/2)-1][1];
-   const uint64_t mask = mask2*key; //~0ULL/255 * key;
-
-   const uint64_t tails_per_word = std::min<uint64_t>(tails[(W/2)-1], ntails);
-
-   uint64_t j = 0;
-   for (uint64_t i  = 0; i < ntails; i+=tails_per_word) {
-      const size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
-      const uint64_t w = read_unaligned_64bits(data, bit_offset);
-
-      uint64_t tails_in_this_group = tails_per_word - ((i + tails_per_word - ntails) * (((ntails - i) / tails_per_word) == 0));
-
-      uint64_t bits_used = tails_in_this_group * W;
-      uint64_t Wmask = (~0ULL << bits_used) & -(bits_used < 64);
-
-      uint64_t found = hasvaluesupply(w,mask,mask2, mask3, Wmask);
-      
-      if(found){
-         uint64_t lz = __builtin_clzll(found);
-         int needsCorrection = (found>>(63-lz-W))&1;
-         return (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
-      }
-      j++;
-   // 1. I'm only looking at words that start at 0 -> no need to shift masks [OK]
-   // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
-   // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
-   }
    return -1;
 }
-
 
 // output: {pos in T (to get colors), tlen}
 inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen){//, vector<uint64_t>& tailsSoFar){ // we know the width of the query
@@ -290,7 +258,7 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
       int64_t res = -1;
       if (ntails > 50 && tlen > 3){ // TODO select a proper tail lenght and tail number
          // BINARY SEARCH
-         res = SearchTail_BS(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+         res = Tails_binary_search(data, pos, tlen*2, key, ntails); // bitwise operations 
       }
       else {            
          int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
@@ -351,7 +319,7 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
          int64_t res = -1;
          if (ntails > 50 && tlen > 3){  // TODO
             // BINARY SEARCH
-            res = SearchTail_BS(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+            res = Tails_binary_search(data, pos, tlen*2, key, ntails); // bitwise operations 
          }
          else {
          // PROCEED AS BEFORE
