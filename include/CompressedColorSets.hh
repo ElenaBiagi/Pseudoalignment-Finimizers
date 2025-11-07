@@ -168,19 +168,18 @@ public:
             else
             {
                 // very dense
-
                 uint64_t x = 0;
                 for (auto &value : v)
                 {
                     while (x < value)
                     {
-                        L.push_back(static_cast<uint16_t>(x));
+                        temp_cL.push_back(static_cast<uint16_t>(x));
                         x++;
                     }
                 }
                 while (x < n_colors)
                 {
-                    L.push_back(static_cast<uint16_t>(x));
+                    temp_cL.push_back(static_cast<uint16_t>(x));
                     x++;
                 }
 
@@ -356,16 +355,20 @@ public:
         this->sparse_count = temp_EF_v.size();
 
         // concatenate EF
-        for (auto &v : temp_cEF_v)
+        if (!temp_cEF_v.empty())
         {
-            v += temp_EF_v.back();
+            for (auto &v : temp_cEF_v)
+            {
+                v += temp_EF_v.back();
+            }
+            temp_EF_v.insert(temp_EF_v.end(), temp_cEF_v.begin(), temp_cEF_v.end()); // temp_cEF_v[0] == temp_EF_v[-1]
         }
-        temp_EF_v.insert(temp_EF_v.end(), temp_cEF_v.begin(), temp_cEF_v.end()); // temp_cEF_v[0] == temp_EF_v[-1]
 
         this->dense_count = temp_EF_v.size();
 
         // concatenate L
-        L.insert(L.end(), temp_cL.begin(), temp_cL.end());
+        if (!temp_cL.empty())
+            L.insert(L.end(), temp_cL.begin(), temp_cL.end());
 
         // shift color_set_ids
         for (size_t b = 0; b < color_set_ids.size(); b++)
@@ -395,13 +398,13 @@ public:
         // uint64_t max = *std::max_element(L.begin(), L.end());
         // cerr << "Max value in L: " << max << std::endl;
 
-        float BV_sizes_averge = average(BV_sizes);
-        float L_sizes_averge = average(L_sizes);
-        float dense_sizes_averge = average(dense_sizes);
+        float BV_sizes_averge = (BV_sizes.empty()) ? 0 : average(BV_sizes);
+        float L_sizes_averge = (L_sizes.empty()) ? 0 : average(L_sizes);
+        float dense_sizes_averge = (dense_sizes.empty()) ? 0 : average(dense_sizes);
 
-        double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
-        double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
-        double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
+        double max_BV = (BV_sizes.empty()) ? 0 : *std::max_element(BV_sizes.begin(), BV_sizes.end());
+        double max_L = (L_sizes.empty()) ? 0 : *std::max_element(L_sizes.begin(), L_sizes.end());
+        double max_dense = (dense_sizes.empty()) ? 0 : *std::max_element(dense_sizes.begin(), dense_sizes.end());
 
         cerr << "BV sizes average = " << BV_sizes_averge << endl;
         cerr << "BV sizes max = " << max_BV << endl;
@@ -415,18 +418,28 @@ public:
 
     void serialize(std::ostream &out) const
     {
-
         // counts
+        cerr << "counts" << endl;
         out.write(reinterpret_cast<const char *>(&sparse_count), sizeof(sparse_count));
         out.write(reinterpret_cast<const char *>(&dense_count), sizeof(dense_count));
+
         // BV
+        cerr << "bv" << endl;
         sdsl::serialize(BV, out);
+
         // EF
+        cerr << "EF" << endl;
         EF.serialize(out);
+
         // L
+        cerr << "L" << endl;
         size_t L_size = L.size();
         out.write(reinterpret_cast<const char *>(&L_size), sizeof(L_size));
-        out.write(reinterpret_cast<const char *>(L.data()), L_size * sizeof(uint16_t));
+
+        if (L_size > 0)
+        {
+            out.write(reinterpret_cast<const char *>(L.data()), L_size * sizeof(uint16_t));
+        }
     }
 
     void load(std::istream &in)
@@ -442,7 +455,10 @@ public:
         // L
         size_t L_size = 0;
         in.read(reinterpret_cast<char *>(&L_size), sizeof(L_size));
-        L.resize(L_size);
-        in.read(reinterpret_cast<char *>(L.data()), L_size * sizeof(uint16_t));
+        if (L_size > 0)
+        {
+            L.resize(L_size);
+            in.read(reinterpret_cast<char *>(L.data()), L_size * sizeof(uint16_t));
+        }
     }
 };

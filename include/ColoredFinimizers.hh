@@ -216,37 +216,28 @@ public:
             unordered_map<vector<uint64_t>, vector<size_t>, VectorHash> deduplicated_cs_sparse;
             uint64_t s = 0;
 
-            for (size_t i = 0; i < n_finimizers; ++i)
+            for (size_t i = 0; i < n_finimizers; i++)
             {
                 uint64_t e = cf.ends[i];
                 // read colors to list
                 vector<uint64_t> colorset_v;
-                colorset_v.clear();
                 while (s < e)
                 {
                     colorset_v.push_back(cf.color_set_concat_v[s]);
                     s++;
                 }
-                /* while (i < 20)
-                {
-                    cerr << e << " { ";
-                    for (auto &cc : colorset_v)
-                    {
-                        cerr << cc << " ";
-                    }
-                    cerr << " }" << endl;
-                } */
-                auto it = deduplicated_cs_sparse.find(colorset_v);
-                if (it == deduplicated_cs_sparse.end())
-                {
-                    // First time seeing this color set
-                    deduplicated_cs_sparse.emplace(colorset_v, vector<size_t>{i});
-                }
+                colorset_v.shrink_to_fit();
+                // auto it = deduplicated_cs_sparse.find(colorset_v);
+                // if (it == deduplicated_cs_sparse.end())
+                //{
+                //  First time seeing this color set
+                deduplicated_cs_sparse.emplace(colorset_v, vector<size_t>{i});
+                /* }
                 else
                 {
                     // Already seen
                     it->second.push_back(i);
-                }
+                } */
             }
             cerr << "Unique color sets: " << cf.ends.size() << endl;
 

@@ -58,13 +58,32 @@ public:
    }
 
    void serialize(std::ostream& out) const {
+    
+        if (_period == 0)
+        throw std::runtime_error("EF::serialize(): invalid period (0)");
+
         out.write(reinterpret_cast<const char*>(&_n), sizeof(_n));
         out.write(reinterpret_cast<const char*>(&_period), sizeof(_period));
 
-        out.write(reinterpret_cast<const char*>(_prefix_sums.data()), ((_n / _period)+1) * sizeof(uint64_t));
+        const size_t prefix_count = (_n / _period) + 1;
+        if (_prefix_sums.size() < prefix_count) {
+            throw std::runtime_error("EF::serialize(): prefix_sums smaller than expected");
+        }
 
-        out.write(reinterpret_cast<const char*>(_diffs.data()), static_cast<size_t>(_n) * sizeof(uint16_t));
-    }
+        if (prefix_count > 0 && !_prefix_sums.empty()) {
+            out.write(reinterpret_cast<const char*>(_prefix_sums.data()),
+                    prefix_count * sizeof(uint64_t));
+        }
+
+        if (_diffs.size() < _n) {
+            throw std::runtime_error("EF::serialize(): diffs smaller than expected");
+        }
+
+        if (_n > 0 && !_diffs.empty()) {
+            out.write(reinterpret_cast<const char*>(_diffs.data()),
+                    static_cast<size_t>(_n) * sizeof(uint16_t));
+        }
+}
 
     void load(std::istream& in) {
         in.read(reinterpret_cast<char*>(&_n), sizeof(_n));
