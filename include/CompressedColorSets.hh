@@ -90,6 +90,7 @@ public:
     CompressedColorSets() = default;
 
     CompressedColorSets(const unordered_map<vector<uint64_t>, vector<size_t>, VectorHash> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
+    //CompressedColorSets(const vector<pair<vector<uint64_t>, vector<size_t>>> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
     {
 
         vector<float> BV_sizes;

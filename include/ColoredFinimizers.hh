@@ -176,7 +176,7 @@ public:
     CompressedColorSets CCS; // L, EF, BV
 
     vector<Bucket> non_empty_buckets;
-    sdsl::bit_vector non_empty_bv;
+    sdsl::int_vector<1> non_empty_bv;
     sdsl::rank_support_v5<1> non_empty_bv_rs;           // try _v only ?
     unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
     uint64_t n_colors;
@@ -309,6 +309,8 @@ public:
                 real_tlen_freq.push_back(f - plen);
             } // One could modify cf.lengths_by_freq directly if no value was <= plen
         }
+
+        set_tlen_order(real_tlen_freq); // sort the tails
 
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
