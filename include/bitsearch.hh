@@ -148,6 +148,7 @@ static constexpr uint64_t tails[] = {
    return first_w | second_w;
 }
 
+// TODO T is useless
 inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
    // input T, offset at which the true tails start, W(tlen), key, #tails 
 
@@ -155,6 +156,62 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t* data, co
    // Look at tlen*ntail*2 bits
    // Mask all the bits after that
 
+   const uint64_t mask2 = masks23[(W/2)-1][0];
+   const uint64_t mask3 = masks23[(W/2)-1][1];
+   const uint64_t mask = mask2*key; //~0ULL/255 * key;
+
+   const uint64_t tails_per_word = std::min<uint64_t>(tails[(W/2)-1], ntails);
+
+   uint64_t j = 0;
+   for (uint64_t i  = 0; i < ntails; i+=tails_per_word) {
+      const size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
+      const uint64_t w = read_unaligned_64bits(data, bit_offset);
+
+      uint64_t tails_in_this_group = tails_per_word - ((i + tails_per_word - ntails) * (((ntails - i) / tails_per_word) == 0));
+
+      uint64_t bits_used = tails_in_this_group * W;
+      uint64_t Wmask = (~0ULL << bits_used) & -(bits_used < 64);
+
+      uint64_t found = hasvaluesupply(w,mask,mask2, mask3, Wmask);
+      
+      if(found){
+         uint64_t lz = __builtin_clzll(found);
+         int needsCorrection = (found>>(63-lz-W))&1;
+         return (j*(tails_per_word))+((64-lz)/W)-1-needsCorrection;
+      }
+      j++;
+   // 1. I'm only looking at words that start at 0 -> no need to shift masks [OK]
+   // 2. the word starts at 0 so no smaller tails -> no need to mask smaller characters [OK]
+   // 3. it is easy to know where longer tails start -> We need to MASK LONGER TAILS [OK]
+   }
+   return -1;
+}
+
+inline uint64_t extract_tail(const uint64_t* data, const int64_t bit_offset, const uint8_t W){
+   read_unaligned_64bits(data, bit_offset);
+   const uint64_t w = read_unaligned_64bits(data, bit_offset);
+   const uint64_t mask = (1ULL << W) - 1;
+   return w & mask;
+}
+
+inline int64_t Tails_binary_search(const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
+   // BINARY SEARCH
+   int64_t k = 0;
+   // offset == where the tails start
+   // offset + W = where the 2nd tail (at index 1) starts
+   // offset + (b * W) = where the b-th (+1, index 0) tail starts
+   int64_t new_offset;
+   for (int64_t b = ntails/2; b >= 1; b /= 2) {
+      new_offset = offset + ((k+b)*W); 
+      while (k+b < ntails && extract_tail(data, new_offset, W) <= key) k += b;
+   }
+   if (extract_tail(data, new_offset, W) == key) {
+      // x found at index k
+      return k;
+   }
+}
+
+inline int64_t SearchTail_BS(const sdsl::int_vector<1> &T, const uint64_t* data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails){
    const uint64_t mask2 = masks23[(W/2)-1][0];
    const uint64_t mask3 = masks23[(W/2)-1][1];
    const uint64_t mask = mask2*key; //~0ULL/255 * key;
@@ -284,9 +341,18 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
       // Starting at pos (64 - slen*2) extract the first 2*tlen bits of s
       if (tlen <= slen){
          uint64_t key = (s >> ((slen - tlen) * 2)) & ((1ULL << (tlen * 2)) - 1); // extract suffix of length tlen
-         
-         // 4. Look for substring where the tails of that length start 
-         int64_t res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+         int64_t res = -1;
+         if (ntails > 50){
+            // TODO
+            // BINARY SEARCH
+            res = SearchTail_BS(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+         }
+         else {
+         // PROCEED AS BEFORE
+            // 4. Look for substring where the tails of that length start 
+            res = SearchTail(T,data, pos, tlen*2, key, ntails); // bitwise operations 
+            
+         }
          if (res!=-1) {
             // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search] 
             return {res+tails_so_far, tlen};
