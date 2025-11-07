@@ -233,6 +233,8 @@ public:
             } // One could modify cf.lengths_by_freq directly if no value was <= plen
         }
 
+        set_tlen_order(real_tlen_freq);
+
         int64_t first_nonegative_tail_idx = -1;
         int64_t f_start = 0;
         for (int64_t i = 0; i < n_finimizers; i++)
