@@ -218,39 +218,6 @@ inline int64_t Tails_binary_search(const uint64_t *data, const int64_t offset, c
    return -1;
 }
 
-inline int64_t Tails_binary_search_old(const uint64_t *data,
-                                       const int64_t offset, // bit offset where tails start
-                                       const uint8_t W,      // bits per tail
-                                       const uint64_t key,
-                                       const uint64_t ntails)
-{
-   if (ntails == 0)
-      return -1;
-
-   int64_t lo = 0;
-   int64_t hi = (int64_t)ntails - 1;
-
-   while (lo <= hi)
-   {
-      int64_t mid = lo + ((hi - lo) >> 1);
-      uint64_t val = extract_tail(data, offset + mid * W, W);
-
-      if (val < key)
-      {
-         lo = mid + 1;
-      }
-      else if (val > key)
-      {
-         hi = mid - 1;
-      }
-      else
-      {
-         return mid;
-      }
-   }
-   return -1;
-}
-
 // output: {pos in T (to get colors), tlen}
 inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen)
 { //, vector<uint64_t>& tailsSoFar){ // we know the width of the query
