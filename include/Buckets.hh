@@ -17,29 +17,6 @@ public:
             tlen_rank_map[ordered_tlens[i]] = static_cast<int>(i);
         }
     }
-
-    /* struct Compact_tails{
-        int tlen;
-        uint64_t int_tail;
-        uint32_t color_set_id;
-
-        // bool operator<(const Compact_tails& other) const {
-        //     if (tlen != other.tlen){
-        //         return tlen > other.tlen; // LONGER tails first
-        //     }
-        //     return color_set_id < other.color_set_id; // DENSER colors first
-        //     //return (tlen > other.tlen) || (color_set_id < other.color_set_id);  // DESCENDING order by tlen // No need for them to be in lexicographic order
-        // }
-        bool operator<(const Compact_tails& other) const {
-            int rank_this = tlen_rank_map.count(tlen) ? tlen_rank_map[tlen] : INT_MAX;
-            int rank_other = tlen_rank_map.count(other.tlen) ? tlen_rank_map[other.tlen] : INT_MAX;
-
-            if (rank_this != rank_other) {
-                return rank_this < rank_other;  // smaller rank = higher priority
-            }
-            return color_set_id < other.color_set_id; // break ties by color_set_id
-        }
-    }; */
     
     // Compressed tail data
     // tail length = tlen

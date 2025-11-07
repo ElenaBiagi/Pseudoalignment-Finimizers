@@ -260,7 +260,7 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
       // 4. Look for substring where the tails of that length start 
       int64_t res = -1;
       if (ntails > 50 && tlen > 3)
-      { // TODO select a proper tail lenght and tail number
+      { // TODO select a proper tail length and tail number (?)
          // BINARY SEARCH
          res = Tails_binary_search(data, pos, tlen * 2, key, ntails); // bitwise operations
       }
