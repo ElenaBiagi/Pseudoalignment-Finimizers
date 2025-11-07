@@ -144,7 +144,7 @@ public:
     CompressedColorSets CCS; // L, EF, BV
 
     vector<Bucket> non_empty_buckets;
-    sdsl::bit_vector non_empty_bv;
+    sdsl::int_vector<1> non_empty_bv;
     sdsl::rank_support_v5<1> non_empty_bv_rs;           // try _v only ?
     unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
     uint64_t n_colors;
