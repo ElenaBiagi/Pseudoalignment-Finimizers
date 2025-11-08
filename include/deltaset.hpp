@@ -57,42 +57,58 @@ public:
         return _n;
    }
 
-   void serialize(std::ostream& out) const {
-    
-        if (_period == 0)
+void serialize(std::ostream& out) const {
+    if (_period == 0)
         throw std::runtime_error("EF::serialize(): invalid period (0)");
 
-        out.write(reinterpret_cast<const char*>(&_n), sizeof(_n));
-        out.write(reinterpret_cast<const char*>(&_period), sizeof(_period));
+    out.write(reinterpret_cast<const char*>(&_n), sizeof(_n));
+    out.write(reinterpret_cast<const char*>(&_period), sizeof(_period));
 
-        const size_t prefix_count = (_n / _period) + 1;
-        if (_prefix_sums.size() < prefix_count) {
-            throw std::runtime_error("EF::serialize(): prefix_sums smaller than expected");
-        }
+    const size_t prefix_count = (_n / _period) + 1;
 
-        if (prefix_count > 0 && !_prefix_sums.empty()) {
-            out.write(reinterpret_cast<const char*>(_prefix_sums.data()),
-                    prefix_count * sizeof(uint64_t));
-        }
+    if (_prefix_sums.size() < prefix_count)
+        throw std::runtime_error("EF::serialize(): prefix_sums smaller than expected");
 
-        if (_diffs.size() < _n) {
-            throw std::runtime_error("EF::serialize(): diffs smaller than expected");
-        }
+    if (prefix_count > 0)
+        out.write(reinterpret_cast<const char*>(_prefix_sums.data()),
+                  prefix_count * sizeof(uint64_t));
 
-        if (_n > 0 && !_diffs.empty()) {
-            out.write(reinterpret_cast<const char*>(_diffs.data()),
-                    static_cast<size_t>(_n) * sizeof(uint16_t));
-        }
+    if (_diffs.size() < _n)
+        throw std::runtime_error("EF::serialize(): diffs smaller than expected");
+
+    if (_n > 0)
+        out.write(reinterpret_cast<const char*>(_diffs.data()),
+                  static_cast<size_t>(_n) * sizeof(uint16_t));
 }
 
-    void load(std::istream& in) {
-        in.read(reinterpret_cast<char*>(&_n), sizeof(_n));
-        in.read(reinterpret_cast<char*>(&_period), sizeof(_period));
+void load(std::istream& in) {
+    in.read(reinterpret_cast<char*>(&_n), sizeof(_n));
+    in.read(reinterpret_cast<char*>(&_period), sizeof(_period));
 
-        _prefix_sums.assign((_n / _period)+1, 0);
-        _diffs.assign(_n, 0);
+    if (!in)
+        throw std::runtime_error("EF::load(): failed to read n/period");
+    if (_period == 0)
+        throw std::runtime_error("EF::load(): invalid period (0)");
+    if (_n > 1e8) // sanity bound; adjust to your expected size
+        throw std::runtime_error("EF::load(): suspiciously large n (possible corruption)");
 
-        in.read(reinterpret_cast<char*>(_prefix_sums.data()), ((_n / _period)+1) * sizeof(uint64_t));
-        in.read(reinterpret_cast<char*>(_diffs.data()), static_cast<size_t>(_n) * sizeof(uint16_t));
+    const size_t prefix_count = (_n / _period) + 1;
+
+    _prefix_sums.assign(prefix_count, 0);
+    _diffs.assign(_n, 0);
+
+    if (prefix_count > 0) {
+        in.read(reinterpret_cast<char*>(_prefix_sums.data()),
+                prefix_count * sizeof(uint64_t));
+        if (!in)
+            throw std::runtime_error("EF::load(): failed to read prefix_sums");
     }
+
+    if (_n > 0) {
+        in.read(reinterpret_cast<char*>(_diffs.data()),
+                static_cast<size_t>(_n) * sizeof(uint16_t));
+        if (!in)
+            throw std::runtime_error("EF::load(): failed to read diffs");
+    }
+}
 };

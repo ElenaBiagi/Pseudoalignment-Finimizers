@@ -6,53 +6,70 @@
 #include "globals.hh"
 #include "build_fmin.hh"
 #include "search_fmin.hh"
-#include "get_stats_fmin.hh"
+// #include "get_stats_fmin.hh"
 
 using namespace std;
 
-static vector<string> commands = { "build-fmin", "search-fmin"};
-void print_help(int argc, char** argv){
-    (void) argc; // Unused parameter
+static vector<string> commands = {"build-fmin", "search-fmin"};
+void print_help(int argc, char **argv)
+{
+    (void)argc; // Unused parameter
     cerr << "Available commands: " << endl;
-    for(string S : commands) cerr << "   " << argv[0] << " " << S << endl;
+    for (string S : commands)
+        cerr << "   " << argv[0] << " " << S << endl;
     cerr << "Running a command without arguments prints the usage instructions for the command." << endl;
 }
 
-int main(int argc, char** argv){
+int main(int argc, char **argv)
+{
 
-    #ifndef __BMI2__
+#ifndef __BMI2__
     cerr << "WARNING: This program was compiled for a CPU without support for the BMI2 instruction set. The performance of the Elias-Fano variants will be very bad." << endl;
-    #endif
+#endif
 
-    if(argc == 1){
+    if (argc == 1)
+    {
         print_help(argc, argv);
         return 1;
     }
 
     string command = argv[1];
-    if(command == "--help" || command == "-h"){
+    if (command == "--help" || command == "-h")
+    {
         print_help(argc, argv);
         return 1;
     }
 
     // Drop the first element of argv
-    for(int64_t i = 1; i < argc; i++) argv[i-1] = argv[i];
+    for (int64_t i = 1; i < argc; i++)
+        argv[i - 1] = argv[i];
     argc--;
 
-    try{
-        if(command == "build-fmin") {return build_fmin(argc, argv);}
-        else if(command == "search-fmin") {return search_fmin(argc, argv);}
-        else if(command == "stats-fmin") {return get_stats_fmin(argc, argv);}
-        else{
+    try
+    {
+        if (command == "build-fmin")
+        {
+            return build_fmin(argc, argv);
+        }
+        else if (command == "search-fmin")
+        {
+            return search_fmin(argc, argv);
+        }
+        // else if(command == "stats-fmin") {return get_stats_fmin(argc, argv);}
+        else
+        {
             throw std::runtime_error("Invalid command: " + command);
             return 1;
         }
-    } catch (const std::runtime_error &e){
+    }
+    catch (const std::runtime_error &e)
+    {
         std::cerr << "Runtime error: " << e.what() << '\n';
         return 1;
-    } catch(const std::exception& e){
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
     }
-
 }

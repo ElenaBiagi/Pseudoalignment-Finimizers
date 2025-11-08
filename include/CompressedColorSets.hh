@@ -417,49 +417,48 @@ public:
         cerr << "dense sizes max = " << max_dense << endl;
     }
 
-    void serialize(std::ostream &out) const
-    {
-        // counts
-        cerr << "counts" << endl;
-        out.write(reinterpret_cast<const char *>(&sparse_count), sizeof(sparse_count));
-        out.write(reinterpret_cast<const char *>(&dense_count), sizeof(dense_count));
+void serialize(std::ostream &out) const {
+    // counts
+    out.write(reinterpret_cast<const char*>(&sparse_count), sizeof(sparse_count));
+    out.write(reinterpret_cast<const char*>(&dense_count), sizeof(dense_count));
 
-        // BV
-        cerr << "bv" << endl;
-        sdsl::serialize(BV, out);
+    // BV
+    sdsl::serialize(BV, out);
 
-        // EF
-        cerr << "EF" << endl;
-        EF.serialize(out);
+    // EF
+    EF.serialize(out);
 
-        // L
-        cerr << "L" << endl;
-        size_t L_size = L.size();
-        out.write(reinterpret_cast<const char *>(&L_size), sizeof(L_size));
+    // L
+    size_t L_size = L.size();
+    out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
+    if (L_size > 0)
+        out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
+}
 
-        if (L_size > 0)
-        {
-            out.write(reinterpret_cast<const char *>(L.data()), L_size * sizeof(uint16_t));
-        }
+void load(std::istream &in) {
+    // counts
+    in.read(reinterpret_cast<char*>(&sparse_count), sizeof(sparse_count));
+    in.read(reinterpret_cast<char*>(&dense_count), sizeof(dense_count));
+    if (!in) throw std::runtime_error("Error reading counts");
+
+    // BV
+    sdsl::load(BV, in);
+
+    // EF
+    EF.load(in);
+
+    // L
+    size_t L_size = 0;
+    in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
+    if (!in) throw std::runtime_error("Error reading L_size");
+    if (L_size > 1e8) throw std::runtime_error("Invalid L_size in file");
+
+    if (L_size > 0) {
+        L.resize(L_size);
+        in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
+        if (!in) throw std::runtime_error("Error reading L data");
+    } else {
+        L.clear();
     }
-
-    void load(std::istream &in)
-    {
-
-        // counts
-        in.read(reinterpret_cast<char *>(&sparse_count), sizeof(sparse_count));
-        in.read(reinterpret_cast<char *>(&dense_count), sizeof(dense_count));
-        // BV
-        sdsl::load(BV, in);
-        // EF
-        EF.load(in);
-        // L
-        size_t L_size = 0;
-        in.read(reinterpret_cast<char *>(&L_size), sizeof(L_size));
-        if (L_size > 0)
-        {
-            L.resize(L_size);
-            in.read(reinterpret_cast<char *>(L.data()), L_size * sizeof(uint16_t));
-        }
-    }
+}
 };
