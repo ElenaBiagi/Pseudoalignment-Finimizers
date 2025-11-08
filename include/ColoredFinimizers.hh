@@ -356,6 +356,75 @@ public:
         }
     }
 
+    void buckets_stats()
+    {
+        cerr << plen << endl;
+        cerr << "buckest sizes" << endl;
+        for (const auto &bucket : non_empty_buckets)
+        {
+            cerr << bucket.color_set_ids.size() << " ";
+        }
+        cerr << endl;
+
+        cerr << "ntails per tlen" << endl;
+        int64_t pos = 0; // start from 0 now that we have a single vector
+
+        int64_t tails_so_far = 0;
+
+        uint64_t word_index = 0;
+        uint8_t w_offset = 0;
+
+        for (const auto &bucket : non_empty_buckets)
+        {
+            int64_t pos = 0; // start from 0 now that we have a single vector
+
+            int64_t tails_so_far = 0;
+
+            uint64_t word_index = 0;
+            uint8_t w_offset = 0;
+
+            const uint64_t *data = bucket.tail_data.data();
+            while (pos < bucket.tail_data.size() - 128 - 4)
+            { // break the loop once something is found
+                // 1. check the length of the first tail, 5‐bit tlen
+                word_index = pos / 64;
+                w_offset = pos % 64;
+                if (word_index >= bucket.tail_data.size())
+                    continue;
+                uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
+                if (tlen == 0)
+                {
+                    cerr << "[" << 0 << "," << 0 << "]";
+                    continue;
+                }
+                pos += 5;
+
+                // 2. check how many tails, vbyte #tails
+                uint64_t ntails = 0;
+                int shift = 0;
+                uint8_t byte;
+                do
+                {
+                    // if (shift >= 64) { throw std::runtime_error("Invalid VByte: too long");}
+                    word_index = pos / 64; // >> 6
+                    w_offset = pos % 64;   // & 63
+
+                    byte = sdsl::bits::read_int(&data[word_index], w_offset, 8);
+                    pos += 8;
+                    ntails |= uint64_t(byte & 0x7F) << shift;
+                    shift += 7;
+                } while (byte & 0x80);
+
+                pos += (tlen * ntails * 2);
+                // 5. if fmin not found, add the tails seen so far
+                // tails_so_far += ntails;
+                cerr << "[" << (int)tlen << "," << ntails << "] ";
+            }
+            cerr << endl;
+        }
+    }
+    // this->non_empty_buckets, this->non_empty_bv
+
     void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
     {
         const int64_t query_len = query.length();
