@@ -645,7 +645,7 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
     }
 }
 
-inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq)
+inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq, uint64_t colors_seen)
 {
     while (word)
     {
@@ -653,10 +653,11 @@ inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &re
         uint64_t bit = __builtin_ctzll(word);
         results[base + bit] += freq;
         word &= word - 1; // clear lowest bit
+        colors_seen++;
     }
 }
 
-inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results)
+inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results, uint64_t colors_seen)
 {
 
     const uint64_t *ptr = data + (start * n_colors) / 64;
@@ -671,7 +672,7 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
         uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
         uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
         uint64_t word = (*ptr >> bit_offset) & mask;
-        process_word(word, color_id, results, freq);
+        process_word(word, color_id, results, freq, colors_seen);
 
         ptr++;
         color_id += bits_to_read;
@@ -682,7 +683,7 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
     while (bits_left >= 64)
     {
         uint64_t word = *ptr++;
-        process_word(word, color_id, results, freq);
+        process_word(word, color_id, results, freq, colors_seen);
         color_id += 64;
         bits_left -= 64;
     }
@@ -692,30 +693,12 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
     {
         uint64_t mask = ((1ULL << bits_left) - 1);
         uint64_t word = *ptr & mask;
-        process_word(word, color_id, results, freq);
+        process_word(word, color_id, results, freq, colors_seen);
     }
 }
 
 void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<uint64_t> &results)
 {
-    const size_t end = EF.get_start(pos); // exclusive end
-    size_t start = EF.get_start(pos - 1); // inclusive start
-    for (size_t c = 0; c < n_colors; c++)
-    {
-        if (start < end && L[start] == c)
-        {
-            start++;
-        }
-        else
-        {
-            results[c] += freq;
-        }
-    }
-}
-
-void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint16_t &dense)
-{
-    dense += freq;
     const size_t end = EF.get_start(pos); // exclusive end
     size_t start = EF.get_start(pos - 1); // inclusive start
     while (start < end)
@@ -724,7 +707,18 @@ void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, 
     }
 }
 
-void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t &dense)
+void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint64_t colors_seen)
+{
+    const size_t end = EF.get_start(pos); // exclusive end
+    size_t start = EF.get_start(pos - 1); // inclusive start
+    while (start < end)
+    {
+        results[L[start++]] -= freq;
+    }
+    colors_seen += end - start;
+}
+
+void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t dense, uint64_t colors_seen)
 {
     const sdsl::bit_vector &BV = CCS.getBV();
     const uint64_t *data = BV.data();
@@ -753,6 +747,7 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
             {
                 results[L[start++]] += freq;
             }
+            colors_seen += end - start;
         }
         else
         {
@@ -767,7 +762,8 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
         if (pos < dense_count)
         {
             // read complementary values from L
-            read_verydense(pos, freq, EF, L, n_colors, results, dense);
+            read_verydense(pos, freq, EF, L, n_colors, results, colors_seen);
+            dense += freq;
         }
         else
         {
@@ -779,7 +775,7 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
     {
         const auto &[pos, freq] = fmin_v[i];
         uint64_t start = pos - dense_count;
-        read_bv(data, start, freq, n_colors, results);
+        read_bv(data, start, freq, n_colors, results, colors_seen);
     }
 }
 
@@ -806,6 +802,9 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
     }
+    fmin_v.shrink_to_fit();
+
+    cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
     /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
@@ -817,7 +816,9 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
     std::sort(fmin_v.begin(), fmin_v.end()); */
     uint16_t dense = 0;
-    read_colors(CCS, n_colors, results, fmin_v, dense);
+    uint64_t colors_seen = 0;
+
+    read_colors(CCS, n_colors, results, fmin_v, dense, colors_seen);
     // TODO keep track of which counters were incremented and set to zero only those
     // Add number of dense sets
     for (auto &r : results)
@@ -858,6 +859,9 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
     }
+    fmin_v.shrink_to_fit();
+
+    cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
     /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
@@ -874,9 +878,10 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     const size_t found_fmin = Fmin.size(); // # total finimizers
     int16_t T = found_fmin * t;
     uint16_t dense = 0;
+    uint64_t colors_seen = 0;
 
-    read_colors(CCS, n_colors, results, fmin_v, dense);
-
+    read_colors(CCS, n_colors, results, fmin_v, dense, colors_seen);
+    cerr << colors_seen << ", ";
     // If we care about the number of matches, add number of dense sets
     // for (auto& r: results){r+=dense;}
 

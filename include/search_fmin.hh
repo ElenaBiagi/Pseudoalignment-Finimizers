@@ -75,6 +75,9 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
             write_out(int_buf, id_len, out, output_buffer, flush_t);
             write_out(" ", 1, out, output_buffer, flush_t);
 
+            uint64_t colors_seen_alo = 0;
+            uint64_t colors_out = 0;
+
             const string &seq = reader.read_buf;
 
             const int16_t min_value = index.search(seq, results, t, Finimizers);
@@ -82,13 +85,20 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
             for (auto idx = 0; idx < results.size(); idx++)
             {
                 const auto &count = results[idx];
-                if (count >= min_value)
+                if (count > 0)
                 {
-                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
-                    write_out(int_buf, idx_len, out, output_buffer, flush_t);
-                    write_out(" ", 1, out, output_buffer, flush_t);
+                    colors_seen_alo++;
+                    if (count >= min_value)
+                    {
+                        uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                        write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                        write_out(" ", 1, out, output_buffer, flush_t);
+                        colors_out++;
+                    }
                 }
             }
+            cerr << colors_seen_alo << ", " << colors_out << endl;
+
             /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
             {
                 const auto &[idx, count] = ans[a];
