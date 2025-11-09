@@ -645,7 +645,7 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
     }
 }
 
-inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq, uint64_t colors_seen)
+inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq, uint64_t &colors_seen)
 {
     while (word)
     {
@@ -657,7 +657,7 @@ inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &re
     }
 }
 
-inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results, uint64_t colors_seen)
+inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results, uint64_t &colors_seen)
 {
 
     const uint64_t *ptr = data + (start * n_colors) / 64;
@@ -697,17 +697,7 @@ inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t f
     }
 }
 
-void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<uint64_t> &results)
-{
-    const size_t end = EF.get_start(pos); // exclusive end
-    size_t start = EF.get_start(pos - 1); // inclusive start
-    while (start < end)
-    {
-        results[L[start++]] -= freq;
-    }
-}
-
-void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint64_t colors_seen)
+void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint64_t &colors_seen)
 {
     const size_t end = EF.get_start(pos); // exclusive end
     size_t start = EF.get_start(pos - 1); // inclusive start
@@ -718,7 +708,7 @@ void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, 
     colors_seen += end - start;
 }
 
-void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t dense, uint64_t colors_seen)
+void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t &dense, uint64_t &colors_seen)
 {
     const sdsl::bit_vector &BV = CCS.getBV();
     const uint64_t *data = BV.data();
@@ -802,7 +792,6 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
     }
-    fmin_v.shrink_to_fit();
 
     cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
@@ -859,7 +848,6 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
     }
-    fmin_v.shrink_to_fit();
 
     cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
@@ -886,8 +874,12 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     // for (auto& r: results){r+=dense;}
 
     // adjust T
-    T -= dense;
-    // for (auto& r :results){ r+= dense;}
+    // T -= dense;
+
+    for (auto &r : results)
+    {
+        r += dense;
+    }
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
     return T;
