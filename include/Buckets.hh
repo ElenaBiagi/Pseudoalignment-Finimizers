@@ -54,13 +54,12 @@ public:
         // This permutes also the color_set_ids (later)
         // std::sort(B_tails.begin(), B_tails.end());
         // Sort using lambda comparator with tlen_rank_map
-        std::sort(B_tails.begin(), B_tails.end(), [&tlen_rank_map](const Compact_tails &a, const Compact_tails &b)
-                  {
+        std::stable_sort(B_tails.begin(), B_tails.end(), [&tlen_rank_map](const Compact_tails &a, const Compact_tails &b)
+                         {
             int rank_a = tlen_rank_map.count(a.tlen) ? tlen_rank_map[a.tlen] : INT_MAX;
             int rank_b = tlen_rank_map.count(b.tlen) ? tlen_rank_map[b.tlen] : INT_MAX;
 
-            if (rank_a != rank_b) return rank_a < rank_b;
-            return a.color_set_id < b.color_set_id; });
+            return rank_a < rank_b; });
 
         WriteTailsVector(B_tails);
     }
