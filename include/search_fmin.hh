@@ -80,6 +80,8 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
+            cerr << "n_fmin, n_colorset_ids,  n_colors_seen, n_colors_alo, n_colors_out" << endl;
+
             const int16_t min_value = index.search(seq, results, t, Finimizers);
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
