@@ -359,12 +359,12 @@ public:
     void buckets_stats()
     {
         cerr << plen << endl;
-        cerr << "buckest sizes" << endl;
+        /* cerr << "buckest sizes" << endl;
         for (const auto &bucket : non_empty_buckets)
         {
             cerr << bucket.color_set_ids.size() << " ";
         }
-        cerr << endl;
+        cerr << endl; */
 
         cerr << "ntails per tlen" << endl;
         int64_t pos = 0; // start from 0 now that we have a single vector
@@ -374,6 +374,7 @@ public:
         uint64_t word_index = 0;
         uint8_t w_offset = 0;
 
+        pair<uint64_t, uint64_t> max_ntails = {0, 0};
         for (const auto &bucket : non_empty_buckets)
         {
             int64_t pos = 0; // start from 0 now that we have a single vector
@@ -419,9 +420,14 @@ public:
                 // 5. if fmin not found, add the tails seen so far
                 // tails_so_far += ntails;
                 cerr << "[" << (int)tlen << "," << ntails << "] ";
+                if (ntails > max_ntails.second)
+                {
+                    max_ntails = {(uint64_t)tlen, ntails};
+                }
             }
             cerr << endl;
         }
+        cerr << max_ntails.first << ", " << max_ntails.second << endl;
     }
     // this->non_empty_buckets, this->non_empty_bv
 
