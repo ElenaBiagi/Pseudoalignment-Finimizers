@@ -227,17 +227,17 @@ public:
                     s++;
                 }
                 colorset_v.shrink_to_fit();
-                // auto it = deduplicated_cs_sparse.find(colorset_v);
-                // if (it == deduplicated_cs_sparse.end())
-                //{
+                auto it = deduplicated_cs_sparse.find(colorset_v);
+                if (it == deduplicated_cs_sparse.end())
+                {
                 //  First time seeing this color set
                 deduplicated_cs_sparse.emplace(colorset_v, vector<size_t>{i});
-                /* }
+                }
                 else
                 {
                     // Already seen
                     it->second.push_back(i);
-                } */
+                }
             }
             cerr << "Unique color sets: " << cf.ends.size() << endl;
 
@@ -357,6 +357,7 @@ public:
                         cerr << "ERROR: attempt to mark bucket p_int=" << p_int
                              << " >= non_empty_bv.size()=" << this->non_empty_bv.size()
                              << " (n_buckets=" << n_buckets << ", plen=" << plen << ")\n";
+                        cerr << "prefix = " << cur_prefix << endl;
                         abort();
                     }
                     this->non_empty_bv[p_int] = 1; // mark non-empty buckets
