@@ -333,7 +333,8 @@ public:
 
         f_start = 0; // Go back to zero
 
-        non_empty_buckets.reserve(n_buckets);
+        this->non_empty_buckets.reserve(n_buckets);
+        cerr << "non_empty_bv.size() = " << this->non_empty_bv.size() << "\n";
         for (int64_t i = 0; i < n_finimizers; i++)
         {
             if (cf.lengths[i] < plen)
@@ -351,8 +352,15 @@ public:
                 if (prefix != cur_prefix)
                 {
                     // Bucket changes -> encode currently collected tails
-                    non_empty_bv[p_int] = 1; // mark non-empty buckets
-                    non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
+                    if (p_int >= this->non_empty_bv.size())
+                    {
+                        cerr << "ERROR: attempt to mark bucket p_int=" << p_int
+                             << " >= non_empty_bv.size()=" << this->non_empty_bv.size()
+                             << " (n_buckets=" << n_buckets << ", plen=" << plen << ")\n";
+                        abort();
+                    }
+                    this->non_empty_bv[p_int] = 1; // mark non-empty buckets
+                    this->non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
                     p_int = prefix2int(prefix, 0, plen);
                     cur_tails.clear();
                     cur_color_set_ids.clear();
@@ -365,11 +373,11 @@ public:
         }
 
         if (!cur_tails.empty())
-        {                            // Last bucket
-            non_empty_bv[p_int] = 1; // mark non-empty buckets
-            non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
+        {                                 // Last bucket
+            this->non_empty_bv[p_int] = 1; // mark non-empty buckets
+            this->non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
         }
-        non_empty_buckets.shrink_to_fit();
+        this->non_empty_buckets.shrink_to_fit();
 
         // Check the density of non-empty buckets
         size_t marked = sdsl::util::cnt_one_bits(non_empty_bv);
