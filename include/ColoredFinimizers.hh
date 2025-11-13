@@ -433,6 +433,8 @@ public:
 
     void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
     {
+        vector<uint64_t> finimizers_len(k, 0);
+
         const int64_t query_len = query.length();
         if (query_len < this->k)
             return;
@@ -443,9 +445,13 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers, finimizers_len);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
+        }
+        for (int i = 0; i < finimizers_len.size(); i++)
+        {
+            cerr << i + 1 << finimizers_len[i] << endl;
         }
         // Color sets
         {
@@ -460,6 +466,7 @@ public:
     // Threshold-based search: returns minimum value and fills ans
     uint16_t search(const std::string &query, vector<int16_t> &results, const float t, vector<int64_t> &Finimizers) const
     {
+        vector<uint64_t> finimizers_len(k, 0);
 
         const int64_t query_len = query.length();
         if (query_len < this->k)
@@ -471,7 +478,7 @@ public:
         Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+            rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers, finimizers_len);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
@@ -777,6 +784,7 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
 
 inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results)
 {
+    bool fmin_len = true;
     // vector<int16_t> results(n_colors, 0);
     /* if (results.size() != n_colors) {
         results.assign(n_colors, 0);
@@ -799,7 +807,7 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
         i = j;
     }
 
-    cerr << fmin_v.size() << ", "; // Number of unique colorsets
+    if (!fmin_len )cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
     /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
@@ -854,8 +862,9 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
     }
+    bool fmin_len = true;
 
-    cerr << fmin_v.size() << ", "; // Number of unique colorsets
+    if (!fmin_len)cerr << fmin_v.size() << ", "; // Number of unique colorsets
 
     /* // Count freq of each fmin
     std::unordered_map<int64_t, uint64_t> fmin_counts;
@@ -875,7 +884,7 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     uint64_t colors_seen = 0;
 
     read_colors(CCS, n_colors, results, fmin_v, dense, colors_seen);
-    cerr << colors_seen << ", ";
+    if(!fmin_len)cerr << colors_seen << ", ";
     // If we care about the number of matches, add number of dense sets
     // for (auto& r: results){r+=dense;}
 

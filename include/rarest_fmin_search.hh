@@ -133,7 +133,7 @@ inline void FindPrefix_short(const Bucket &bucket_p, const uint64_t plen, const 
     }
 }
 
-void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin, int64_t &old_fmin, uint64_t &n_finimizers)
+void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint64_t k, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin, int64_t &old_fmin, uint64_t &n_finimizers, vector<uint64_t> &finimizers_len)
 { //, const string& input){
     if (!curr_candidates.empty())
     {
@@ -144,6 +144,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
         {
             old_fmin = (int64_t)get<1>(k_fmin);
             n_finimizers++;
+            finimizers_len[get<0>(k_fmin) - 1]++;
         }
         Fmin.push_back(get<2>(k_fmin));
     }
@@ -180,7 +181,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
     }
 }
 
-void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::int_vector<1> &buckets_bv, const sdsl::rank_support_v5<1> &buckets_rs, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin)
+void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::int_vector<1> &buckets_bv, const sdsl::rank_support_v5<1> &buckets_rs, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin, vector<uint64_t> &finimizers_len)
 {
     const int64_t str_len = input.size();
 
@@ -255,7 +256,7 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
             int_sp = int_p >> 2;
             FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers); // , input);
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
     }
     // Shorter s_len
@@ -278,7 +279,7 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
             int_sp = int_p >> 2;
             FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
         }
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers); // , input);
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
     }
 
@@ -291,10 +292,12 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         int_p &= ((1ULL << (2 * s_plen)) - 1);                                                                      // Shorten int_p by 2
         FindShortFinimizer(s_plen, int_p, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input); // this shortens s_plen by 1 internally
 
-        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers); // , input);
+        PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
     }
-    cerr << n_finimizers << ", ";
+    bool fmin_len = true;
+    if (!fmin_len)cerr << n_finimizers << ", ";
+    
     return;
 }
 
