@@ -61,6 +61,8 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     // ans.resize(index.n_colors)
 
     vector<int16_t> results(index.n_colors, 0);
+    // cerr << "n_fmin, n_colorset_ids,  n_colors_seen, n_colors_alo, n_colors_out" << endl;
+    vector<uint64_t> finimizers_len(31, 0);
 
     if (t > 0)
     {
@@ -80,9 +82,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            cerr << "n_fmin, n_colorset_ids,  n_colors_seen, n_colors_alo, n_colors_out" << endl;
-
-            const int16_t min_value = index.search(seq, results, t, Finimizers);
+            const int16_t min_value = index.search(seq, results, t, Finimizers, finimizers_len);
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
             {
@@ -99,7 +99,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
                     }
                 }
             }
-            cerr << colors_seen_alo << ", " << colors_out << endl;
+            // cerr << colors_seen_alo << ", " << colors_out << endl;
 
             /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
             {
@@ -134,7 +134,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            index.search(seq, results, Finimizers);
+            index.search(seq, results, Finimizers, finimizers_len);
 
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
@@ -178,6 +178,10 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     time_output += (end - start);
 
     print_search_timing_stats();
+    for (int i = 0; i < finimizers_len.size(); i++)
+    {
+        cerr << i + 1 << " " << finimizers_len[i] << endl;
+    }
     return 1;
 }
 
