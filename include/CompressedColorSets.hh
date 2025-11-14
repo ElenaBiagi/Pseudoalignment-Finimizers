@@ -235,14 +235,20 @@ public:
         // counts
         out.write(reinterpret_cast<const char *>(&sparse_count), sizeof(sparse_count));
         out.write(reinterpret_cast<const char *>(&dense_count), sizeof(dense_count));
+        cerr << "counts ok"<< endl;
+
         // BV
         sdsl::serialize(BV, out);
+        cerr << "BV ok"<< endl;
+
         // EF
         EF.serialize(out);
+        cerr << "EF ok"<< endl;
         // L
         size_t L_size = L.size();
         out.write(reinterpret_cast<const char *>(&L_size), sizeof(L_size));
         out.write(reinterpret_cast<const char *>(L.data()), L_size * sizeof(uint16_t));
+        cerr << "L ok"<< endl;
     }
 
     void load(std::istream &in)

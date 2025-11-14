@@ -511,9 +511,13 @@ public:
             bucket.serialize(out);
         }
         cerr << non_empty_buckets.size() << endl;
+        cerr << "non_empty_buckets ok"<< endl;
+
 
         // non_empty_bv
         non_empty_bv.serialize(out);
+        cerr << "non_empty_bv ok"<< endl;
+
 
         // sB
         /* bool has_sB = !sB.empty();
@@ -529,6 +533,7 @@ public:
             out.write(reinterpret_cast<const char *>(&val.first), sizeof(uint8_t));
             out.write(reinterpret_cast<const char *>(&val.second), sizeof(int64_t));
         }
+        cerr << "sB ok"<< endl;
         //}
 
         // metadata
