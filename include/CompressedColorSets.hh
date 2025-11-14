@@ -90,7 +90,7 @@ public:
     CompressedColorSets() = default;
 
     CompressedColorSets(const unordered_map<vector<uint64_t>, vector<size_t>, VectorHash> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
-    //CompressedColorSets(const vector<pair<vector<uint64_t>, vector<size_t>>> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
+    // CompressedColorSets(const vector<pair<vector<uint64_t>, vector<size_t>>> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
     {
 
         vector<float> BV_sizes;
@@ -204,8 +204,10 @@ public:
         {
             v += temp_EF_v.back();
         }
-        temp_EF_v.insert(temp_EF_v.end(), temp_cEF_v.begin(), temp_cEF_v.end()); // temp_cEF_v[0] == temp_EF_v[-1]
-
+        if (!temp_cEF_v.empty())
+        {
+            temp_EF_v.insert(temp_EF_v.end(), temp_cEF_v.begin(), temp_cEF_v.end()); // temp_cEF_v[0] == temp_EF_v[-1]
+        }
         this->dense_count = temp_EF_v.size();
 
         // concatenate L
@@ -417,48 +419,57 @@ public:
         cerr << "dense sizes max = " << max_dense << endl;
     }
 
-void serialize(std::ostream &out) const {
-    // counts
-    out.write(reinterpret_cast<const char*>(&sparse_count), sizeof(sparse_count));
-    out.write(reinterpret_cast<const char*>(&dense_count), sizeof(dense_count));
+    void serialize(std::ostream &out) const
+    {
+        // counts
+        out.write(reinterpret_cast<const char *>(&sparse_count), sizeof(sparse_count));
+        out.write(reinterpret_cast<const char *>(&dense_count), sizeof(dense_count));
 
-    // BV
-    sdsl::serialize(BV, out);
+        // BV
+        sdsl::serialize(BV, out);
 
-    // EF
-    EF.serialize(out);
+        // EF
+        EF.serialize(out);
 
-    // L
-    size_t L_size = L.size();
-    out.write(reinterpret_cast<const char*>(&L_size), sizeof(L_size));
-    if (L_size > 0)
-        out.write(reinterpret_cast<const char*>(L.data()), L_size * sizeof(uint16_t));
-}
-
-void load(std::istream &in) {
-    // counts
-    in.read(reinterpret_cast<char*>(&sparse_count), sizeof(sparse_count));
-    in.read(reinterpret_cast<char*>(&dense_count), sizeof(dense_count));
-    if (!in) throw std::runtime_error("Error reading counts");
-
-    // BV
-    sdsl::load(BV, in);
-
-    // EF
-    EF.load(in);
-
-    // L
-    size_t L_size = 0;
-    in.read(reinterpret_cast<char*>(&L_size), sizeof(L_size));
-    if (!in) throw std::runtime_error("Error reading L_size");
-    if (L_size > 1e8) throw std::runtime_error("Invalid L_size in file");
-
-    if (L_size > 0) {
-        L.resize(L_size);
-        in.read(reinterpret_cast<char*>(L.data()), L_size * sizeof(uint16_t));
-        if (!in) throw std::runtime_error("Error reading L data");
-    } else {
-        L.clear();
+        // L
+        size_t L_size = L.size();
+        out.write(reinterpret_cast<const char *>(&L_size), sizeof(L_size));
+        if (L_size > 0)
+            out.write(reinterpret_cast<const char *>(L.data()), L_size * sizeof(uint16_t));
     }
-}
+
+    void load(std::istream &in)
+    {
+        // counts
+        in.read(reinterpret_cast<char *>(&sparse_count), sizeof(sparse_count));
+        in.read(reinterpret_cast<char *>(&dense_count), sizeof(dense_count));
+        if (!in)
+            throw std::runtime_error("Error reading counts");
+
+        // BV
+        sdsl::load(BV, in);
+
+        // EF
+        EF.load(in);
+
+        // L
+        size_t L_size = 0;
+        in.read(reinterpret_cast<char *>(&L_size), sizeof(L_size));
+        if (!in)
+            throw std::runtime_error("Error reading L_size");
+        if (L_size > 1e8)
+            throw std::runtime_error("Invalid L_size in file");
+
+        if (L_size > 0)
+        {
+            L.resize(L_size);
+            in.read(reinterpret_cast<char *>(L.data()), L_size * sizeof(uint16_t));
+            if (!in)
+                throw std::runtime_error("Error reading L data");
+        }
+        else
+        {
+            L.clear();
+        }
+    }
 };
