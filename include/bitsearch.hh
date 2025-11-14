@@ -149,7 +149,7 @@ uint64_t read_unaligned_64bits(const uint64_t *data, size_t offset_bits)
 }
 
 // TODO T is useless
-inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t *data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails)
+inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t *data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails, uint64_t &tails_seen_so_far)
 {
    // input T, offset at which the true tails start, W(tlen), key, #tails
 
@@ -165,7 +165,8 @@ inline int64_t SearchTail(const sdsl::int_vector<1> &T, const uint64_t *data, co
 
    uint64_t j = 0;
    for (uint64_t i = 0; i < ntails; i += tails_per_word)
-   {
+   {  
+      tails_seen_so_far++;
       const size_t bit_offset = offset + i * W; // size_t bit_offset = offset + i * 64;// size_t bit_offset = offset + (i - word_index) * 64;
       const uint64_t w = read_unaligned_64bits(data, bit_offset);
 
@@ -197,7 +198,7 @@ inline uint64_t extract_tail(const uint64_t *data, const int64_t bit_offset, con
    return w & mask;
 }
 
-inline int64_t Tails_binary_search(const uint64_t *data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails)
+inline int64_t Tails_binary_search(const uint64_t *data, const int64_t offset, const uint8_t W, const uint64_t key, const uint64_t ntails, uint64_t &tails_seen_so_far)
 {
    // BINARY SEARCH
    int64_t k = 0;
@@ -208,17 +209,19 @@ inline int64_t Tails_binary_search(const uint64_t *data, const int64_t offset, c
    {
       while (k + b < ntails && extract_tail(data, offset + ((k + b) * W), W) <= key)
          k += b;
+      tails_seen_so_far++;
    }
    if (k < ntails && extract_tail(data, offset + (k * W), W) == key)
    {
       // x found at index k
+      tails_seen_so_far++;
       return k;
    }
    return -1;
 }
 
 // output: {pos in T (to get colors), tlen}
-inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen)
+inline tuple<int64_t, uint8_t, uint64_t> bitMagicSearch(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen)
 { //, vector<uint64_t>& tailsSoFar){ // we know the width of the query
    // input: T, offset in T, len substring after prefix
    // const uint8_t slen = k - plen;
@@ -228,6 +231,8 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
 
    uint64_t word_index = 0;
    uint8_t w_offset = 0;
+
+   uint64_t tails_seen_so_far = 0;
 
    const uint64_t *data = T.data();
    // Check first the MOST FREQUENT lengths.
@@ -241,7 +246,7 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
       // if (tlen > slen){ return {-1,0};}
       if (tlen == 0)
       {
-         return {0, 0};
+         return {0, 0, 0};
       }
       pos += 5;
 
@@ -270,28 +275,36 @@ inline pair<int64_t, uint8_t> bitMagicSearch(const sdsl::int_vector<1> &T, const
       if (ntails > 1000)
       { // TODO select a proper tail length and tail number
          // BINARY SEARCH
-         res = Tails_binary_search(data, pos, tlen * 2, key, ntails); // bitwise operations
+         res = Tails_binary_search(data, pos, tlen * 2, key, ntails, tails_seen_so_far); // bitwise operations
       }
       else
       {
-         res = SearchTail(T, data, pos, tlen * 2, key, ntails); // bitwise operations
+         res = SearchTail(T, data, pos, tlen * 2, key, ntails, tails_seen_so_far); // bitwise operations
+         if (res != -1)
+         {
+            tails_seen_so_far += (uint64_t)res;
+         }
+         else
+         {
+            tails_seen_so_far += ntails;
+         }
       }
       if (res != -1)
       {
          // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
-         return {res + tails_so_far, tlen};
+         return {res + tails_so_far, tlen, tails_seen_so_far};
       }
 
       pos += (tlen * ntails * 2);
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
    }
-   return {-1, 0};
+   return {-1, 0, tails_seen_so_far};
 }
 
 // output: {pos in T (to get colors), tlen}
 // The query is shorter than (k - plen)
-pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen)
+tuple<int64_t, uint8_t, uint64_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const uint64_t s, const uint8_t slen)
 {
    // input: T, offset in T, len substring after prefix
 
@@ -301,6 +314,8 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
 
    uint64_t word_index = 0;
    uint8_t w_offset = 0;
+
+   uint64_t tails_seen_so_far = 0;
 
    const uint64_t *data = T.data();
    // Check first the longer lengths.
@@ -313,7 +328,7 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
       uint8_t tlen = (uint8_t)sdsl::bits::read_int(&data[word_index], w_offset, 5);
       if (tlen == 0)
       {
-         return {0, 0};
+         return {0, 0, 0};
       }
       pos += 5;
 
@@ -342,23 +357,23 @@ pair<int64_t, uint8_t> bitMagicSearch_short(const sdsl::int_vector<1> &T, const 
          if (ntails > 1000)
          {
             // BINARY SEARCH
-            res = Tails_binary_search(data, pos, tlen * 2, key, ntails); // bitwise operations
+            res = Tails_binary_search(data, pos, tlen * 2, key, ntails, tails_seen_so_far); // bitwise operations
          }
          else
          {
             // 4. Look for substring where the tails of that length start
-            res = SearchTail(T, data, pos, tlen * 2, key, ntails); // bitwise operations
+            res = SearchTail(T, data, pos, tlen * 2, key, ntails, tails_seen_so_far); // bitwise operations
          }
 
          if (res != -1)
          {
             // Add to the result the number of finimizers preceeding this. [DONE in rarest_fmin_streaming_search]
-            return {res + tails_so_far, tlen};
+            return {res + tails_so_far, tlen, tails_seen_so_far};
          }
       }
       pos += (tlen * ntails * 2);
       // 5. if fmin not found, add the tails seen so far
       tails_so_far += ntails;
    }
-   return {-1, 0};
+   return {-1, 0, tails_seen_so_far};
 }

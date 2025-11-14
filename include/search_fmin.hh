@@ -178,10 +178,11 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     time_output += (end - start);
 
     print_search_timing_stats();
-    for (int i = 0; i < finimizers_len.size(); i++)
+    // FINIMIZERS LENGTH
+    /* for (int i = 0; i < finimizers_len.size(); i++)
     {
         cerr << i + 1 << " " << finimizers_len[i] << endl;
-    }
+    } */
     return 1;
 }
 
