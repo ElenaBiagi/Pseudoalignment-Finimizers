@@ -26,7 +26,7 @@
 }; */
 
 // TODO Deal with empty SB
-inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin, uint64_t& shorter_prefixes_found)
 {
     // 2. Prefix NOT found
     // Start from the longest possible prefix
@@ -41,6 +41,8 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
         auto it = sB.find(int_sp);
         if (it != sB.end() && sp_len == it->second.first)
         { // real match
+            shorter_prefixes_found++;
+
             // all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
             if ((start + sp_len - 1) > end)
             {
@@ -72,11 +74,12 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
     }
 }
 
-inline uint64_t FindPrefix(const Bucket &bucket_p, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+inline uint64_t FindPrefix(const Bucket &bucket_p, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin, uint64_t& prefixes_found)
 {
     auto [pos, len, tails_seen_so_far] = bitMagicSearch(bucket_p.tail_data, int_s, s_len);
     if (pos > -1)
-    {
+    {   
+        prefixes_found++;
         uint64_t f_int = (int_p << (len * 2)) | (int_s >> ((s_len - len) * 2)); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
         if ((start + plen + len - 1) > end)
         {
@@ -104,11 +107,13 @@ inline uint64_t FindPrefix(const Bucket &bucket_p, const uint64_t plen, const ui
 }
 
 // The query is shorter than (k - plen)
-inline uint64_t FindPrefix_short(const Bucket &bucket_p, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+inline uint64_t FindPrefix_short(const Bucket &bucket_p, const uint64_t plen, const uint8_t s_len, const uint64_t int_s, const uint64_t int_p, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin, uint64_t& prefixes_found)
 {
     auto [pos, len, tails_seen_so_far] = bitMagicSearch_short(bucket_p.tail_data, int_s, s_len);
     if (pos > -1)
-    {
+    {   
+        prefixes_found++;
+
         uint64_t f_int = (int_p << (len * 2)) | (int_s >> ((s_len - len) * 2)); //  Shift p_int to the left by len*2, and int_s to the right to remove the unused chars
         if ((start + plen + len - 1) > end)
         {
@@ -204,19 +209,30 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
     uint64_t int_s = prefix2int(input, start + plen, s_len); // tail
     uint64_t int_sp;
 
+    uint64_t tails_seen_so_far = 0;
+    uint64_t sB_visited = 0;
+
+    uint64_t prefixes_found = 0;
+    uint64_t prefixes_seen = 0;
+
+    uint64_t shorter_prefixes_found = 0;
+    uint64_t shorter_prefixes_seen = 0;
+
     // Check the first characters
-    uint64_t tails_seen_so_far;
     if (buckets_bv[int_p])
     {
         // 1. prefix found
+        prefixes_seen++;
         const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];                                                                         // 0 indexed
-        tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+        tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, prefixes_found); // , input);
     }
     else
     {
         // 2. look for a shorter finimizer
+        shorter_prefixes_seen++;
         int_sp = int_p >> 2;
-        FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+        FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, shorter_prefixes_found); // , input);
+        sB_visited++;
     }
     tails_seen_so_far_v.push_back(tails_seen_so_far);
     // TODO Fix for very short queries
@@ -232,13 +248,16 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         if (buckets_bv[int_p])
         {
             // 1. prefix found
+            prefixes_seen++;
             const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
-            tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, prefixes_found); // , input);
         }
         else
         {
+            shorter_prefixes_seen++;
             int_sp = int_p >> 2;
-            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, shorter_prefixes_found); // , input);
+            sB_visited++;
         }
         tails_seen_so_far_v.push_back(tails_seen_so_far);
     }
@@ -254,13 +273,16 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         if (buckets_bv[int_p])
         {
             // 1. prefix found
+            prefixes_seen++;
             const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
-            tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            tails_seen_so_far = FindPrefix(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, prefixes_found); // , input);
         }
         else
         {
+            shorter_prefixes_seen++;
             int_sp = int_p >> 2;
-            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, shorter_prefixes_found); // , input);
+            sB_visited++;
         }
         PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
@@ -278,13 +300,16 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
         if (buckets_bv[int_p])
         {
             // 1. prefix found
+            prefixes_seen++;
             const Bucket &correct_bucket = buckets[buckets_rs.rank(int_p + 1) - 1];
-            tails_seen_so_far = FindPrefix_short(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            tails_seen_so_far = FindPrefix_short(correct_bucket, plen, s_len, int_s, int_p, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, prefixes_found); // , input);
         }
         else
         {
+            shorter_prefixes_seen++;
             int_sp = int_p >> 2;
-            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input);
+            FindShortFinimizer(plen - 1, int_sp, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, shorter_prefixes_found); // , input);
+            sB_visited++;
         }
         PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
@@ -297,8 +322,10 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
     for (start = ss; start < str_len; start++)
     {
         s_plen--;
-        int_p &= ((1ULL << (2 * s_plen)) - 1);                                                                      // Shorten int_p by 2
-        FindShortFinimizer(s_plen, int_p, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin); // , input); // this shortens s_plen by 1 internally
+        int_p &= ((1ULL << (2 * s_plen)) - 1); // Shorten int_p by 2
+        shorter_prefixes_seen++;
+        FindShortFinimizer(s_plen, int_p, sB, start, kmer_start + k - 1, curr_candidates, next_candidates, k_fmin, prefixes_found); // , input); // this shortens s_plen by 1 internally
+        sB_visited++;
 
         PickFinimizer(Fmin, kmer_start, k, curr_candidates, next_candidates, k_fmin, old_fmin, n_finimizers, finimizers_len); // , input);
         kmer_start++;
@@ -312,8 +339,10 @@ void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buc
     {
         tails_tot += t;
     }
+    cerr << prefixes_seen << "," << prefixes_found << "," << shorter_prefixes_seen << "," << shorter_prefixes_found << ",";
 
-    cerr << *std::max_element(tails_seen_so_far_v.begin(), tails_seen_so_far_v.end()) << "  " << tails_tot / tails_seen_so_far_v.size() << endl;
+    // cerr << *std::max_element(tails_seen_so_far_v.begin(), tails_seen_so_far_v.end()) << "  " << tails_tot / tails_seen_so_far_v.size() << endl;
+    // cerr << sB_visited << endl;
     return;
 }
 

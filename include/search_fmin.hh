@@ -63,7 +63,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     vector<int16_t> results(index.n_colors, 0);
     // cerr << "n_fmin, n_colorset_ids,  n_colors_seen, n_colors_alo, n_colors_out" << endl;
     vector<uint64_t> finimizers_len(31, 0);
-
+    cerr << "sB size = " << index.sB.size() << endl;
     if (t > 0)
     {
 
