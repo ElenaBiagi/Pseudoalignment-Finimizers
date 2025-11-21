@@ -511,13 +511,11 @@ public:
             bucket.serialize(out);
         }
         cerr << non_empty_buckets.size() << endl;
-        cerr << "non_empty_buckets ok"<< endl;
-
+        cerr << "non_empty_buckets ok" << endl;
 
         // non_empty_bv
         non_empty_bv.serialize(out);
-        cerr << "non_empty_bv ok"<< endl;
-
+        cerr << "non_empty_bv ok" << endl;
 
         // sB
         /* bool has_sB = !sB.empty();
@@ -533,7 +531,7 @@ public:
             out.write(reinterpret_cast<const char *>(&val.first), sizeof(uint8_t));
             out.write(reinterpret_cast<const char *>(&val.second), sizeof(int64_t));
         }
-        cerr << "sB ok"<< endl;
+        cerr << "sB ok" << endl;
         //}
 
         // metadata
@@ -846,7 +844,7 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     } else {
         std::fill(results.begin(), results.end(), 0);
     } */
-
+    cerr << Fmin.size() << endl;
     std::fill(results.begin(), results.end(), 0);
 
     std::sort(Fmin.begin(), Fmin.end());
