@@ -39,16 +39,16 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
     while (sp_len > 0)
     {
         auto it = sB.find(int_sp);
-        if (it != sB.end() && sp_len == it->second.first)
+        if (it != sB.end() && sp_len >= it->second.first)
         { // real match
             // all_fmin.insert(make_tuple(sp_len, int_sp, it->second.second, start));
-            if ((start + sp_len - 1) > end)
+            if ((start + it->second.first - 1) > end)
             {
-                next_candidates.push_back(make_tuple(sp_len + start - 1, int_sp, it->second.second, start));
+                next_candidates.push_back(make_tuple(it->second.first + start - 1, int_sp, it->second.second, start));
             } // Sorted based on END
             else
             {
-                tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {sp_len, int_sp, it->second.second, start};
+                tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {it->second.first, int_sp, it->second.second, start};
                 if (new_fmin < k_fmin)
                 {
                     curr_candidates.clear();
