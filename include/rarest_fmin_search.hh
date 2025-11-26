@@ -26,7 +26,7 @@
 }; */
 
 // TODO Deal with empty SB
-inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+/* inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
 {
     // 2. Prefix NOT found
     // Start from the longest possible prefix
@@ -69,6 +69,43 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
         }
         int_sp >>= 2;
         sp_len--;
+    }
+}
+ */
+inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const Bucket &sB, const uint64_t start, const uint64_t end, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin)
+{
+    // 2. Prefix NOT found
+    // Start from the longest possible prefix
+    // if you find a real match, stop
+    if (sB.color_set_ids.empty())
+    {
+        return;
+    }
+    auto [pos, len] = bitMagicSearch(sB.tail_data, int_sp, int_sp_len);
+    if (pos > -1)
+    {
+        uint64_t f_int = (int_sp >> ((int_sp_len - len) * 2)); // remove the unused chars
+        if ((start + int_sp_len - 1) > end)
+        {
+            next_candidates.push_back(make_tuple(int_sp_len + start - 1, f_int, sB.color_set_ids[pos], start));
+        } // Sorted based on END
+        else
+        {
+            tuple<uint64_t, uint64_t, uint64_t, uint64_t> new_fmin = {int_sp_len, f_int, sB.color_set_ids[pos], start};
+            if (new_fmin < k_fmin)
+            {
+                curr_candidates.clear();
+                k_fmin = new_fmin;
+            }
+            else
+            {
+                while (!curr_candidates.empty() && curr_candidates.back() > new_fmin)
+                {
+                    curr_candidates.pop_back();
+                }
+            }
+            curr_candidates.push_back(new_fmin);
+        }
     }
 }
 
@@ -175,7 +212,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
     }
 }
 
-void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::int_vector<1> &buckets_bv, const sdsl::rank_support_v5<1> &buckets_rs, const std::unordered_map<uint32_t, pair<uint8_t, int64_t>> &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin)
+void rarest_fmin_streaming_search(const string &input, const vector<Bucket> &buckets, const sdsl::int_vector<1> &buckets_bv, const sdsl::rank_support_v5<1> &buckets_rs, const Bucket &sB, const uint64_t plen, const uint64_t k, vector<int64_t> &Fmin)
 {
     const int64_t str_len = input.size();
 
