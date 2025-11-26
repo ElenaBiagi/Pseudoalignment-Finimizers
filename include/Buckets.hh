@@ -65,6 +65,48 @@ public:
         WriteTailsVector(B_tails);
     }
 
+    Bucket(const vector<std::string_view> &tails, const vector<uint64_t> &unsorted_color_set_ids, const vector<uint8_t> &short_real_tlen_freq)
+    {
+        if (tails.size() == 0)
+        {
+            return;
+        }
+        if (tails.size() == 1)
+        {
+            int tlen = tails[0].size();
+        }
+        unordered_map<int, int> tlen_rank_map;
+        for (size_t i = 0; i < short_real_tlen_freq.size(); ++i)
+        {
+            tlen_rank_map[short_real_tlen_freq[i]] = static_cast<int>(i);
+        }
+
+        // Convert tails to Compact_tails
+        vector<Compact_tails> B_tails;
+        B_tails.reserve(tails.size());
+        for (size_t i = 0; i < tails.size(); i++)
+        {
+            Compact_tails ct;
+            ct.tlen = tails[i].size();
+            ct.int_tail = prefix2int(tails[i], 0, ct.tlen);
+            ct.color_set_id = unsorted_color_set_ids[i];
+            B_tails.push_back(ct);
+        }
+
+        // This permutes also the color_set_ids (later)
+        // std::sort(B_tails.begin(), B_tails.end());
+        // Sort using lambda comparator with tlen_rank_map
+        std::stable_sort(B_tails.begin(), B_tails.end(), [&tlen_rank_map](const Compact_tails &a, const Compact_tails &b)
+                         {
+            int rank_a = tlen_rank_map.count(a.tlen) ? tlen_rank_map[a.tlen] : INT_MAX;
+            int rank_b = tlen_rank_map.count(b.tlen) ? tlen_rank_map[b.tlen] : INT_MAX;
+
+            return rank_a < rank_b; });
+        // return a.color_set_id < b.color_set_id; });
+
+        WriteTailsVector(B_tails);
+    }
+
     void WriteTailsVector(const vector<Compact_tails> &B_tails)
     {
         // Compressed tails

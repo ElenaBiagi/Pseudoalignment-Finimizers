@@ -145,8 +145,9 @@ public:
 
     vector<Bucket> non_empty_buckets;
     sdsl::int_vector<1> non_empty_bv;
-    sdsl::rank_support_v5<1> non_empty_bv_rs;           // try _v only ?
-    unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
+    sdsl::rank_support_v5<1> non_empty_bv_rs; // try _v only ?
+    // unordered_map<uint32_t, pair<uint8_t, int64_t>> sB; // Create a hash table to store the finimizers shorter than the prefix length
+    Bucket sB;
     uint64_t n_colors;
     uint64_t n_finimizers;
     uint64_t plen;
@@ -225,12 +226,17 @@ public:
         cerr << "Deal with tails" << endl;
 
         vector<uint8_t> real_tlen_freq;
+        vector<uint8_t> short_real_tlen_freq;
         for (auto &f : cf.lengths_by_freq)
         {
-            if (f > plen)
+            if (f >= plen)
             {
                 real_tlen_freq.push_back(f - plen);
             } // One could modify cf.lengths_by_freq directly if no value was <= plen
+            else
+            {
+                short_real_tlen_freq.push_back(f);
+            }
         }
 
         set_tlen_order(real_tlen_freq);
@@ -249,6 +255,9 @@ public:
         true_or_crash(first_nonegative_tail_idx >= 0, "ERROR: all tails shorter than prefix length");
 
         std::string_view cur_prefix(cf.concat.data() + f_start, plen);
+        vector<std::string_view> short_cur_tails;
+        vector<uint64_t> short_cur_color_set_ids;
+
         vector<std::string_view> cur_tails;
         vector<uint64_t> cur_color_set_ids;
 
@@ -257,19 +266,21 @@ public:
         f_start = 0; // Go back to zero
 
         non_empty_buckets.reserve(n_buckets);
-        for (int64_t i = 0; i < n_finimizers; i++)
+        for (uint64_t i = 0; i < n_finimizers; i++)
         {
             if (cf.lengths[i] < plen)
             {
-                std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
+                /* std::string_view sprefix(cf.concat.data() + f_start, cf.lengths[i]);
                 uint64_t sp_int = prefix2int(sprefix, 0, cf.lengths[i]);
-                sB[sp_int] = {cf.lengths[i], this->color_set_ids[i]};
+                sB[sp_int] = {cf.lengths[i], this->color_set_ids[i]}; */
+                short_cur_tails.push_back(std::string_view(cf.concat.data() + f_start, cf.lengths[i]));
+                short_cur_color_set_ids.push_back(this->color_set_ids[i]);
             }
             else
             {
                 std::string_view prefix(cf.concat.data() + f_start, plen);
-                true_or_crash(f_start + plen <= cf.concat.size(),
-                              "ERROR: out-of-bounds prefix access");
+                /* true_or_crash(f_start + plen <= cf.concat.size(),
+                              "ERROR: out-of-bounds prefix access"); */
 
                 if (prefix != cur_prefix)
                 {
@@ -293,6 +304,9 @@ public:
             non_empty_buckets.emplace_back(Bucket(cur_tails, cur_color_set_ids, tlen_rank_map));
         }
         non_empty_buckets.shrink_to_fit();
+
+        cerr << "Deal with short finimizers" << endl;
+        sB = Bucket(short_cur_tails, short_cur_color_set_ids, short_real_tlen_freq);
 
         // Check the density of non-empty buckets
         size_t marked = sdsl::util::cnt_one_bits(non_empty_bv);
@@ -360,11 +374,11 @@ public:
     {
         cerr << plen << endl;
         cerr << "buckest sizes" << endl;
-        for (const auto &bucket : non_empty_buckets)
+        /* for (const auto &bucket : non_empty_buckets)
         {
             cerr << bucket.color_set_ids.size() << " ";
         }
-        cerr << endl;
+        cerr << endl; */
 
         cerr << "ntails per tlen" << endl;
         int64_t pos = 0; // start from 0 now that we have a single vector
@@ -515,15 +529,16 @@ public:
 
         if (has_sB)
         { */
-        size_t map_size = sB.size();
+        /* size_t map_size = sB.size();
         out.write(reinterpret_cast<const char *>(&map_size), sizeof(map_size));
         for (const auto &[key, val] : sB)
         {
             out.write(reinterpret_cast<const char *>(&key), sizeof(uint32_t));
             out.write(reinterpret_cast<const char *>(&val.first), sizeof(uint8_t));
             out.write(reinterpret_cast<const char *>(&val.second), sizeof(int64_t));
-        }
+        } */
         //}
+        sB.serialize(out);
 
         // metadata
         out.write(reinterpret_cast<const char *>(&n_colors), sizeof(n_colors));
@@ -568,7 +583,7 @@ public:
         sB.clear();
         if (has_sB)
         { */
-        size_t map_size;
+        /* size_t map_size;
         in.read(reinterpret_cast<char *>(&map_size), sizeof(map_size));
         sB.clear();
         for (size_t i = 0; i < map_size; ++i)
@@ -579,8 +594,9 @@ public:
             in.read(reinterpret_cast<char *>(&val.first), sizeof(uint8_t));
             in.read(reinterpret_cast<char *>(&val.second), sizeof(int64_t));
             sB[key] = val;
-        }
+        } */
         //}
+        sB.load(in);
 
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
