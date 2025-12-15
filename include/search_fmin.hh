@@ -86,6 +86,14 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
                 {
                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    // write_out(" ", 1, out, output_buffer, flush_t);
+
+                    // print the number of kmers/matches found
+                    write_out(":", 1, out, output_buffer, flush_t);
+
+                    uint16_t count_len = fast_int_to_string(count, int_buf);
+                    write_out(int_buf, count_len, out, output_buffer, flush_t);
+
                     write_out(" ", 1, out, output_buffer, flush_t);
                 }
             }
@@ -128,10 +136,18 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
             for (auto idx = 0; idx < results.size(); idx++)
             {
                 const auto &count = results[idx];
-                if (count >= 0)
+                if (count > 0)
                 {
                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
+                    // write_out(" ", 1, out, output_buffer, flush_t);
+
+                    // print the number of kmers/matches found
+                    write_out(":", 1, out, output_buffer, flush_t);
+
+                    uint16_t count_len = fast_int_to_string(count, int_buf);
+                    write_out(int_buf, count_len, out, output_buffer, flush_t);
+
                     write_out(" ", 1, out, output_buffer, flush_t);
                 }
             }
