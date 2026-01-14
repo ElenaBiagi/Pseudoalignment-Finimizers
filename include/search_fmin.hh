@@ -28,9 +28,9 @@ void write_out(const char *data, int64_t data_length, out_stream_t &output_write
     }
 }
 
-uint16_t fast_int_to_string(uint16_t x, char *buffer)
+uint64_t fast_int_to_string(uint64_t x, char *buffer)
 {
-    uint16_t i = 0;
+    uint64_t i = 0;
     // Write the digits in reverse order (reversed back at the end)
     do
     {
@@ -57,10 +57,11 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     char int_buf[32]; // Enough space for a 64-bit integer in ascii
 
     vector<int64_t> Finimizers;
-    // vector<pair<uint16_t, uint16_t>> ans;
+    // vector<pair<uint64_t, uint64_t>> ans;
     // ans.resize(index.n_colors)
 
-    vector<int16_t> results(index.n_colors, 0);
+    vector<int64_t> results(index.n_colors, 0);
+    vector<int64_t> last_seen(index.n_colors, -1);
 
     if (t > 0)
     {
@@ -77,21 +78,21 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            const int16_t min_value = index.search(seq, results, t, Finimizers);
+            const int64_t min_value = index.search(seq, results, t, Finimizers);
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
             {
                 const auto &count = results[idx];
                 if (count >= min_value)
                 {
-                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    uint64_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
                     // write_out(" ", 1, out, output_buffer, flush_t);
 
                     // print the number of kmers/matches found
                     write_out(":", 1, out, output_buffer, flush_t);
 
-                    uint16_t count_len = fast_int_to_string(count, int_buf);
+                    uint64_t count_len = fast_int_to_string(count, int_buf);
                     write_out(int_buf, count_len, out, output_buffer, flush_t);
 
                     write_out(" ", 1, out, output_buffer, flush_t);
@@ -102,7 +103,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
                 const auto &[idx, count] = ans[a];
                 if (count >= min_value)
                 {
-                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    uint64_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
                     write_out(" ", 1, out, output_buffer, flush_t);
                 }
@@ -130,7 +131,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            index.search(seq, results, Finimizers);
+            index.search(seq, results, Finimizers, last_seen);
 
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
@@ -138,14 +139,14 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
                 const auto &count = results[idx];
                 if (count > 0)
                 {
-                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    uint64_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
                     // write_out(" ", 1, out, output_buffer, flush_t);
 
                     // print the number of kmers/matches found
                     write_out(":", 1, out, output_buffer, flush_t);
 
-                    uint16_t count_len = fast_int_to_string(count, int_buf);
+                    uint64_t count_len = fast_int_to_string(count, int_buf);
                     write_out(int_buf, count_len, out, output_buffer, flush_t);
 
                     write_out(" ", 1, out, output_buffer, flush_t);
@@ -158,7 +159,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
                 const auto &[idx, count] = ans[a];
                 if (count >= 0)
                 {
-                    uint16_t idx_len = fast_int_to_string(idx, int_buf);
+                    uint64_t idx_len = fast_int_to_string(idx, int_buf);
                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
                     write_out(" ", 1, out, output_buffer, flush_t);
                 }

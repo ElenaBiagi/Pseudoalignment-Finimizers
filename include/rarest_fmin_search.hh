@@ -58,7 +58,7 @@ inline void FindShortFinimizer(const uint64_t int_sp_len, uint64_t int_sp, const
                 else
                 {
                     // push_monotone_increasing(curr_candidates, new_fmin);
-                    while (curr_candidates.back() > new_fmin)
+                    while ( !curr_candidates.empty() && curr_candidates.back() > new_fmin)
                     {
                         curr_candidates.pop_back();
                     }
@@ -123,7 +123,7 @@ inline void FindPrefix_short(const Bucket &bucket_p, const uint64_t plen, const 
             }
             else
             {
-                while (curr_candidates.back() > new_fmin)
+                while (!curr_candidates.empty() && curr_candidates.back() > new_fmin)
                 {
                     curr_candidates.pop_back();
                 }
@@ -142,6 +142,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
         // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
     }
+    //else {Fmin.push_back(-1);}
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
     while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start)
@@ -164,7 +165,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
             }
             else
             {
-                while (curr_candidates.back() > new_fmin)
+                while (!curr_candidates.empty() && curr_candidates.back() > new_fmin)
                 {
                     curr_candidates.pop_back();
                 }
@@ -349,9 +350,9 @@ void only_concat_read_colors(const uint64_t *data, const uint64_t n_colors, vect
     }
 }
 
-void counting_sort(const vector<int16_t> &results, vector<pair<uint16_t, uint16_t>> &ans, const size_t found_fmin, const uint16_t n_colors)
+void counting_sort(const vector<int64_t> &results, vector<pair<uint64_t, uint64_t>> &ans, const size_t found_fmin, const uint64_t n_colors)
 {
-    vector<uint16_t> counts(found_fmin + 1);
+    vector<uint64_t> counts(found_fmin + 1);
 
     for (size_t idx = 0; idx < n_colors; idx++)
     {
@@ -367,28 +368,28 @@ void counting_sort(const vector<int16_t> &results, vector<pair<uint16_t, uint16_
     ans.resize(n_colors);
     for (size_t idx = 0; idx < n_colors; idx++)
     {
-        ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+        ans[counts[results[idx]] - 1] = {static_cast<uint64_t>(idx), results[idx]};
         counts[results[idx]]--;
     }
 }
 
 // Not used now
 // works for negative values in results
-void counting_sort_neg(const vector<int16_t> &results, vector<pair<uint16_t, int16_t>> &ans, const size_t found_fmin, const uint16_t n_colors)
+void counting_sort_neg(const vector<int64_t> &results, vector<pair<uint64_t, int64_t>> &ans, const size_t found_fmin, const uint64_t n_colors)
 {
     if (results.empty())
         return;
 
     // min & max
-    int16_t min_val = *min_element(results.begin(), results.end());
-    int16_t max_val = *max_element(results.begin(), results.end());
+    int64_t min_val = *min_element(results.begin(), results.end());
+    int64_t max_val = *max_element(results.begin(), results.end());
 
-    int16_t range = static_cast<size_t>(max_val - min_val + 1);
-    vector<int16_t> counts(range, 0);
+    int64_t range = static_cast<size_t>(max_val - min_val + 1);
+    vector<int64_t> counts(range, 0);
 
-    for (uint16_t idx = 0; idx < n_colors; idx++)
+    for (uint64_t idx = 0; idx < n_colors; idx++)
     {
-        counts[static_cast<int16_t>(results[idx] - min_val)]++; // offset by min_val
+        counts[static_cast<int64_t>(results[idx] - min_val)]++; // offset by min_val
     }
 
     // Cumulative sums
@@ -397,11 +398,11 @@ void counting_sort_neg(const vector<int16_t> &results, vector<pair<uint16_t, int
         counts[i] += counts[i - 1];
     }
 
-    for (uint16_t idx = n_colors; idx-- > 0;)
+    for (uint64_t idx = n_colors; idx-- > 0;)
     {
-        int16_t val = results[idx];
-        size_t pos = counts[static_cast<int16_t>(val - min_val)] - 1;
-        ans[pos] = {static_cast<uint16_t>(idx), val};
-        counts[static_cast<int16_t>(val - min_val)]--;
+        int64_t val = results[idx];
+        size_t pos = counts[static_cast<int64_t>(val - min_val)] - 1;
+        ans[pos] = {static_cast<uint64_t>(idx), val};
+        counts[static_cast<int64_t>(val - min_val)]--;
     }
 }
