@@ -43,7 +43,7 @@ uint64_t fast_int_to_string(uint64_t x, char *buffer)
 }
 
 template <typename reader_t, typename out_stream_t>
-int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t)
+int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t, const bool count_bases)
 {
     // int64_t total_micros = 0;
 
@@ -60,9 +60,9 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
     // vector<pair<uint64_t, uint64_t>> ans;
     // ans.resize(index.n_colors)
 
-    vector<int64_t> results(index.n_colors, 0);
-    vector<int64_t> last_seen(index.n_colors, -1);
-
+    vector<int64_t> results(index.n_colors +(count_bases ? 1 :0), 0); // +1 for total number of bases covered
+    vector<int64_t> last_seen(index.n_colors+(count_bases ? 1 :0), -1); // +1 for maximum
+    if (count_bases) cerr <<"Counting bases covered, not just k-mer hits" << endl; 
     if (t > 0)
     {
 
@@ -78,7 +78,8 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            const int64_t min_value = index.search(seq, results, t, Finimizers);
+            const int64_t min_value = index.search(seq, results, t, Finimizers, last_seen, count_bases);
+            cerr << min_value << endl << endl;
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
             {
@@ -131,7 +132,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 
             const string &seq = reader.read_buf;
 
-            index.search(seq, results, Finimizers, last_seen);
+            index.search(seq, results, Finimizers, last_seen, count_bases);
 
             auto start = std::chrono::high_resolution_clock::now();
             for (auto idx = 0; idx < results.size(); idx++)
@@ -187,14 +188,14 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
 }
 
 template <typename reader_t, typename out_stream_t>
-int64_t run_fmin_file(const string &infile, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t)
+int64_t run_fmin_file(const string &infile, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t, const bool count_bases)
 {
     reader_t reader(infile);
-    return run_fmin_queries_streaming(reader, out, index, t);
+    return run_fmin_queries_streaming(reader, out, index, t, count_bases);
 }
 
 // Returns number of queries executed
-int64_t run_fmin_queries(const vector<string> &infiles, const optional<vector<string>> &outfiles, const CompressedColoredFinimizers &index, const float &t)
+int64_t run_fmin_queries(const vector<string> &infiles, const optional<vector<string>> &outfiles, const CompressedColoredFinimizers &index, const float &t, const bool count_bases)
 {
 
     if (outfiles.has_value())
@@ -219,11 +220,11 @@ int64_t run_fmin_queries(const vector<string> &infiles, const optional<vector<st
             if (outfiles.has_value())
             {
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, index, t);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], out, index, t, count_bases);
             }
             else
             { // To stdout
-                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, index, t);
+                n_queries_run += run_fmin_file<in_gzip>(infiles[i], cout, index, t, count_bases);
             }
         }
         else
@@ -231,11 +232,11 @@ int64_t run_fmin_queries(const vector<string> &infiles, const optional<vector<st
             if (outfiles.has_value())
             {
                 ofstream out(outfiles.value()[i]);
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, index, t);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], out, index, t, count_bases);
             }
             else
             { // To stdout
-                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, index, t);
+                n_queries_run += run_fmin_file<in_no_gzip>(infiles[i], cout, index, t, count_bases);
             }
         }
     }
@@ -251,7 +252,12 @@ int search_fmin(int argc, char **argv)
 
     cxxopts::Options options(argv[0], "Query all Finimizers of all input reads.");
 
-    options.add_options()("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())("i,index-file", "Index filename prefix.", cxxopts::value<string>())("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())("t", "Threshold", cxxopts::value<float>()->default_value("0"))("h,help", "Print usage");
+    options.add_options()("o,out-file", "Output filename, or stdout if not given.", cxxopts::value<string>())
+                        ("i,index-file", "Index filename prefix.", cxxopts::value<string>())
+                        ("q,query-file", "The query in FASTA or FASTQ format, possibly gzipped. Multi-line FASTQ is not supported. If the file extension is .txt, this is interpreted as a list of query files, one per line. In this case, --out-file is also interpreted as a list of output files in the same manner, one line for each input file.", cxxopts::value<string>())
+                        ("t", "Threshold", cxxopts::value<float>()->default_value("0"))
+                        ("count-bases", "Count bases covered insead of k-mer hits", cxxopts::value<bool>()->default_value("false"))
+                        ("h,help", "Print usage");
 
     int64_t old_argc = argc; // Must store this because the parser modifies it
     auto opts = options.parse(argc, argv);
@@ -300,8 +306,10 @@ int search_fmin(int argc, char **argv)
 
     string index_prefix = opts["index-file"].as<string>();
 
+    
     int64_t number_of_queries = 0;
     float t = opts["t"].as<float>();
+    const bool count_bases = opts["count-bases"].as<bool>();
 
     cerr << "Loading index..." << endl;
     /* int64_t total_micros = 0;
@@ -319,7 +327,7 @@ int search_fmin(int argc, char **argv)
     cerr << total_micros << endl; */
     cerr << "Index loaded" << endl;
 
-    number_of_queries += run_fmin_queries(query_files, output_files, index, t); // TODO: Implement this in ColoredFinimizers
+    number_of_queries += run_fmin_queries(query_files, output_files, index, t, count_bases); // TODO: Implement this in ColoredFinimizers
     int64_t new_total_micros = cur_time_micros() - micros_start;
     write_log("us/query end-to-end: " + to_string((double)new_total_micros / number_of_queries), LogLevel::MAJOR);
     write_log("total number of queries: " + to_string(number_of_queries), LogLevel::MAJOR);

@@ -126,6 +126,9 @@ inline void count_bases(vector<int64_t> &Fmin, const CompressedColorSets &CCS, c
 
 inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen);
 
+inline int64_t count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen, const float t);
+
+
 class CompressedColoredFinimizers
 {
 
@@ -429,7 +432,7 @@ public:
     }
     // this->non_empty_buckets, this->non_empty_bv
 
-    void search(const std::string &query, vector<int64_t> &results, vector<int64_t> &Finimizers, vector<int64_t> &last_seen) const
+    void search(const std::string &query, vector<int64_t> &results, vector<int64_t> &Finimizers, vector<int64_t> &last_seen, const bool count_bases) const
     {
         const int64_t query_len = query.length();
         if (query_len < this->k)
@@ -448,15 +451,15 @@ public:
         // Color sets
         {
             auto start = std::chrono::high_resolution_clock::now();
-            //pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
-            count_single_base(Finimizers, this->CCS, this->n_colors, results, last_seen);
+            if (count_bases) {count_single_base(Finimizers, this->CCS, this->n_colors, results, last_seen);}
+            else {pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);}
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
     }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint64_t search(const std::string &query, vector<int64_t> &results, const float t, vector<int64_t> &Finimizers) const
+    uint64_t search(const std::string &query, vector<int64_t> &results, const float t, vector<int64_t> &Finimizers, vector<int64_t> &last_seen, const bool count_bases) const
     {
 
         const int64_t query_len = query.length();
@@ -474,17 +477,19 @@ public:
             time_rarest_fmin += (end - start);
         }
 
-        // Combine the results of finimizers color ids for forward and reverse
-        int64_t T;
+        // Color sets
+        int64_t threshold;
         {
             auto start = std::chrono::high_resolution_clock::now();
             // min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-            T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
+            // T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
+            if (count_bases) {threshold=count_single_base(Finimizers, this->CCS, this->n_colors, results, last_seen, t);}
+            else {threshold=pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);}
 
             auto end = std::chrono::high_resolution_clock::now();
             time_combine += (end - start);
         }
-        return T;
+        return threshold;
     }
 
     void serialize(const std::string &index_prefix) const
@@ -1013,6 +1018,68 @@ inline void read_colors_single_base (const CompressedColorSets &CCS, const uint6
         
 }
 
+inline void read_colors_single_base_covered (const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen, const int64_t pos, const uint64_t x){
+    const int64_t k = 31;
+    const sdsl::bit_vector &BV = CCS.getBV();
+    const uint64_t *data = BV.data();
+    const vector<uint16_t> &L = CCS.getL();
+    const DeltaSet &EF = CCS.getEF();
+
+    // pos < sparse_count; [sparse]
+    // sparse_count <= pos < dense_count; [very dense]
+    // pos >= dense; [bitmap]
+
+    const uint64_t sparse_count = CCS.sparse_count;
+    const uint64_t dense_count = CCS.dense_count;
+
+    // Check the last value in which some Finimizer/k-mer was observed
+    int64_t t_diff = (x+k) - last_seen[last_seen.size()-1];
+    results[results.size()-1]+= min(t_diff,k);
+
+    if (pos < sparse_count)
+        {
+            // read from L
+            const size_t end = EF.get_start(pos); // exclusive end
+            size_t start = EF.get_start(pos - 1); // inclusive start
+
+            while (start < end)
+            {
+                int64_t diff = (x + k) -last_seen[L[start]];
+                results[L[start]] += min(diff,k);
+                last_seen[L[start]] = x + k;
+                start++;
+            }
+
+        }
+    else if (pos < dense_count)
+        {
+            // read complementary values from L
+            //read_verydense(pos, freq, EF, L, n_colors, results);
+            const size_t end = EF.get_start(pos); // exclusive end
+            size_t start = EF.get_start(pos - 1); // inclusive start
+            for (size_t c = 0; c < n_colors; c++)
+            {
+                if (start < end && L[start] == c)
+                {
+                    start++;
+                }
+                else
+                {
+                    int64_t diff = (x + k) - last_seen[c];
+                    results[c] += min(diff,k);
+                    last_seen[c] = x +k;
+                }
+            }
+        }
+         // BV
+    else
+        {
+        uint64_t start = pos - dense_count;
+        read_bv_single_base(data, start, n_colors, results, last_seen, x, k);
+    }
+    last_seen[last_seen.size()-1] = x + k; 
+}
+
 inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen)
 {   
     if (Fmin.empty()) return;
@@ -1031,6 +1098,28 @@ inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &
         x++;
     }
     return;
+}
+
+
+inline int64_t count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen, const float t)
+{   
+    if (Fmin.empty()) return 0;
+    // read colors
+    const int64_t k = 31;
+    
+    //vector<int64_t> last_seen(n_colors, -1);
+    std::fill(last_seen.begin(), last_seen.end(), -1);
+    std::fill(results.begin(), results.end(), 0);
+
+    // results is the bases counter
+    uint64_t x = 0;
+    while ( x < Fmin.size()){
+        if (Fmin[x] != -1){read_colors_single_base_covered(CCS, n_colors, results, last_seen, Fmin[x], x);}
+        x++;
+    }
+    // return maximum number of bases covered 
+    cerr << results[results.size()-1] << endl;
+    return t*results[results.size()-1];
 }
 
 inline void count_bases(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen)
