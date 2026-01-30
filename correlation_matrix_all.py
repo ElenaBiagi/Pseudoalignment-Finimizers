@@ -131,7 +131,7 @@ def fastq_gz_lengths(path):
 def main():
     n_cols = 3682       # genomes
     n_tools = 4         # themisto, finimap, kaminari, minimap
-    t = 0.8             # threshold
+    t = 0             # threshold
     
     args = parser.parse_args()
     query_n = args.query_n
@@ -161,8 +161,8 @@ def main():
 
         # KAMINARI ---------------------------------        
         print("read kaminari", flush=True)
-        # kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t0.00000001_19.txt"
-        kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t{t}_19.txt"
+        if (t == 0):kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t0.00000001_19.txt"
+        else: kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t{t}_19.txt"
         with open(kaminari_file, "r") as f:
             kaminari_lines = [line.strip() for line in f]
 
@@ -222,8 +222,9 @@ def main():
         pred_k = [0] * (R * n_cols)
                 
         M = np.zeros((n_tools, n_cols*R), dtype=float)
-
+        L = []
         for r in range(R):
+            list_minimap = []
             # print(r+1, flush = True) 
 
             # THEMISTO ------------------------------
@@ -266,78 +267,82 @@ def main():
                 if key in minimap_hm:
                     value = minimap_hm[key]
                     M[3,(r*n_cols) + genome_num] = min(value/query_lens[r], 1) # divide by the read length
-
+                    list_minimap.append([min(value/query_lens[r], 1), genome_num])
             # maximum match = denominator 
-            # max_matches.append(max(M[3,(r*n_cols): (r*n_cols) + 3681]))
-            # TODO: Calculate REAL max matches for every read
-            # max_matches=max(M[3,(r*n_cols): (r*n_cols) + n_cols])
+            list_minimap.sort(key=lambda x: x[0], reverse=True)
+            
             minimap_threshold = sum(max_matches[r])/query_lens[r]
+            
+            # Remove values below threshold
+            list_minimap = [res for res in list_minimap if res[0] >= minimap_threshold * t]
+            
+            L.append(list_minimap)
 
             # Remove values below the threshold
             M[3, (r * n_cols): (r * n_cols) + n_cols] [M[3, (r * n_cols): (r * n_cols) + n_cols] < (minimap_threshold * t)] = 0
 
-            for genome in range(n_cols):
-                tx = M[0, (r*n_cols) + genome]   # Themisto
-                fx = M[1, (r*n_cols) + genome]   # Finimap
-                kx = M[2, (r*n_cols) + genome]   # Kaminari
-                my = M[3, (r*n_cols) + genome]   # Minimap2
+            # for genome in range(n_cols):
+            #     tx = M[0, (r*n_cols) + genome]   # Themisto
+            #     fx = M[1, (r*n_cols) + genome]   # Finimap
+            #     kx = M[2, (r*n_cols) + genome]   # Kaminari
+            #     my = M[3, (r*n_cols) + genome]   # Minimap2
             
-                if my > 0:
-                    true_m[(r * n_cols) + genome] = 1
+            #     if my > 0:
+            #         true_m[(r * n_cols) + genome] = 1
                 
-                if tx > 0:
-                    pred_t[(r * n_cols) + genome] = 1
+            #     if tx > 0:
+            #         pred_t[(r * n_cols) + genome] = 1
                 
-                if fx > 0:
-                    pred_f[(r * n_cols) + genome] = 1
+            #     if fx > 0:
+            #         pred_f[(r * n_cols) + genome] = 1
                 
-                if kx > 0:
-                    pred_k[(r * n_cols) + genome] = 1
+            #     if kx > 0:
+            #         pred_k[(r * n_cols) + genome] = 1
                 
-                # FALSE POSITIVES
-                if my > 0:
-                    # False negatives
-                    if tx == 0:
-                        FN_t+=1
-                    if fx == 0:
-                        FN_f+=1
-                    if kx == 0:
-                        FN_k+=1
-                    # True positives
-                    if tx > 0:
-                        TP_t+=1
-                    if fx > 0:
-                        TP_f+=1
-                    if kx > 0:
-                        TP_k+=1
+            #     # FALSE POSITIVES
+            #     if my > 0:
+            #         # False negatives
+            #         if tx == 0:
+            #             FN_t+=1
+            #         if fx == 0:
+            #             FN_f+=1
+            #         if kx == 0:
+            #             FN_k+=1
+            #         # True positives
+            #         if tx > 0:
+            #             TP_t+=1
+            #         if fx > 0:
+            #             TP_f+=1
+            #         if kx > 0:
+            #             TP_k+=1
                         
-                elif my == 0:
-                    # true negatives
-                    if tx == 0:
-                        TN_t+=1
-                    if fx == 0:
-                        TN_f+=1
-                    if kx == 0:
-                        TN_k+=1
-                    # False positives
-                    if tx > 0:
-                        FP_t+=1
-                    if fx > 0:
-                        FP_f+=1
-                    if kx > 0:
-                        FP_k+=1
+            #     elif my == 0:
+            #         # true negatives
+            #         if tx == 0:
+            #             TN_t+=1
+            #         if fx == 0:
+            #             TN_f+=1
+            #         if kx == 0:
+            #             TN_k+=1
+            #         # False positives
+            #         if tx > 0:
+            #             FP_t+=1
+            #         if fx > 0:
+            #             FP_f+=1
+            #         if kx > 0:
+            #             FP_k+=1
                 
                 
-                # scatter plot values
-                if tx > 0 or my > 0:   # avoid empty points
-                    scatter_x.append(tx)
-                    scatter_y.append(my)
-                if fx > 0 or my > 0:   # avoid empty points
-                    scatter_fx.append(fx)
-                    scatter_fy.append(my)
-                if kx > 0 or my > 0:   # avoid empty points
-                    scatter_kx.append(kx)
-                    scatter_ky.append(my)
+            #     # scatter plot values
+            #     if tx > 0 or my > 0:   # avoid empty points
+            #         scatter_x.append(tx)
+            #         scatter_y.append(my)
+            #     if fx > 0 or my > 0:   # avoid empty points
+            #         scatter_fx.append(fx)
+            #         scatter_fy.append(my)
+            #     if kx > 0 or my > 0:   # avoid empty points
+            #         scatter_kx.append(kx)
+            #         scatter_ky.append(my)
                                 
     # --------------------------------------
     # CORRELATION MATRIX
@@ -345,119 +350,145 @@ def main():
     # print(true_m)
     # print(pred_t)
     # print(pred_f)
-    print(matthews_corrcoef(true_m, pred_t))
-    print(matthews_corrcoef(true_m, pred_f))
-    print(matthews_corrcoef(true_m, pred_k))
+    # print(matthews_corrcoef(true_m, pred_t))
+    # print(matthews_corrcoef(true_m, pred_f))
+    # print(matthews_corrcoef(true_m, pred_k))
 
     # Save M[0,:] Themisto
     with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_themisto2_list_t{t}.txt", "w") as f:
+        i=0
         for value in M[0, :]:
+            i+=1
             f.write(f"{value}\n")
+            if (i > n_cols):  
+                f.write(f"\n")
+                i=0
     # Save M[1,:] Finimap
     with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_finimap_list_t{t}.txt", "w") as f:
+        i=0
         for value in M[1, :]:
+            i+=1
             f.write(f"{value}\n")
+            if (i > n_cols):  
+                f.write(f"\n")
+                i=0
     # Save M[2,:] kaminari
     with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_list_t{t}.txt", "w") as f:
+        i=0
         for value in M[2, :]:
+            i+=1
             f.write(f"{value}\n")
+            if (i > n_cols):  
+                f.write(f"\n")
+                i=0
     # Save M[3,:] Minimap
     with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_minimap_list_t{t}.txt", "w") as f:
+        i=0
         for value in M[3, :]:
-            f.write(f"{value}\n")     
+            i+=1
+            f.write(f"{value}\n")
+            if (i > n_cols):  
+                f.write(f"\n")
+                i=0
+    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_minimap_norm_pairs_t{t}.txt", "w") as f:
+        for read in L:
+            for value in read:
+                if value[0] > 0:
+                    f.write(f"{value[1]}:{value[0]}\t")
+            f.write(f"\n")
 
-    corr = np.corrcoef(M)
+    # corr = np.corrcoef(M)
     
-    print(f"Correlation matrix for {query_name}")
-    print(corr)
-    print()
+    # print(f"Correlation matrix for {query_name}")
+    # print(corr)
+    # print()
             
-    if scatter_x:
-        save_scatter_pdf(
-            scatter_x,
-            scatter_y,
-            "norm_{query_name}_themisto_vs_minimap2_0.8.pdf",
-            xlabel="Themisto",
-            ylabel="Minimap2"
-        )
-        print(max(scatter_x))
-        print(max(scatter_y))
-    if scatter_fx:
-        save_scatter_pdf(
-            scatter_fx,
-            scatter_fy,
-            f"norm_{query_name}_finimap_vs_minimap2_0.8.pdf",
-            xlabel="Finimap",
-            ylabel="Minimap2",
-            point_color="chocolate",#(210, 105, 30), #
-        )
-        print(max(scatter_fx))
-        print(max(scatter_fy))
-    if scatter_kx:
-        save_scatter_pdf(
-            scatter_kx,
-            scatter_ky,
-            f"norm_{query_name}_kaminari_vs_minimap2_0.8.pdf",
-            xlabel="Kaminari",
-            ylabel="Minimap2",
-            point_color="red",
-        )
-        print(max(scatter_kx))
-        print(max(scatter_ky))
+    # if scatter_x:
+    #     save_scatter_pdf(
+    #         scatter_x,
+    #         scatter_y,
+    #         "norm_{query_name}_themisto_vs_minimap2_0.8.pdf",
+    #         xlabel="Themisto",
+    #         ylabel="Minimap2"
+    #     )
+    #     print(max(scatter_x))
+    #     print(max(scatter_y))
+    # if scatter_fx:
+    #     save_scatter_pdf(
+    #         scatter_fx,
+    #         scatter_fy,
+    #         f"norm_{query_name}_finimap_vs_minimap2_0.8.pdf",
+    #         xlabel="Finimap",
+    #         ylabel="Minimap2",
+    #         point_color="chocolate",#(210, 105, 30), #
+    #     )
+    #     print(max(scatter_fx))
+    #     print(max(scatter_fy))
+    # if scatter_kx:
+    #     save_scatter_pdf(
+    #         scatter_kx,
+    #         scatter_ky,
+    #         f"norm_{query_name}_kaminari_vs_minimap2_0.8.pdf",
+    #         xlabel="Kaminari",
+    #         ylabel="Minimap2",
+    #         point_color="red",
+    #     )
+    #     print(max(scatter_kx))
+    #     print(max(scatter_ky))
     
     
-    print()
-    print(TP_t)
-    print(TP_f)
-    print(TP_k)
-    print()
-    print(FP_t)
-    print(FP_f)
-    print(FP_k)
-    print()
-    print(FN_t)
-    print(FN_f)
-    print(FN_k)
-    print()
-    print(TN_t)
-    print(TN_f)
-    print(TN_k)
+    # print()
+    # print(TP_t)
+    # print(TP_f)
+    # print(TP_k)
+    # print()
+    # print(FP_t)
+    # print(FP_f)
+    # print(FP_k)
+    # print()
+    # print(FN_t)
+    # print(FN_f)
+    # print(FN_k)
+    # print()
+    # print(TN_t)
+    # print(TN_f)
+    # print(TN_k)
     
-    print()
-    print("False positive rate = FP/(FP+TN)")
-    print(FP_t/(FP_t+TN_t))
-    print(FP_f/(FP_f+TN_f))
-    print(FP_k/(FP_t+TN_t))
+    # print()
+    # print("False positive rate = FP/(FP+TN)")
+    # print(FP_t/(FP_t+TN_t))
+    # print(FP_f/(FP_f+TN_f))
+    # print(FP_k/(FP_t+TN_t))
     
-    print("'%' false positives")
-    print(FP_t/(R*n_cols))
-    print(FP_f/(R*n_cols))
-    print(FP_k/(R*n_cols))
+    # print("'%' false positives")
+    # print(FP_t/(R*n_cols))
+    # print(FP_f/(R*n_cols))
+    # print(FP_k/(R*n_cols))
     
-    print("False negative rate = FN/(TP+FN)")
-    print(FN_t/(FN_t+TP_t))
-    print(FN_f/(FN_f+TP_f))
-    print(FN_k/(FN_t+TP_t))
+    # print("False negative rate = FN/(TP+FN)")
+    # print(FN_t/(FN_t+TP_t))
+    # print(FN_f/(FN_f+TP_f))
+    # print(FN_k/(FN_t+TP_t))
     
-    print("'%' false negatives")
-    print(FN_t/(R*n_cols))
-    print(FN_f/(R*n_cols))
-    print(FN_k/(R*n_cols))
+    # print("'%' false negatives")
+    # print(FN_t/(R*n_cols))
+    # print(FN_f/(R*n_cols))
+    # print(FN_k/(R*n_cols))
     
-    print("Accuracy")
-    print((TP_t+TN_t)/(R*n_cols))
-    print((TP_f+TN_f)/(R*n_cols))
-    print((TP_k+TN_k)/(R*n_cols))
+    # print("Accuracy")
+    # print((TP_t+TN_t)/(R*n_cols))
+    # print((TP_f+TN_f)/(R*n_cols))
+    # print((TP_k+TN_k)/(R*n_cols))
     
-    print("Precision")
-    print(TP_t/(TP_t +FN_t))
-    print(TP_f/(TP_f +FN_f))
-    print(TP_k/(TP_k +FN_k))
+    # print("Precision")
+    # print(TP_t/(TP_t +FN_t))
+    # print(TP_f/(TP_f +FN_f))
+    # print(TP_k/(TP_k +FN_k))
     
-    print("Recall")
-    print(TP_t/(FN_t+TP_t))
-    print(TP_f/(FN_f+TP_f))
-    print(TP_k/(FN_t+TP_t))
+    # print("Recall")
+    # print(TP_t/(FN_t+TP_t))
+    # print(TP_f/(FN_f+TP_f))
+    # print(TP_k/(FN_t+TP_t))
     
 
 if __name__ == "__main__":

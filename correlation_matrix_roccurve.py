@@ -107,7 +107,7 @@ def fastq_gz_lengths(path):
 def main():
     n_cols = 3682       # genomes
     n_tools = 4         # themisto, finimap, kaminari, minimap
-    tt = 0.8            # threshold
+    tt = 0         # threshold
     print("Themisto Threshold:", tt)
     args = parser.parse_args()
     query_n = args.query_n
@@ -128,7 +128,7 @@ def main():
         with open(themisto_file) as f:
             themisto_lines = [line.strip() for line in f]
 
-        tf = 0.7 
+        tf = 0
         print("F & K Threshold:", tf)
         # FINIMAP ---------------------------------
         # print("read finimap", flush=True)
@@ -138,8 +138,10 @@ def main():
 
         # KAMINARI ---------------------------------        
         # print("read kaminari", flush=True)
-        #kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t0.00000001_19.txt"
-        kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t{tf}_19.txt"
+        if (tf == 0):
+            kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t0.00000001_19.txt"
+        else:
+            kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t{tf}_19.txt"
         with open(kaminari_file, "r") as f:
             kaminari_lines = [line.strip() for line in f]
 
@@ -167,6 +169,10 @@ def main():
         # ------------------------------------------
     
         # Collect values
+        true_m = [0] * (R * n_cols) 
+        pred_t = [0] * (R * n_cols)
+        pred_f = [0] * (R * n_cols)
+        pred_k = [0] * (R * n_cols)
                 
         M = np.zeros((n_tools, n_cols*R), dtype=float)
 
@@ -220,19 +226,13 @@ def main():
             start = r * n_cols
             end = start + n_cols
 
-            M[3, start:end] = (M[3, start:end] >= (minimap_threshold * tm)).astype(int)
-    # --------------------------------------
-    # CORRELATION MATRIX
-    # --------------------------------------
-    # print(matthews_corrcoef(true_m, pred_t))
-    # print(matthews_corrcoef(true_m, pred_f))
-    # print(matthews_corrcoef(true_m, pred_k))
-
-    # corr = np.corrcoef(M)
+            if (tm>0): M[3, start:end] = (M[3, start:end] >= (minimap_threshold * tm)).astype(int)
+            else: M[3, start:end] = (M[3, start:end] > 0).astype(int)
     
-    # print(f"Correlation matrix for {query_name}")
-    # print(corr)
-    # print()
+    pred_t = (M[0, :] > 0).astype(int)
+    pred_f = (M[1, :] > 0).astype(int)
+    pred_k = (M[2, :] > 0).astype(int)
+    
     labels = M[3, :] # Minimap2 
     
     tools = {
@@ -289,11 +289,18 @@ def main():
     for name, scores in tools.items():
         print(name, np.count_nonzero(scores))
     
+    # --------------------------------------
+    # CORRELATION MATRIX
+    # --------------------------------------
+    print(matthews_corrcoef(labels, pred_t))
+    print(matthews_corrcoef(labels, pred_f))
+    print(matthews_corrcoef(labels, pred_k))
+
     corr = np.corrcoef(M)
     
     print(f"Correlation matrix for {query_name}")
     print(corr)
     print()
-
+    
 if __name__ == "__main__":
     main()
