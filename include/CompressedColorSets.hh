@@ -11,6 +11,7 @@
 
 using namespace std;
 
+// TODO dedupliacate in a better way
 struct BVHash
 {
     size_t operator()(const sdsl::bit_vector &bv) const noexcept

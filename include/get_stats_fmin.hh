@@ -30,7 +30,7 @@ int get_stats_fmin(int argc, char** argv) {
     vector<pair<int64_t, uint64_t>> lengths_and_freq = cf.fmin_stats();
     // TODO WRITE TO A FILE
     for (auto& [l,f]: lengths_and_freq){
-        cerr << l << ", " << f << endl;
+        cerr << l << ", " << f << '\n';
     }
     cerr << endl;
 
