@@ -21,8 +21,8 @@ def fill_minimap_hm(query_name, max_matches):
     """
     minimap_res = defaultdict(int)
     tot_matches = []
-    for genome in range(1, 3683):        
-        paf = f"/home/biagiele/Ecoli/reads/results/{genome}/new_{genome}_{query_name}_15.paf"
+    for genome in range(1, 1992):        
+        paf = f"/home/biagiele/Ecoli/reads/results/{genome}/TE_{genome}_{query_name}_15.paf"
         #paf = f"/home/biagiele/Ecoli/reads/results/{genome}/{genome}_{query_name}.paf"
 
         with open(paf) as f:
@@ -105,7 +105,7 @@ def fastq_gz_lengths(path):
     return lengths
 
 def main():
-    n_cols = 3682       # genomes
+    n_cols = 1991       # genomes
     n_tools = 4         # themisto, finimap, kaminari, minimap
     tt = 0         # threshold
     print("Themisto Threshold:", tt)
@@ -124,7 +124,7 @@ def main():
 
         # THEMISTO --------------------------------
         # print("read themisto", flush=True)
-        themisto_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_themisto2_res_t{tt}.txt"
+        themisto_file = f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_themisto2_res_t{tt}.txt"
         with open(themisto_file) as f:
             themisto_lines = [line.strip() for line in f]
 
@@ -132,16 +132,16 @@ def main():
         print("F & K Threshold:", tf)
         # FINIMAP ---------------------------------
         # print("read finimap", flush=True)
-        finimap_file = f"/home/biagiele/Ecoli/reads/results/bases_{query_name}_10_fmin_Ecoli_{tf}.txt"
+        finimap_file = f"/home/biagiele/Ecoli/reads/results/TE_bases_{query_name}_10_fmin_TE_{tf}.txt"
         with open(finimap_file, "r") as f:
             finimap_lines = [line.strip() for line in f]
 
         # KAMINARI ---------------------------------        
         # print("read kaminari", flush=True)
         if (tf == 0):
-            kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t0.00000001_19.txt"
+            kaminari_file = f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_kaminari_res_t0.00000001_19.txt"
         else:
-            kaminari_file = f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_res_t{tf}_19.txt"
+            kaminari_file = f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_kaminari_res_t{tf}_19.txt"
         with open(kaminari_file, "r") as f:
             kaminari_lines = [line.strip() for line in f]
 
@@ -236,7 +236,6 @@ def main():
 
             # if (tm>0): M[3, start:end] = (M[3, start:end] >= (minimap_threshold * tm)).astype(int)
             # else: M[3, start:end] = (M[3, start:end] > 0).astype(int)
-            
     
     pred_t = (M[0, :] > 0).astype(int)
     pred_f = (M[1, :] > 0).astype(int)
@@ -267,7 +266,7 @@ def main():
     plt.grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"roc_all_tools_{query_n}_{tt}-{tf}-{tm}.pdf")
+    plt.savefig(f"roc_all_tools_TE_{query_n}_{tt}-{tf}-{tm}.pdf")
     plt.close()
     
     
@@ -290,7 +289,7 @@ def main():
     plt.grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"pr_all_tools_{query_n}_{tt}-{tf}-{tm}.pdf")
+    plt.savefig(f"pr_all_tools_TE_{query_n}_{tt}-{tf}-{tm}.pdf")
     plt.close()
     
     print("Positive rate:", labels.mean())
@@ -313,7 +312,7 @@ def main():
     
     
     # Save M[0,:] Themisto
-    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_themisto2_list_t{tt}.txt", "w") as f:
+    with open(f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_themisto2_list_t{tt}.txt", "w") as f:
         i=0
         for value in M[0, :]:
             i+=1
@@ -322,7 +321,7 @@ def main():
                 f.write(f"\n")
                 i=0
     # Save M[1,:] Finimap
-    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_finimap_list_t{tf}.txt", "w") as f:
+    with open(f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_finimap_list_t{tf}.txt", "w") as f:
         i=0
         for value in M[1, :]:
             i+=1
@@ -331,7 +330,7 @@ def main():
                 f.write(f"\n")
                 i=0
     # Save M[2,:] kaminari
-    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_kaminari_list_t{tf}.txt", "w") as f:
+    with open(f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_kaminari_list_t{tf}.txt", "w") as f:
         i=0
         for value in M[2, :]:
             i+=1
@@ -340,7 +339,7 @@ def main():
                 f.write(f"\n")
                 i=0
     # Save M[3,:] Minimap
-    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_minimap_list_t{tm}.txt", "w") as f:
+    with open(f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_minimap_list_t{tm}.txt", "w") as f:
         i=0
         for value in M[3, :]:
             i+=1
@@ -348,7 +347,7 @@ def main():
             if (i > n_cols):  
                 f.write(f"\n")
                 i=0
-    with open(f"/home/biagiele/Ecoli/reads/results/{query_name}_minimap_norm_pairs_t{tm}.txt", "w") as f:
+    with open(f"/home/biagiele/Ecoli/reads/results/TE_{query_name}_minimap_norm_pairs_t{tm}.txt", "w") as f:
         for read in L:
             for value in read:
                 if value[0] > 0:

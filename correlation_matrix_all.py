@@ -368,7 +368,7 @@ def main():
         i=0
         for value in M[1, :]:
             i+=1
-            f.write(f"{value}\t")
+            f.write(f"{value}\n")
             if (i > n_cols):  
                 f.write(f"\n")
                 i=0
@@ -377,7 +377,7 @@ def main():
         i=0
         for value in M[2, :]:
             i+=1
-            f.write(f"{value}\t")
+            f.write(f"{value}\n")
             if (i > n_cols):  
                 f.write(f"\n")
                 i=0
