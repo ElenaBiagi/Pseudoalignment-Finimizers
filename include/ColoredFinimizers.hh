@@ -107,6 +107,105 @@ public:
 
         return lengths_and_freq;
     }
+
+    vector<string> print_fmins()
+    {   
+        vector<string> fmins_vector;
+        fmins_vector.reserve(lengths.size());
+        size_t f_start = 0;
+        for (size_t l : lengths){
+            fmins_vector.emplace_back(concat.data() + f_start, l);
+            f_start += l;
+        }
+        return fmins_vector; 
+    }
+
+    void save_fmins(const std::string &index_prefix)
+    {
+        std::string filename = index_prefix + ".fmins_only";
+        std::ofstream out(filename, std::ios::binary);
+        if (!out) {
+            std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+            return;
+        }
+
+        std::cerr << "Saving fmins to " << filename << std::endl;
+
+        // write size (optional but recommended)
+        uint64_t size = concat.size();
+        out.write(reinterpret_cast<const char*>(&size), sizeof(size));
+
+        // write raw data
+        out.write(concat.data(), concat.size());
+
+        out.close();
+    }
+
+    void print_colors(const std::string &index_prefix)
+    {
+        std::string filename = index_prefix;
+        std::ofstream out(filename);
+        if (!out) {
+            std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+            return;
+        }
+
+        std::cerr << "Saving colors to " << filename << std::endl;
+
+        constexpr size_t NUM_COLORS = 3682;
+        size_t total_bits = color_sets_concat.size();
+        size_t num_fmins = total_bits / NUM_COLORS;
+
+        for (size_t i = 0; i < num_fmins; ++i) {
+            size_t offset = i * NUM_COLORS;
+            for (size_t c = 0; c < NUM_COLORS; ++c) {
+                out << color_sets_concat[offset + c];
+            }
+            out << '\n';
+        }
+
+        out.close();
+    }
+
+    void print_colors_as_list(const std::string &index_prefix)
+    {
+        std::string filename = index_prefix;
+        std::ofstream out(filename);
+        if (!out) {
+            std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+            return;
+        }
+
+        std::cerr << "Saving colors to " << filename << std::endl;
+
+        constexpr size_t NUM_COLORS = 3682;
+        size_t total_bits = color_sets_concat.size();
+        size_t num_fmins = total_bits / NUM_COLORS;
+
+        for (size_t i = 0; i < num_fmins; ++i) {
+            size_t offset = i * NUM_COLORS;
+            for (size_t c = 0; c < NUM_COLORS-1; ++c) {
+                if (color_sets_concat[offset + c] == 1){out << c <<", ";}
+            }
+            if (color_sets_concat[offset + NUM_COLORS-1] == 1){out << NUM_COLORS-1;}
+            out << '\n';
+        }
+
+        out.close();
+    }
+
+    void save_colors(const std::string &index_prefix)
+    {
+        std::string filename = index_prefix + ".colors_only";
+        std::ofstream out(filename, std::ios::binary);
+        if (!out) {
+            std::cerr << "Error: Could not open file for writing: " << filename << std::endl;
+            return;
+        }
+        sdsl::serialize(color_sets_concat, out);
+    }
+
+
 };
 
 void true_or_crash(bool b, const char *error_message)
