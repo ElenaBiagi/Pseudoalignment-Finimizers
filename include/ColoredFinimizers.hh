@@ -1365,10 +1365,10 @@ inline int64_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     read_colors(CCS, n_colors, results, fmin_v, dense);
 
     // If we care about the number of matches, add number of dense sets
-    // for (auto& r: results){r+=dense;}
+    for (auto& r: results){r+=dense;}
 
     // adjust T
-    T -= dense;
+    // T -= dense;
     // for (auto& r :results){ r+= dense;}
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
