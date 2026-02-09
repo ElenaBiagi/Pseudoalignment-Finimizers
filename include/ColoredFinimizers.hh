@@ -1131,10 +1131,6 @@ inline void read_colors_single_base_covered (const CompressedColorSets &CCS, con
     const uint64_t sparse_count = CCS.sparse_count;
     const uint64_t dense_count = CCS.dense_count;
 
-    // Check the last value in which some Finimizer/k-mer was observed
-    int64_t t_diff = (x+k) - last_seen[last_seen.size()-1];
-    results[results.size()-1]+= min(t_diff,k);
-
     if (pos < sparse_count)
         {
             // read from L
@@ -1176,7 +1172,14 @@ inline void read_colors_single_base_covered (const CompressedColorSets &CCS, con
         uint64_t start = pos - dense_count;
         read_bv_single_base(data, start, n_colors, results, last_seen, x, k);
     }
-    last_seen[last_seen.size()-1] = x + k; 
+    // Update the total tracker after processing all colors
+    last_seen[last_seen.size()-1] = x + k;
+    // Track total bases covered across all colors
+    int64_t max_coverage = 0;
+    for (size_t i = 0; i < results.size() - 1; i++) {
+        max_coverage = std::max(max_coverage, results[i]);
+    }
+    results[results.size()-1] = max_coverage;
 }
 
 inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen)
@@ -1186,7 +1189,8 @@ inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &
     const int64_t k = 31;
     
     //vector<int64_t> last_seen(n_colors, -1);
-    std::fill(last_seen.begin(), last_seen.end(), -1);
+    // Initialize last_seen to -k so that the first finimizer at x=0 covers exactly k bases
+    std::fill(last_seen.begin(), last_seen.end(), -k);
     std::fill(results.begin(), results.end(), 0);
 
     // results is the bases counter
@@ -1207,7 +1211,8 @@ inline int64_t count_single_base(vector<int64_t> &Fmin, const CompressedColorSet
     const int64_t k = 31;
     
     //vector<int64_t> last_seen(n_colors, -1);
-    std::fill(last_seen.begin(), last_seen.end(), -1);
+    // Initialize last_seen to -k so that the first finimizer at x=0 covers exactly k bases
+    std::fill(last_seen.begin(), last_seen.end(), -k);
     std::fill(results.begin(), results.end(), 0);
 
     // results is the bases counter
