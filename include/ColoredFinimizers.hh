@@ -1061,62 +1061,6 @@ inline void read_bv_single_base(const uint64_t *data, const uint64_t start, cons
     }
 }
 
-inline void read_colors_single_base (const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen, const int64_t pos, const uint64_t x){
-    const int64_t k = 31;
-    const sdsl::bit_vector &BV = CCS.getBV();
-    const uint64_t *data = BV.data();
-    const vector<uint16_t> &L = CCS.getL();
-    const DeltaSet &EF = CCS.getEF();
-
-    // pos < sparse_count; [sparse]
-    // sparse_count <= pos < dense_count; [very dense]
-    // pos >= dense; [bitmap]
-
-    const uint64_t sparse_count = CCS.sparse_count;
-    const uint64_t dense_count = CCS.dense_count;
-
-    if (pos < sparse_count)
-        {
-            // read from L
-            const size_t end = EF.get_start(pos); // exclusive end
-            size_t start = EF.get_start(pos - 1); // inclusive start
-            while (start < end)
-            {
-                int64_t diff = (x + k) -last_seen[L[start]];
-                results[L[start]] += min(diff,k);
-                last_seen[L[start]] = x + k;
-                start++;
-            }
-        }
-    else if (pos < dense_count)
-        {
-            // read complementary values from L
-            //read_verydense(pos, freq, EF, L, n_colors, results);
-            const size_t end = EF.get_start(pos); // exclusive end
-            size_t start = EF.get_start(pos - 1); // inclusive start
-            for (size_t c = 0; c < n_colors; c++)
-            {
-                if (start < end && L[start] == c)
-                {
-                    start++;
-                }
-                else
-                {
-                    int64_t diff = (x + k) - last_seen[c];
-                    results[c] += min(diff,k);
-                    last_seen[c] = x +k;
-                }
-            }
-        }
-         // BV
-    else
-        {
-        uint64_t start = pos - dense_count;
-        read_bv_single_base(data, start, n_colors, results, last_seen, x, k);
-    }
-        
-}
-
 inline void read_colors_single_base_covered (const CompressedColorSets &CCS, const uint64_t n_colors, vector<int64_t> &results, vector<int64_t> &last_seen, const int64_t pos, const uint64_t x){
     const int64_t k = 31;
     const sdsl::bit_vector &BV = CCS.getBV();
@@ -1197,7 +1141,7 @@ inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &
     uint64_t x = 0;
     
     while ( x < Fmin.size()){
-        if (Fmin[x] != -1){read_colors_single_base(CCS, n_colors, results, last_seen, Fmin[x], x);}
+        if (Fmin[x] != -1){read_colors_single_base_covered(CCS, n_colors, results, last_seen, Fmin[x], x);}
         x++;
     }
     return;
