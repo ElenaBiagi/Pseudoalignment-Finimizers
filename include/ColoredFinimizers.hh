@@ -265,7 +265,7 @@ public:
                 uint64_t sp_int = prefix2int(sprefix, 0, cf.lengths[i]);
                 sB[sp_int] = {cf.lengths[i], this->color_set_ids[i]};
             }
-            else
+            else// if (cf.lengths[i] < 20) //keep only more frequent fmins
             {
                 std::string_view prefix(cf.concat.data() + f_start, plen);
                 true_or_crash(f_start + plen <= cf.concat.size(),
@@ -881,8 +881,8 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     // for (auto& r: results){r+=dense;}
 
     // adjust T
-    T -= dense;
-    // for (auto& r :results){ r+= dense;}
+    //T -= dense;
+    for (auto& r :results){ r+= dense;}
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
     return T;
