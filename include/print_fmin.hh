@@ -7,7 +7,7 @@ int print_fmin(int argc, char** argv) {
 
     options.add_options()
         ("i,index-file", "ColoredFinimizers file.", cxxopts::value<string>())
-        ("o,out-file", "Output fmin as text.", cxxopts::value<string>()) // as input
+        ("o,out-file", "Output fmin as text.", cxxopts::value<string>()) // as input // from finimizer_matrix
         //("p,p_len", "Finimizers prefix length.", cxxopts::value<int64_t>()->default_value(std::to_string(10)))
         //("k", "k-mer length.", cxxopts::value<int64_t>()->default_value(std::to_string(31)))
         ("h,help", "Print usage");
