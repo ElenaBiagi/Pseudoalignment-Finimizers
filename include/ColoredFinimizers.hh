@@ -9,6 +9,8 @@
 #include "CompressedColorSets.hh"
 #include "Buckets.hh"
 
+#include "xxhash.h"
+
 #include <chrono>
 
 using namespace std;
@@ -126,7 +128,6 @@ class CompressedColoredFinimizers
 {
 
 private:
-    sdsl::bit_vector unique_color_sets;
 
     vector<uint64_t> color_set_ids;
 
@@ -180,43 +181,51 @@ public:
         cerr << "Deduplicate color sets" << endl;
         const uint64_t *data = cf.color_sets_concat.data();
         sdsl::bit_vector bv(n_colors);
-
-        unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual> deduplicated_cs;
-
+        
+        // xxHash fingerprint for each color set
+        vector<pair<uint64_t, size_t>> fingerprints; // (xxhash, finimizer_id)
+        fingerprints.reserve(n_finimizers);
+        
         for (size_t i = 0; i < n_finimizers; ++i)
         {
             read_colors_to_bv(data, n_colors, i, bv);
-
-            auto it = deduplicated_cs.find(bv);
-            if (it == deduplicated_cs.end())
-            {
-                // First time seeing this color set
-                deduplicated_cs.emplace(bv, vector<size_t>{i});
+            size_t bv_bytes = (n_colors + 7) / 8; // bits to bytes
+            uint64_t fp = XXH64(bv.data(), bv_bytes, 0);
+            fingerprints.emplace_back(fp, i);
+        }
+        
+        // Sort
+        sort(fingerprints.begin(), fingerprints.end());
+        
+        // (colorset, fmin indices)
+        vector<pair<sdsl::bit_vector, vector<size_t>>> deduplicated_cs;
+        
+        for (size_t i = 0; i < n_finimizers; )
+        {
+            uint64_t current_fp = fingerprints[i].first;
+            size_t start_idx = i;
+            
+            // All finimizers with the same fingerprint
+            while (i < n_finimizers && fingerprints[i].first == current_fp){i++;}
+            
+            size_t first_fm_idx = fingerprints[start_idx].second;
+            // TODO add --metagenome bv -> list
+            read_colors_to_bv(data, n_colors, first_fm_idx, bv); // extract color set
+            
+            // Collect finimizer indices for this color set/ bv
+            vector<size_t> finimizer_indices;
+            for (size_t j = start_idx; j < i; ++j) {
+                size_t fm_idx = fingerprints[j].second;
+                finimizer_indices.push_back(fm_idx);
             }
-            else
-            {
-                // Already seen
-                it->second.push_back(i);
-            }
+            
+            // Store the color set and its finimizer indices
+            deduplicated_cs.emplace_back(bv, std::move(finimizer_indices));
         }
 
         cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
 
-        // Flatten into a single sdsl::bit_vector (unique_color_sets)
-        unique_color_sets = sdsl::bit_vector(deduplicated_cs.size() * n_colors);
-        uint64_t new_offset = 0;
-
-        for (auto &kv : deduplicated_cs)
-        {
-            const sdsl::bit_vector &ucs = kv.first;
-            for (size_t j = 0; j < n_colors; ++j)
-            {
-                unique_color_sets[new_offset + j] = ucs[j];
-            }
-            new_offset += n_colors;
-        }
-
-        this->color_set_ids.resize(n_finimizers); // ids sorted based on the frequency of fmins length
+        this->color_set_ids.resize(n_finimizers); // ids will be later sorted based on the frequency of fmins length
         CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
 
         // Assign to final structure
@@ -265,7 +274,13 @@ public:
                 uint64_t sp_int = prefix2int(sprefix, 0, cf.lengths[i]);
                 sB[sp_int] = {cf.lengths[i], this->color_set_ids[i]};
             }
-            else// if (cf.lengths[i] < 20) //keep only more frequent fmins
+            // 29 30 26 28 27 15 23 16 25 14 24 17 20 22 21 Salmonella
+            // 15 17 30 19 18 29 16 20 28 14 27 31 21 26 22 Human
+            // 31 29 30 14 26 28 15 27 23 25 16 24 17 20 13 E.coli
+            //else if (cf.lengths[i] == 29 || cf.lengths[i] == 30 || cf.lengths[i] == 26 || cf.lengths[i] == 28 || cf.lengths[i] == 27 || cf.lengths[i] == 15 || cf.lengths[i] == 23 || cf.lengths[i] == 16 || cf.lengths[i] == 25 || cf.lengths[i] == 14 || cf.lengths[i] == 24 || cf.lengths[i] == 17 || cf.lengths[i] == 20 || cf.lengths[i] == 22 || cf.lengths[i] == 21)
+            //else if (cf.lengths[i] == 31 || cf.lengths[i] == 29 || cf.lengths[i] == 30 || cf.lengths[i] == 14 || cf.lengths[i] == 26 || cf.lengths[i] == 28 || cf.lengths[i] == 15 || cf.lengths[i] == 27 || cf.lengths[i] == 23 || cf.lengths[i] == 25 || cf.lengths[i] == 16 || cf.lengths[i] == 24 || cf.lengths[i] == 17 || cf.lengths[i] == 20 || cf.lengths[i] == 13)
+            // Human 
+            else //if (cf.lengths[i] == 15 || cf.lengths[i] == 17 || cf.lengths[i] == 30 || cf.lengths[i] == 19 || cf.lengths[i] == 18 || cf.lengths[i] == 29 || cf.lengths[i] == 16 || cf.lengths[i] == 28 || cf.lengths[i] == 14 || cf.lengths[i] == 27 || cf.lengths[i] == 31 || cf.lengths[i] == 20 ||cf.lengths[i] == 21 || cf.lengths[i] == 26 || cf.lengths[i] == 22 ) //keep only more frequent fmins
             {
                 std::string_view prefix(cf.concat.data() + f_start, plen);
                 true_or_crash(f_start + plen <= cf.concat.size(),
@@ -844,6 +859,7 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         std::fill(results.begin(), results.end(), 0);
     } */
 
+    cout << Fmin.size() << endl;
     std::fill(results.begin(), results.end(), 0);
 
     std::sort(Fmin.begin(), Fmin.end());
@@ -881,8 +897,8 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     // for (auto& r: results){r+=dense;}
 
     // adjust T
-    //T -= dense;
-    for (auto& r :results){ r+= dense;}
+    T -= dense;
+    //for (auto& r :results){ r+= dense;}
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
     return T;

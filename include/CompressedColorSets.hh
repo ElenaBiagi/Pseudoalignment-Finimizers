@@ -11,6 +11,7 @@
 
 using namespace std;
 
+// TODO remove BVHash and BVEqual
 struct BVHash
 {
     size_t operator()(const sdsl::bit_vector &bv) const noexcept
@@ -73,7 +74,7 @@ public:
         return std::reduce(v.begin(), v.end()) / count;
     }
 
-    CompressedColorSets(const unordered_map<sdsl::bit_vector, vector<size_t>, BVHash, BVEqual> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
+    CompressedColorSets(const vector<pair<sdsl::bit_vector, vector<size_t>>> &deduplicated_cs, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
     {
 
         vector<float> BV_sizes;
