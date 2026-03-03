@@ -181,7 +181,6 @@ public:
         const uint64_t *data = cf.color_sets_concat.data();
         sdsl::bit_vector bv(n_colors);
         
-        // Map from color set to list of finimizer indices (no hash collisions)
         map<sdsl::bit_vector, vector<size_t>> color_set_to_finimizers;
         
         for (size_t i = 0; i < n_finimizers; ++i)
@@ -190,7 +189,6 @@ public:
             color_set_to_finimizers[bv].push_back(i);
         }
         
-        // Build deduplicated color sets
         vector<pair<sdsl::bit_vector, vector<size_t>>> deduplicated_cs;
         for (auto &[color_set, finimizer_indices] : color_set_to_finimizers)
         {
@@ -248,13 +246,7 @@ public:
                 uint64_t sp_int = prefix2int(sprefix, 0, cf.lengths[i]);
                 sB[sp_int] = {cf.lengths[i], this->color_set_ids[i]};
             }
-            // 29 30 26 28 27 15 23 16 25 14 24 17 20 22 21 Salmonella
-            // 15 17 30 19 18 29 16 20 28 14 27 31 21 26 22 Human
-            // 31 29 30 14 26 28 15 27 23 25 16 24 17 20 13 E.coli
-            //else if (cf.lengths[i] == 29 || cf.lengths[i] == 30 || cf.lengths[i] == 26 || cf.lengths[i] == 28 || cf.lengths[i] == 27 || cf.lengths[i] == 15 || cf.lengths[i] == 23 || cf.lengths[i] == 16 || cf.lengths[i] == 25 || cf.lengths[i] == 14 || cf.lengths[i] == 24 || cf.lengths[i] == 17 || cf.lengths[i] == 20 || cf.lengths[i] == 22 || cf.lengths[i] == 21)
-            //else if (cf.lengths[i] == 31 || cf.lengths[i] == 29 || cf.lengths[i] == 30 || cf.lengths[i] == 14 || cf.lengths[i] == 26 || cf.lengths[i] == 28 || cf.lengths[i] == 15 || cf.lengths[i] == 27 || cf.lengths[i] == 23 || cf.lengths[i] == 25 || cf.lengths[i] == 16 || cf.lengths[i] == 24 || cf.lengths[i] == 17 || cf.lengths[i] == 20 || cf.lengths[i] == 13)
-            // Human 
-            else //if (cf.lengths[i] == 15 || cf.lengths[i] == 17 || cf.lengths[i] == 30 || cf.lengths[i] == 19 || cf.lengths[i] == 18 || cf.lengths[i] == 29 || cf.lengths[i] == 16 || cf.lengths[i] == 28 || cf.lengths[i] == 14 || cf.lengths[i] == 27 || cf.lengths[i] == 31 || cf.lengths[i] == 20 ||cf.lengths[i] == 21 || cf.lengths[i] == 26 || cf.lengths[i] == 22 ) //keep only more frequent fmins
+            else 
             {
                 std::string_view prefix(cf.concat.data() + f_start, plen);
                 true_or_crash(f_start + plen <= cf.concat.size(),
@@ -868,10 +860,10 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     read_colors(CCS, n_colors, results, fmin_v, dense);
 
     // If we care about the number of matches, add number of dense sets
-    // for (auto& r: results){r+=dense;}
+    for (auto& r: results){r+=dense;}
 
     // adjust T
-    T -= dense;
+    // T -= dense;
     //for (auto& r :results){ r+= dense;}
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
