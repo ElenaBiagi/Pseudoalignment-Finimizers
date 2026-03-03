@@ -3,13 +3,12 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
+#include <map>
 
 #include "sdsl/bit_vectors.hpp"
 #include "rarest_fmin_search.hh"
 #include "CompressedColorSets.hh"
 #include "Buckets.hh"
-
-#include "xxhash.h"
 
 #include <chrono>
 
@@ -182,45 +181,20 @@ public:
         const uint64_t *data = cf.color_sets_concat.data();
         sdsl::bit_vector bv(n_colors);
         
-        // xxHash fingerprint for each color set
-        vector<pair<uint64_t, size_t>> fingerprints; // (xxhash, finimizer_id)
-        fingerprints.reserve(n_finimizers);
+        // Map from color set to list of finimizer indices (no hash collisions)
+        map<sdsl::bit_vector, vector<size_t>> color_set_to_finimizers;
         
         for (size_t i = 0; i < n_finimizers; ++i)
         {
             read_colors_to_bv(data, n_colors, i, bv);
-            size_t bv_bytes = (n_colors + 7) / 8; // bits to bytes
-            uint64_t fp = XXH64(bv.data(), bv_bytes, 0);
-            fingerprints.emplace_back(fp, i);
+            color_set_to_finimizers[bv].push_back(i);
         }
         
-        // Sort
-        sort(fingerprints.begin(), fingerprints.end());
-        
-        // (colorset, fmin indices)
+        // Build deduplicated color sets
         vector<pair<sdsl::bit_vector, vector<size_t>>> deduplicated_cs;
-        
-        for (size_t i = 0; i < n_finimizers; )
+        for (auto &[color_set, finimizer_indices] : color_set_to_finimizers)
         {
-            uint64_t current_fp = fingerprints[i].first;
-            size_t start_idx = i;
-            
-            // All finimizers with the same fingerprint
-            while (i < n_finimizers && fingerprints[i].first == current_fp){i++;}
-            
-            size_t first_fm_idx = fingerprints[start_idx].second;
-            // TODO add --metagenome bv -> list
-            read_colors_to_bv(data, n_colors, first_fm_idx, bv); // extract color set
-            
-            // Collect finimizer indices for this color set/ bv
-            vector<size_t> finimizer_indices;
-            for (size_t j = start_idx; j < i; ++j) {
-                size_t fm_idx = fingerprints[j].second;
-                finimizer_indices.push_back(fm_idx);
-            }
-            
-            // Store the color set and its finimizer indices
-            deduplicated_cs.emplace_back(bv, std::move(finimizer_indices));
+            deduplicated_cs.emplace_back(color_set, std::move(finimizer_indices));
         }
 
         cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
