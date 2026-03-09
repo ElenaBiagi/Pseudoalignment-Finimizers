@@ -825,7 +825,7 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         std::fill(results.begin(), results.end(), 0);
     } */
 
-    cout << Fmin.size() << endl;
+    //cout << Fmin.size() << endl;
     std::fill(results.begin(), results.end(), 0);
 
     std::sort(Fmin.begin(), Fmin.end());
