@@ -6,9 +6,11 @@ Let $G$ be the de Bruijn graph of a set of $k$-mers $R$, $t \geq 1$ be an intege
 
 
 ## Building
-First clone the repository with:
+First clone the repository and access it with:
 ```
-git clone --recursive https://github.com/ElenaBiagi/Pseudoalignment-Finimizers.git 
+git clone --recursive https://github.com/ElenaBiagi/Pseudoalignment-Finimizers.git
+
+cd Pseudoalignment-Finimizers
 ```
 
 If you forgot the flag ```--recursive```, pull the submodules with:
@@ -16,21 +18,12 @@ If you forgot the flag ```--recursive```, pull the submodules with:
 git submodule update --init --recursive
 ```
 
-Then, go the [SBWT](https://github.com/algbio/SBWT/tree/eb7f54165d38bb7c9aa2ab418b7d17a1113a9977) submodule and build it using the instructions in the submodule. And compile the experiments with:
-```
-cd SBWT/build
-
-cmake .. -DCMAKE_C_COMPILER=$(which gcc-10) -DCMAKE_CXX_COMPILER=$(which g++-10) -D MAX_KMER_LENGTH=250
-make -j4
-
-cd ../..
-```
 Then, go to the [finimizer_matrix](https://github.com/jnalanko/finimizer_matrix/tree/2d0127710d8eb6093b43c097de83aaa809da2f6c) submodule and follow the instructions there.
 
 
 You are now ready to compile the main project!
 ```
-make benchmark --always-make CXX=g++-10
+make finimap
 ```
 ## Index construction
 
@@ -39,33 +32,43 @@ First ypu should build a finimizer matrix. The code takes as input a list of fil
 Here is a example:
 # Fix example
 
+
+First build a colored finiimizer matrix:
 ```
-cd Pseudoalignment-Finimizers/finimizer_matrix
-./target/release/finimizer_matrix build -i <files_list.txt> --reverse -k 31 -t 12 -o Salmonella.cfm -d ./temp -m 250
+Usage: finimizer_matrix build [OPTIONS] --input <INPUT> --output <OUTPUT> --temp-dir <TEMP_DIR> -k <K>
+```
+
+```
+cd finimizer_matrix
+./target/release/finimizer_matrix build -i ../example_data/Ecoli_list.list --reverse -k 31 -t 4 -d ./temp -o ../Ecoli.cfm 
+
+./target/release/finimizer_matrix build -i ../example_data/coli_file_list.txt --reverse -k 31 -t 4 -d ./temp -o ../coli.cfm 
 
 ```
 
 Then, you can compact the Finimizers index with:
+```
+build-fmin [OPTION...]
 
-```
-./finimap build-fmin -o <colored-finimizer-index>  -i Salmonella.cfm -k 31 -p 10
-```
-```
-Usage:
-  build-fmin [OPTION...]
-
-  -i, --index-file arg  ColloredFinimizers file.
+  -i, --index-file arg  ColoredFinimizers file.
   -o, --out-file arg    Output index filename prefix.
   -p, --p_len arg       Finimizers prefix length. (default: 10)
   -k arg                k-mer length. (default: 31)
+  -m, --meta            Metagenome.
   -h, --help            Print usage
 ```
 
-## Queries
+```
+cd ..
+./finimap build-fmin -i Ecoli.cfm  -o Ecoli_index.fmin  -k 31 -p 10
+
+./finimap build-fmin -i coli.cfm  -o coli_index.fmin  -k 31 -p 10
 
 ```
-./finimap search-fmin -o <out-file>  -i <colored-finimizer-index> -q <query-file.fa> -t <threshold>
-```
+
+
+## Queries
+
 ```
 Usage:
   search-fmin [OPTION...]
@@ -83,6 +86,12 @@ Usage:
   -h, --help            Print usage
 ```
 The result of a query will be the number or percentage (t > 0) of finimizers observed per color, expressed in pairs of (color:#matches).
+
+```
+./finimap search-fmin   -i Ecoli_index.fmin -o Ecoli_res.txt -q ./example_data/queries/pos_queries_1000.fasta -t 0
+
+./finimap search-fmin   -i coli_index.fmin -o coli_res.txt -q ./example_data/queries.fna -t 0
+```
 
 ## RBO
 

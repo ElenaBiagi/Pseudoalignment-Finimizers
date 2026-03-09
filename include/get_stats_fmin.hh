@@ -24,7 +24,7 @@ int get_stats_fmin(int argc, char** argv) {
     string indexfile = opts["index-file"].as<string>();
     ColoredFinimizers cf;
     ifstream in(indexfile);
-    cf.load(in);
+    cf.load(in, false);
     //int64_t prefix_len = opts["p"].as<int64_t>();
     //int64_t k = opts["k"].as<int64_t>();
     vector<pair<int64_t, uint64_t>> lengths_and_freq = cf.fmin_stats();

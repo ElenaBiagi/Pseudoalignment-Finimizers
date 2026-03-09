@@ -42,10 +42,37 @@ public:
     sdsl::bit_vector color_sets_concat; // Length #finimizers * #colors.
     vector<uint8_t> lengths_by_freq;
 
+    struct VecConcat {
+        std::vector<size_t> concat;
+        std::vector<size_t> ends;
+    };
+    
+    VecConcat sparse_colors;  // Sparse color representation (when meta=true)
+
+    VecConcat load_sparse_colors(std::istream& file) {
+        uint8_t is_sparse;
+        file.read(reinterpret_cast<char*>(&is_sparse), 1);
+        
+        if (is_sparse != 1) {
+            throw std::runtime_error("Expected sparse format");
+        }
+        
+        uint64_t n_elements, n_sets;
+        file.read(reinterpret_cast<char*>(&n_elements), sizeof(uint64_t));
+        file.read(reinterpret_cast<char*>(&n_sets), sizeof(uint64_t));
+        
+        std::vector<size_t> concat(n_elements);
+        file.read(reinterpret_cast<char*>(concat.data()), n_elements * sizeof(size_t));
+        
+        std::vector<size_t> ends(n_sets);
+        file.read(reinterpret_cast<char*>(ends.data()), n_sets * sizeof(size_t));
+        
+        return {concat, ends};
+    }
     // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
     // That format has colexicographically sorted reverse finimizers. We reverse them to
     // get lex-sorted finimizers.
-    void load(std::istream &in)
+    void load(std::istream &in, bool meta)
     {
         cerr << "Loading uncompressed tails" << endl;
         uint64_t n_finimizers;
@@ -63,15 +90,24 @@ public:
         concat.resize(finimizer_total_length);
         in.read(reinterpret_cast<char *>(concat.data()), finimizer_total_length * sizeof(char));
 
-        int64_t n_bits = n_finimizers * n_colors;
-        // The bits are in u64 Lsb format
-        vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
-        in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
-        color_sets_concat.resize(n_bits);
-        for (int64_t i = 0; i < words.size(); i++)
-        {
-            color_sets_concat.set_int(i * 64, words[i]);
+        if (meta){
+            cerr << "meta" << endl;
+
+            sparse_colors = load_sparse_colors(in);
+
         }
+        else{
+            int64_t n_bits = n_finimizers * n_colors;
+            // The bits are in u64 Lsb format
+            vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
+            in.read(reinterpret_cast<char *>(words.data()), words.size() * sizeof(uint64_t));
+            color_sets_concat.resize(n_bits);
+            for (int64_t i = 0; i < words.size(); i++)
+            {
+                color_sets_concat.set_int(i * 64, words[i]);
+            }
+        }
+        
 
         uint64_t lengths_by_freq_size;
         in.read(reinterpret_cast<char *>(&lengths_by_freq_size), sizeof(lengths_by_freq_size));
@@ -151,18 +187,20 @@ public:
     uint64_t n_finimizers;
     uint64_t plen;
     uint64_t k;
+    bool meta;
 
     int get_k() const { return k; }
 
     CompressedColoredFinimizers() = default;
 
-    CompressedColoredFinimizers(ColoredFinimizers &&cf, int64_t prefix_len, uint64_t kmer_size)
+    CompressedColoredFinimizers(ColoredFinimizers &&cf, int64_t prefix_len, uint64_t kmer_size, bool meta)
     {
         cerr << "Let's compress it!" << endl;
         this->plen = prefix_len;
         cerr << "prefix length: " << plen << endl;
         this->k = kmer_size;
         cerr << "k-mer size: " << k << endl;
+        this->meta = meta;
 
         uint64_t n_buckets = (1ULL << (prefix_len * 2));
         cerr << "total buckets: " << (int)n_buckets << endl;
@@ -172,36 +210,73 @@ public:
         cerr << "total finimizers: " << (int)n_finimizers << endl;
         true_or_crash(n_finimizers > 0, "ERROR: 0 finimizers");
 
-        true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
-        n_colors = cf.color_sets_concat.size() / n_finimizers;
-        cerr << "n_colors: " << (int)n_colors << endl;
-        cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
+        if (meta) {
+            // Sparse deduplication
+            cerr << "Deduplicate sparse color sets" << endl;
+            n_colors = cf.sparse_colors.ends.size();
+            
+            map<vector<size_t>, vector<size_t>> color_set_to_finimizers;
+            
+            size_t start = 0;
+            for (size_t i = 0; i < n_finimizers; ++i)
+            {
+                size_t end = cf.sparse_colors.ends[i];
+                
+                //colors for this finimizer
+                vector<size_t> color_set(cf.sparse_colors.concat.begin() + start, cf.sparse_colors.concat.begin() + end);
+                
+                color_set_to_finimizers[color_set].push_back(i);
+                start = end;
+            }
+            
+            cerr << "Unique color sets: " << color_set_to_finimizers.size() << endl;
+            
+            this->color_set_ids.resize(n_finimizers);
+            vector<pair<vector<size_t>, vector<size_t>>> deduplicated_cs_sparse;
+            uint64_t color_set_id = 0;
+            for (auto &[color_set, finimizer_indices] : color_set_to_finimizers)
+            {
+                for (size_t fm_idx : finimizer_indices)
+                {
+                    this->color_set_ids[fm_idx] = color_set_id;
+                }
+                color_set_id++;
+                
+                deduplicated_cs_sparse.emplace_back(color_set, std::move(finimizer_indices));
 
-        cerr << "Deduplicate color sets" << endl;
-        const uint64_t *data = cf.color_sets_concat.data();
-        sdsl::bit_vector bv(n_colors);
-        
-        map<sdsl::bit_vector, vector<size_t>> color_set_to_finimizers;
-        
-        for (size_t i = 0; i < n_finimizers; ++i)
-        {
-            read_colors_to_bv(data, n_colors, i, bv);
-            color_set_to_finimizers[bv].push_back(i);
+            }
+            CompressedColorSets CCS(deduplicated_cs_sparse, n_colors, this->color_set_ids);
+            this->CCS = std::move(CCS);
+        } else {
+            true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
+            n_colors = cf.color_sets_concat.size() / n_finimizers;
+            cerr << "n_colors: " << (int)n_colors << endl;
+            cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
+
+            cerr << "Deduplicate color sets" << endl;
+            const uint64_t *data = cf.color_sets_concat.data();
+            sdsl::bit_vector bv(n_colors);
+            
+            map<sdsl::bit_vector, vector<size_t>> color_set_to_finimizers;
+            
+            for (size_t i = 0; i < n_finimizers; ++i)
+            {
+                read_colors_to_bv(data, n_colors, i, bv);
+                color_set_to_finimizers[bv].push_back(i);
+            }
+            
+            vector<pair<sdsl::bit_vector, vector<size_t>>> deduplicated_cs;
+            for (auto &[color_set, finimizer_indices] : color_set_to_finimizers)
+            {
+                deduplicated_cs.emplace_back(color_set, std::move(finimizer_indices));
+            }
+
+            cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
+
+            this->color_set_ids.resize(n_finimizers);
+            CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
+            this->CCS = std::move(CCS);
         }
-        
-        vector<pair<sdsl::bit_vector, vector<size_t>>> deduplicated_cs;
-        for (auto &[color_set, finimizer_indices] : color_set_to_finimizers)
-        {
-            deduplicated_cs.emplace_back(color_set, std::move(finimizer_indices));
-        }
-
-        cerr << "Unique color sets: " << deduplicated_cs.size() << endl;
-
-        this->color_set_ids.resize(n_finimizers); // ids will be later sorted based on the frequency of fmins length
-        CompressedColorSets CCS(deduplicated_cs, n_colors, this->color_set_ids);
-
-        // Assign to final structure
-        this->CCS = std::move(CCS);
 
         cerr << "Deal with tails" << endl;
 

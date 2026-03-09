@@ -212,22 +212,92 @@ public:
         // uint64_t max = *std::max_element(L.begin(), L.end());
         // cerr << "Max value in L: " << max << std::endl;
 
-        float BV_sizes_averge = average(BV_sizes);
+        // float BV_sizes_averge = average(BV_sizes);
+        // float L_sizes_averge = average(L_sizes);
+        // float dense_sizes_averge = average(dense_sizes);
+
+        // double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
+        // double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
+        // double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
+
+        // cerr << "BV sizes average = " << BV_sizes_averge << endl;
+        // cerr << "BV sizes max = " << max_BV << endl;
+
+        // cerr << "L sizes average = " << L_sizes_averge << endl;
+        // cerr << "L sizes max = " << max_L << endl;
+
+        // cerr << "dense sizes average = " << dense_sizes_averge << endl;
+        // cerr << "dense sizes max = " << max_dense << endl;
+    }
+
+    CompressedColorSets(const vector<pair<vector<size_t>, vector<size_t>>> &deduplicated_cs_sparse, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
+    {
+
+        vector<float> BV_sizes;
+        vector<float> L_sizes;
+        vector<float> dense_sizes;
+
+        if (n_colors == 0)
+            throw runtime_error("n_colors must be > 0");
+        // Fills in L, EF, BV
+        // sdsl::bit_vector BV(deduplicated_cs.size() * n_colors); // this is too big
+
+        vector<uint16_t> temp_cL;
+
+        vector<size_t> temp_EF_v = {0};                                 // the first value has to be 0
+        
+        size_t BV_size = 0;
+        sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);
+        sdsl::bit_vector cL_color_set_ids(color_set_ids.size(), 0);
+        uint64_t new_offset = 0;
+        
+
+        for (auto &[sparse_vec, old_offsets] : deduplicated_cs_sparse)
+        {
+            const uint64_t start = old_offsets[0];
+
+            // TODO access color_set_concat and save the value in a bv
+
+            const size_t size = sparse_vec.size();
+            // Sparse
+            for (auto &c: sparse_vec)
+            {
+                L.push_back(static_cast<uint16_t>(c));
+            }
+
+            // color set ids = rank in L
+            uint64_t ef_index = temp_EF_v.size();
+            for (auto &c_id : old_offsets)
+            {
+                color_set_ids[c_id] = ef_index;
+            }                              // the minimum is 1
+            temp_EF_v.push_back(L.size()); // Keep track of ending pos // exclusive ends will be inclusive starts for the next interval
+            L_sizes.push_back((float)size);
+        }
+
+        // counts
+        this->sparse_count = temp_EF_v.size();
+
+        this->dense_count = sparse_count+1;
+
+        // color_set_ids are already sorted
+        
+        // Convert EF_v into a DeltaSet
+        DeltaSet ef(temp_EF_v);
+
+        this->EF = std::move(ef);
+
+        cerr << "sparse : " << sparse_count - 1 << endl;
+        // uint64_t max = *std::max_element(L.begin(), L.end());
+        // cerr << "Max value in L: " << max << std::endl;
+
         float L_sizes_averge = average(L_sizes);
-        float dense_sizes_averge = average(dense_sizes);
 
-        double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
         double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
-        double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
-
-        cerr << "BV sizes average = " << BV_sizes_averge << endl;
-        cerr << "BV sizes max = " << max_BV << endl;
 
         cerr << "L sizes average = " << L_sizes_averge << endl;
         cerr << "L sizes max = " << max_L << endl;
 
-        cerr << "dense sizes average = " << dense_sizes_averge << endl;
-        cerr << "dense sizes max = " << max_dense << endl;
     }
 
     void serialize(std::ostream &out) const
