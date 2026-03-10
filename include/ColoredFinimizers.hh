@@ -90,11 +90,12 @@ public:
         concat.resize(finimizer_total_length);
         in.read(reinterpret_cast<char *>(concat.data()), finimizer_total_length * sizeof(char));
 
-        if (meta){
+
+        uint8_t is_sparse;
+        in.read(reinterpret_cast<char *>(&is_sparse), 1);
+        if (is_sparse == 1) {
             cerr << "meta" << endl;
-
             sparse_colors = load_sparse_colors(in);
-
         }
         else{
             int64_t n_bits = n_finimizers * n_colors;
