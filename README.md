@@ -39,10 +39,9 @@ Usage: finimizer_matrix build [OPTIONS] --input <INPUT> --output <OUTPUT> --temp
 ```
 
 ```
-cd finimizer_matrix
-./target/release/finimizer_matrix build -i ../example_data/Ecoli_list.list --reverse -k 31 -t 4 -d ./temp -o ../Ecoli.cfm 
+cd finimizer_matrix 
 
-./target/release/finimizer_matrix build -i ../example_data/coli_file_list.txt --reverse -k 31 -t 4 -d ./temp -o ../coli.cfm 
+./target/release/finimizer_matrix build -i ../example_data/coli_file_list.list --reverse -k 31 -t 4 -d ./temp -o ../example_data/coli.cfm 1> /dev/null
 
 ```
 
@@ -60,9 +59,8 @@ build-fmin [OPTION...]
 
 ```
 cd ..
-./finimap build-fmin -i Ecoli.cfm  -o Ecoli_index.fmin  -k 31 -p 10
 
-./finimap build-fmin -i coli.cfm  -o coli_index.fmin  -k 31 -p 10
+./finimap build-fmin -i example_data/coli.cfm  -o example_data/coli_index  -k 31 -p 10
 
 ```
 
@@ -88,12 +86,18 @@ Usage:
 The result of a query will be the number or percentage (t > 0) of finimizers observed per color, expressed in pairs of (color:#matches).
 
 ```
-./finimap search-fmin   -i Ecoli_index.fmin -o Ecoli_res.txt -q ./example_data/queries/pos_queries_1000.fasta -t 0
-
-./finimap search-fmin   -i coli_index.fmin -o coli_res.txt -q ./example_data/queries.fna -t 0
+./finimap search-fmin   -i coli_index.fmin -o example_data/coli_res_t0.txt -q ./example_data/queries.fna -t 0
 ```
 
-## RBO
+This should output:
+```
+0 0:50 2:50 1:32 
+1 2:50 0:44 1:44 
+2 2:26 0:23 1:2
+3 2:50 0:21 1:21 
+```
+
+## TODO not sorted output at the moment
 
 
 ## Additional info

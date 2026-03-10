@@ -252,7 +252,7 @@ public:
             true_or_crash(cf.color_sets_concat.size() % n_finimizers == 0, "ERROR: color set bitmap length not divisible by finimizer count");
             n_colors = cf.color_sets_concat.size() / n_finimizers;
             cerr << "n_colors: " << (int)n_colors << endl;
-            cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
+            //cerr << sdsl::util::cnt_one_bits(cf.color_sets_concat) << endl;
 
             cerr << "Deduplicate color sets" << endl;
             const uint64_t *data = cf.color_sets_concat.data();
@@ -561,7 +561,7 @@ public:
         {
             bucket.serialize(out);
         }
-        cerr << non_empty_buckets.size() << endl;
+        //cerr << non_empty_buckets.size() << endl;
 
         // non_empty_bv
         non_empty_bv.serialize(out);
