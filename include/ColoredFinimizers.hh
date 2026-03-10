@@ -1144,6 +1144,9 @@ inline void count_single_base(vector<int64_t> &Fmin, const CompressedColorSets &
         if (Fmin[x] != -1){read_colors_single_base_covered(CCS, n_colors, results, last_seen, Fmin[x], x);}
         x++;
     }
+    cerr << results.size() << endl;
+    cerr << results[results.size()-1] << endl;
+    //results.resize(results.size()-1);
     return;
 }
 
@@ -1166,7 +1169,7 @@ inline int64_t count_single_base(vector<int64_t> &Fmin, const CompressedColorSet
         x++;
     }
     // return maximum number of bases covered 
-    cerr << results[results.size()-1] << endl;
+    //cerr << results[results.size()-1] << endl;
     return t*results[results.size()-1];
 }
 

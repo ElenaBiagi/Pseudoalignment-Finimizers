@@ -81,7 +81,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
             const int64_t min_value = index.search(seq, results, t, Finimizers, last_seen, count_bases);
             cerr << min_value << endl << endl;
             auto start = std::chrono::high_resolution_clock::now();
-            for (auto idx = 0; idx < results.size(); idx++)
+            for (auto idx = 0; idx < results.size()-1; idx++)
             {
                 const auto &count = results[idx];
                 if (count >= min_value)
@@ -135,7 +135,7 @@ int64_t run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const Co
             index.search(seq, results, Finimizers, last_seen, count_bases);
 
             auto start = std::chrono::high_resolution_clock::now();
-            for (auto idx = 0; idx < results.size(); idx++)
+            for (auto idx = 0; idx < results.size()-1; idx++)
             {
                 const auto &count = results[idx];
                 if (count > 0)
