@@ -26,14 +26,10 @@ You are now ready to compile the main project!
 make finimap
 ```
 ## Index construction
-
-
-First ypu should build a finimizer matrix. The code takes as input a list of files.
 Here is a example:
-# Fix example
 
+First you should build a colored finimizer matrix. The code takes as input a list of files.
 
-First build a colored finiimizer matrix:
 ```
 Usage: finimizer_matrix build [OPTIONS] --input <INPUT> --output <OUTPUT> --temp-dir <TEMP_DIR> -k <K>
 ```
