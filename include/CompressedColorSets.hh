@@ -212,22 +212,22 @@ public:
         // uint64_t max = *std::max_element(L.begin(), L.end());
         // cerr << "Max value in L: " << max << std::endl;
 
-        float BV_sizes_averge = average(BV_sizes);
-        float L_sizes_averge = average(L_sizes);
-        float dense_sizes_averge = average(dense_sizes);
+        // float BV_sizes_averge = average(BV_sizes);
+        // float L_sizes_averge = average(L_sizes);
+        // float dense_sizes_averge = average(dense_sizes);
 
-        double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
-        double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
-        double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
+        // double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
+        // double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
+        // double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
 
-        cerr << "BV sizes average = " << BV_sizes_averge << endl;
-        cerr << "BV sizes max = " << max_BV << endl;
+        // cerr << "BV sizes average = " << BV_sizes_averge << endl;
+        // cerr << "BV sizes max = " << max_BV << endl;
 
-        cerr << "L sizes average = " << L_sizes_averge << endl;
-        cerr << "L sizes max = " << max_L << endl;
+        // cerr << "L sizes average = " << L_sizes_averge << endl;
+        // cerr << "L sizes max = " << max_L << endl;
 
-        cerr << "dense sizes average = " << dense_sizes_averge << endl;
-        cerr << "dense sizes max = " << max_dense << endl;
+        // cerr << "dense sizes average = " << dense_sizes_averge << endl;
+        // cerr << "dense sizes max = " << max_dense << endl;
     }
 
     void serialize(std::ostream &out) const

@@ -63,6 +63,12 @@ public:
         concat.resize(finimizer_total_length);
         in.read(reinterpret_cast<char *>(concat.data()), finimizer_total_length * sizeof(char));
 
+        uint8_t is_sparse;
+        in.read(reinterpret_cast<char *>(&is_sparse), 1);
+        if (is_sparse == 1) {
+            throw std::runtime_error("no sparse support in this branch");
+        }
+
         int64_t n_bits = n_finimizers * n_colors;
         // The bits are in u64 Lsb format
         vector<uint64_t> words((n_bits + 63) / 64); // Ceil div by 64
@@ -859,12 +865,12 @@ inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
 
     read_colors(CCS, n_colors, results, fmin_v, dense);
 
-    // If we care about the number of matches, add number of dense sets
-    for (auto& r: results){r+=dense;}
+
 
     // adjust T
     // T -= dense;
-    //for (auto& r :results){ r+= dense;}
+    // OR If we care about the number of matches, add number of dense sets
+    for (auto& r :results){ r+= dense;}
     //  Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
     return T;
