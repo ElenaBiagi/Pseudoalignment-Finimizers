@@ -93,15 +93,16 @@ void print_results(const std::unordered_map<int, uint64_t>& results) {
     }
 }
 
+// TODO this is already in Util.hh char2bits
 inline char get_char_idx(char c){
-    switch(c){
-        case 'A': return 0;
-        case 'C': return 1;
-        case 'G': return 2;
-        case 'T': return 3;
-        default: return -1;
-    }
-}
+     switch(c){
+         case 'A': return 0;
+         case 'C': return 1;
+         case 'G': return 2;
+         case 'T': return 3;
+         default: return -1;
+     }
+ }
 
 // TODO remove
 uint64_t prefix2int_old(const string& s, uint64_t offset, char plen){ 

@@ -11,40 +11,6 @@
 
 using namespace std;
 
-// TODO remove BVHash and BVEqual
-struct BVHash
-{
-    size_t operator()(const sdsl::bit_vector &bv) const noexcept
-    {
-        const uint64_t *data = bv.data();
-        size_t n64 = (bv.size() + 63) / 64;
-        size_t h = 0;
-        for (size_t i = 0; i < n64; ++i)
-        {
-            h ^= std::hash<uint64_t>{}(data[i]) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-        }
-        return h;
-    }
-};
-
-struct BVEqual
-{
-    bool operator()(const sdsl::bit_vector &a, const sdsl::bit_vector &b) const noexcept
-    {
-        if (a.size() != b.size())
-            return false;
-        const uint64_t *ad = a.data();
-        const uint64_t *bd = b.data();
-        size_t n64 = (a.size() + 63) / 64;
-        for (size_t i = 0; i < n64; ++i)
-        {
-            if (ad[i] != bd[i])
-                return false;
-        }
-        return true;
-    }
-};
-
 class CompressedColorSets
 {
 private:
