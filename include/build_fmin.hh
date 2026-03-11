@@ -10,7 +10,8 @@ int build_fmin(int argc, char **argv)
         ("i,index-file", "ColoredFinimizers file.", cxxopts::value<string>())
         ("o,out-file", "Output index filename prefix.", cxxopts::value<string>()) // as input
         ("p,p_len", "Finimizers prefix length.", cxxopts::value<int64_t>()->default_value(std::to_string(10)))
-        ("k", "k-mer length.", cxxopts::value<int64_t>()->default_value(std::to_string(31)))
+        ("t", "Short-Long finimizers threshold",  cxxopts::value<int64_t>()->default_value(std::to_string(18)))
+	("k", "k-mer length.", cxxopts::value<int64_t>()->default_value(std::to_string(31)))
         ("m, meta", "Metagenome.", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
 
@@ -30,9 +31,11 @@ int build_fmin(int argc, char **argv)
     bool meta = opts["m"].as<bool>();
     cf.load(in, meta);
     int64_t prefix_len = opts["p"].as<int64_t>();
+    int64_t short_long_t = opts["t"].as<int64_t>();
+
     int64_t k = opts["k"].as<int64_t>();
 
-    CompressedColoredFinimizers ccf(std::move(cf), prefix_len, k, meta); // TODO Search currently works only with 31
+    CompressedColoredFinimizers ccf(std::move(cf), prefix_len, short_long_t, k, meta); // TODO Search currently works only with 31
 
     ccf.serialize(out_prefix);
 
