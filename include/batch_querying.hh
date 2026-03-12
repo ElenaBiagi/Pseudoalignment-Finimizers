@@ -12,6 +12,7 @@
 
 #include "BoundedDeque.hh"
 #include "Colors_queries.hh"
+#include "Print_output_queries.hh"
 
 //#include "common.hh"
 //#include "bitsearch.hh"
@@ -89,14 +90,14 @@ void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t star
 
 }
 
-void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k){
+void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t){
     
     // TODO this assumes that all the queries have the same length (1000)
     const vector<uint64_t> query_lens(10000,1000);
 
     uint64_t q = 0;
-    for (const auto l: query_lens){
-        if (l<k){continue;}
+    for (auto q_idx = 0; q_idx < query_lens.size(); q_idx++){
+        if (query_lens[q_idx]<k){continue;}
         // length, rank, color_set_id[rank], start(i)
         BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> curr_candidates(k); // sort based on len, int (color, start)
         // ending pos, len, rank, color_set_id[rank]
@@ -120,7 +121,7 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const C
         // Now we have info on the first k-1 pos and we can make decisions
         vector<int64_t> Fmin;
         vector<int16_t> results;
-        for (auto i = k-1; i < l; i++, end++){
+        for (auto i = k-1; i < query_lens[q_idx]; i++, end++){
             if (rank > 0) // 0 == -1
             {
             rank--; // 0 is a valid result 
@@ -128,9 +129,17 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const C
             }
             PickFinimizer(Fmin, i, k, curr_candidates, next_candidates, k_fmin);
         }
-        pseudoalignment_stats(Fmin, CCS, n_colors, results);
-
-        q+=l;
+        // TODO modeve this branch before. avoid having it for every query
+        if (t>0){
+            int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
+            print_cout_queries(results,q_idx, T);
+        }
+        else{
+            pseudoalignment_stats(Fmin, CCS, n_colors, results);
+            print_cout_queries(results,q_idx);
+        }
+        
+        q+=query_lens[q_idx];
         }
     }
 }
@@ -262,32 +271,32 @@ void batch_querying(const vector<std::string> &reads, const Fluke8 &f8, const Pr
 
         // Identify correct finimizers for every pos
         // TODO keep a vector of read lengths or assume they all have the same length
-        FindFinimizers (batch, CCS, n_colors, color_set_ids, k);
+        FindFinimizers (batch, CCS, n_colors, color_set_ids, k, t);
         // print results at the end of each read
     }
     return;
 }
 
 
-    void counting_sort(const vector<int16_t> &results, vector<pair<uint16_t, uint16_t>> &ans, const size_t found_fmin, const uint16_t n_colors)
+void counting_sort(const vector<int16_t> &results, vector<pair<uint16_t, uint16_t>> &ans, const size_t found_fmin, const uint16_t n_colors)
+{
+    vector<uint16_t> counts(found_fmin + 1);
+
+    for (size_t idx = 0; idx < n_colors; idx++)
     {
-        vector<uint16_t> counts(found_fmin + 1);
-
-        for (size_t idx = 0; idx < n_colors; idx++)
-        {
-            counts[results[idx]]++;
-        }
-
-        // Cumulative Sums
-        for (size_t c = 1; c < counts.size(); c++)
-        {
-            counts[c] += counts[c - 1];
-        }
-
-        ans.resize(n_colors);
-        for (size_t idx = 0; idx < n_colors; idx++)
-        {
-            ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
-            counts[results[idx]]--;
-        }
+        counts[results[idx]]++;
     }
+
+    // Cumulative Sums
+    for (size_t c = 1; c < counts.size(); c++)
+    {
+        counts[c] += counts[c - 1];
+    }
+
+    ans.resize(n_colors);
+    for (size_t idx = 0; idx < n_colors; idx++)
+    {
+        ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
+        counts[results[idx]]--;
+    }
+}

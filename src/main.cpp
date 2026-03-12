@@ -8,7 +8,7 @@
 //#include "search_fmin.hh"
 //#include "get_stats_fmin.hh"
 //#include "get_stats_buckets.hh"
-//#include "search_fmin_batch.hh"
+#include "search_fmin_batch.hh"
 
 
 
@@ -45,7 +45,7 @@ int main(int argc, char** argv){
 
     try{
         if(command == "build-fmin") {return build_fmin(argc, argv);}
-        //else if(command == "search-fmin") {return search_fmin_batch(argc, argv);}
+        else if(command == "search-fmin") {return search_fmin_batch(argc, argv);}
         // else if(command == "stats-fmin") {return get_stats_fmin(argc, argv);}
         // else if(command == "stats-b") {return get_stats_buckets(argc, argv);}
         else{

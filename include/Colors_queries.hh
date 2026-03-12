@@ -178,3 +178,44 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
     // counting_sort(results, ans, found_fmin, n_colors);
     return;
 }
+
+inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t)
+{ // vector<uint64_t>& results,
+    if (Fmin.empty())
+    {
+        return 1;
+    } // not 0 as everything wuold be >=
+
+    std::fill(results.begin(), results.end(), 0);
+
+    std::sort(Fmin.begin(), Fmin.end());
+    vector<pair<int64_t, uint64_t>> fmin_v;
+    fmin_v.reserve(Fmin.size());
+
+    for (size_t i = 0; i < Fmin.size();)
+    {
+        size_t j = i + 1;
+        while (j < Fmin.size() && Fmin[j] == Fmin[i])
+            ++j;
+        fmin_v.emplace_back(Fmin[i], j - i);
+        i = j;
+    }
+
+    // Check the values above the minimum in search
+    const size_t found_fmin = Fmin.size(); // # total finimizers
+    int16_t T = found_fmin * t;
+    uint16_t dense = 0;
+
+    read_colors(CCS, n_colors, results, fmin_v, dense);
+
+    // If we care about the number of matches, add number of dense sets
+    for (auto& r: results){r+=dense;}
+
+    // adjust T
+    // T -= dense;
+    //for (auto& r :results){ r+= dense;}
+    //  Sort results so that the output is sorted
+    // counting_sort(results, ans, found_fmin, n_colors);
+    return T;
+}
+
