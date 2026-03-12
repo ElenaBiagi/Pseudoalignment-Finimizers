@@ -222,7 +222,13 @@ void run_fmin_queries_batch(reader_t &reader, out_stream_t &out, const Compresse
     // 3. Deal with colorsets (DONE)
     // 4. Print results (~DONE)
     uint64_t k = index.get_k();
-    index.search_batch(reads, results, Finimizers, batch_size, k, t);
+    if (t>0){
+        index.search_batch(reads, results, Finimizers, batch_size, k, t);
+    }
+    else{
+        index.search_batch(reads, results, Finimizers, batch_size, k);
+    }
+    
     return;
 }
 

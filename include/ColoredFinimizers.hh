@@ -448,6 +448,20 @@ public:
         // }
     }
 
+    void search_batch(const vector<std::string> &reads, vector<int16_t> &results, vector<int64_t> &Finimizers, const uint64_t batch_size, const uint64_t k) const
+    {   
+        // It's not possible to reuse the same vector for every query as we now have a batch
+        //Finimizers.clear();
+        //Finimizers.reserve(query_len - k + 1);
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            // what should this output?
+            batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k);
+            auto end = std::chrono::high_resolution_clock::now();
+            time_rarest_fmin += (end - start);
+        }
+    }
+
     void serialize(const std::string &index_prefix) const
     {
         string filename = index_prefix + ".fmin";
