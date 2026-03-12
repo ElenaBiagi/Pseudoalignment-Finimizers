@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cxxopts.hpp>
 #include "ColoredFinimizers.hh"
 
 int build_fmin(int argc, char **argv)

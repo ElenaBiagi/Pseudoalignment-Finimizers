@@ -113,7 +113,7 @@ class Fluke8 {
        }
     }
 
-    pair<int64_t,uint64_t> finiLookup(uint64_t key, uint64_t len) { const{
+    pair<int64_t,uint64_t> finiLookup(uint64_t key, uint64_t len) const{
        //cerr << "key: " << key << '\n';
        uint64_t cle = key>>(((uint64_t)64) - ((uint64_t)2)*_upperlen);
        //cerr << "cle: " << cle << '\n';
@@ -199,7 +199,7 @@ class Fluke8 {
     }
 
     Pred8v2 _pred8;
-    uint64_t _n_failed_searches = 0;
+    mutable uint64_t _n_failed_searches = 0;
    private:
     uint64_t _u = 0;  // universe size
     uint64_t _n = 0;  // number of elements

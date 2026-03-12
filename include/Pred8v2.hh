@@ -141,7 +141,7 @@ class Pred8v2 {
 
     //  first is the index of the predecessor in the set
     //  second is the length of the prefix (in bits) that key has with its predecessor
-    pair<uint64_t, uint64_t> inline getPredPrefix(int64_t key) { //const{
+    pair<uint64_t, uint64_t> inline getPredPrefix(int64_t key) const{
         _n_searches++;
         //cerr << "key: " << key << '\n';
         if (key < _min) {
@@ -262,9 +262,9 @@ class Pred8v2 {
     }
 
     //stats
-    uint64_t _n_searches = 0;  
-    uint64_t _n_easy_searches = 0;  
-    uint64_t _n_hard_searches = 0;  
+    mutable uint64_t _n_searches = 0;  
+    mutable uint64_t _n_easy_searches = 0;  
+    mutable uint64_t _n_hard_searches = 0;  
 
    private:
 
