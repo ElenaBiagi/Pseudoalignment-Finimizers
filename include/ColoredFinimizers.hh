@@ -6,11 +6,12 @@
 #include <map>
 
 #include "sdsl/bit_vectors.hpp"
-#include "rarest_fmin_search.hh"
 #include "CompressedColorSets.hh"
 
 #include "Fluke8.hh"
 #include "PrefTab.hh"
+
+#include "batch_querying.hh"
 
 #include <chrono>
 
@@ -158,16 +159,12 @@ void true_or_crash(bool b, const char *error_message)
     }
 }
 
-inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t);
+//inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t);
 
-inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results);
+//inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results);
 
 class CompressedColoredFinimizers
 {
-
-private:
-
-    vector<uint64_t> color_set_ids;
 
 public:
     CompressedColorSets CCS; // L, EF, BV
@@ -182,6 +179,7 @@ public:
     Fluke8 f8;
     PrefTab pt;
 
+    vector<uint64_t> color_set_ids;
 
     int get_k() const { return k; }
 
@@ -368,62 +366,86 @@ public:
         }
     }
 
-    void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
-    {
-        const int64_t query_len = query.length();
-        if (query_len < this->k)
-            return;
 
-        // Forward finimizer search
-        // vector<int64_t> Finimizers;
-        Finimizers.clear();
-        Finimizers.reserve(query_len - k + 1);
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_rarest_fmin += (end - start);
-        }
-        // Color sets
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-            pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_combine += (end - start);
-        }
-    }
+    // void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
+    // {
+    //     const int64_t query_len = query.length();
+    //     if (query_len < this->k)
+    //         return;
+
+    //     // Forward finimizer search
+    //     // vector<int64_t> Finimizers;
+    //     Finimizers.clear();
+    //     Finimizers.reserve(query_len - k + 1);
+    //     {
+    //         auto start = std::chrono::high_resolution_clock::now();
+    //         //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+    //         auto end = std::chrono::high_resolution_clock::now();
+    //         time_rarest_fmin += (end - start);
+    //     }
+    //     // Color sets
+    //     {
+    //         auto start = std::chrono::high_resolution_clock::now();
+    //         // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
+    //         pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
+    //         auto end = std::chrono::high_resolution_clock::now();
+    //         time_combine += (end - start);
+    //     }
+    // }
 
     // Threshold-based search: returns minimum value and fills ans
-    uint16_t search(const std::string &query, vector<int16_t> &results, const float t, vector<int64_t> &Finimizers) const
-    {
+    // uint16_t search(const std::string &query, vector<int16_t> &results, const float t, vector<int64_t> &Finimizers) const
+    // {
 
-        const int64_t query_len = query.length();
-        if (query_len < this->k)
-            return 0;
+    //     const int64_t query_len = query.length();
+    //     if (query_len < this->k)
+    //         return 0;
 
-        // Forward finimizer search
-        // vector<int64_t> Finimizers;
-        Finimizers.clear();
-        Finimizers.reserve(query_len - k + 1);
+    //     // Forward finimizer search
+    //     // vector<int64_t> Finimizers;
+    //     Finimizers.clear();
+    //     Finimizers.reserve(query_len - k + 1);
+    //     {
+    //         auto start = std::chrono::high_resolution_clock::now();
+    //         //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+    //         auto end = std::chrono::high_resolution_clock::now();
+    //         time_rarest_fmin += (end - start);
+    //     }
+
+    //     // Combine the results of finimizers color ids for forward and reverse
+    //     int16_t T;
+    //     {
+    //         auto start = std::chrono::high_resolution_clock::now();
+    //         // min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
+    //         T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
+
+    //         auto end = std::chrono::high_resolution_clock::now();
+    //         time_combine += (end - start);
+    //     }
+    //     return T;
+    // }
+
+    void search_batch(const vector<std::string> &reads, vector<int16_t> &results, vector<int64_t> &Finimizers, const uint64_t batch_size, const uint64_t k, const float &t) const
+    {   
+        // It's not possible to reuse the same vector for every query as we now have a batch
+        //Finimizers.clear();
+        //Finimizers.reserve(query_len - k + 1);
         {
             auto start = std::chrono::high_resolution_clock::now();
-            //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
+            // what should this output?
+            batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k, t);
             auto end = std::chrono::high_resolution_clock::now();
             time_rarest_fmin += (end - start);
         }
 
-        // Combine the results of finimizers color ids for forward and reverse
-        int16_t T;
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            // min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-            T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
-
-            auto end = std::chrono::high_resolution_clock::now();
-            time_combine += (end - start);
-        }
-        return T;
+        
+        // {
+        //     auto start = std::chrono::high_resolution_clock::now();
+        //     // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
+        //     // pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
+        //     auto end = std::chrono::high_resolution_clock::now();
+        //     time_combine += (end - start);
+        // }
     }
 
     void serialize(const std::string &index_prefix) const
@@ -440,15 +462,16 @@ public:
 
         CCS.serialize(out);
 
+        uint64_t color_set_ids_size = color_set_ids.size();
+        out.write(reinterpret_cast<const char *>(&color_set_ids_size), sizeof(uint64_t));
+        out.write(reinterpret_cast<const char *>(color_set_ids.data()), color_set_ids_size * sizeof(uint64_t));
+
         f8.serialize(out);
         pt.serialize(out);
-        
 
         // metadata
         out.write(reinterpret_cast<const char *>(&n_colors), sizeof(n_colors));
-        out.write(reinterpret_cast<const char *>(&n_finimizers), sizeof(n_finimizers));
-        out.write(reinterpret_cast<const char *>(&plen), sizeof(plen));
-        out.write(reinterpret_cast<const char *>(&short_long_t), sizeof(short_long_t));
+        out.write(reinterpret_cast<const char *>(&n_finimizers), sizeof(n_finimizers)); // TODO do we need this?
         out.write(reinterpret_cast<const char *>(&k), sizeof(k));
 
         out.close();
@@ -467,13 +490,19 @@ public:
         cerr << "Loading index from " << filename << endl;
 
         CCS.load(in);
-	f8.load(in);
-	pt.load(in);
+
+        uint64_t color_set_ids_size;
+        in.read(reinterpret_cast<char *>(&color_set_ids_size), sizeof(uint64_t));
+        color_set_ids.resize(color_set_ids_size);
+        in.read(reinterpret_cast<char *>(color_set_ids.data()), color_set_ids_size * sizeof(uint64_t));
+
+        f8.load(in);
+        pt.load(in);
 
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
         in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers)); // TODO do we need this?
-        in.read(reinterpret_cast<char *>(&plen), sizeof(plen));
+        //in.read(reinterpret_cast<char *>(&plen), sizeof(plen));
         in.read(reinterpret_cast<char *>(&k), sizeof(k));
 
         in.close();
@@ -481,242 +510,242 @@ public:
     }
 };
 
-inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t> &results, const uint64_t freq)
-{
-    while (word)
-    {
-        // uint64_t bit = std::countr_zero(word);
-        uint64_t bit = __builtin_ctzll(word);
-        results[base + bit] += freq;
-        word &= word - 1; // clear lowest bit
-    }
-}
+// inline void process_word(uint64_t word, const uint64_t base, vector<uint64_t> &results, const uint64_t freq)
+// {
+//     while (word)
+//     {
+//         // uint64_t bit = std::countr_zero(word);
+//         uint64_t bit = __builtin_ctzll(word);
+//         results[base + bit] += freq;
+//         word &= word - 1; // clear lowest bit
+//     }
+// }
 
-inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t> &results)
-{
+// inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<uint64_t> &results)
+// {
 
-    const uint64_t *ptr = data + (start * n_colors) / 64;
-    uint64_t bit_offset = (start * n_colors) % 64;
+//     const uint64_t *ptr = data + (start * n_colors) / 64;
+//     uint64_t bit_offset = (start * n_colors) % 64;
 
-    uint64_t color_id = 0;
-    uint64_t bits_left = n_colors;
+//     uint64_t color_id = 0;
+//     uint64_t bits_left = n_colors;
 
-    if (bit_offset != 0)
-    {
-        // 1. Read the first word
-        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-        uint64_t word = (*ptr >> bit_offset) & mask;
-        process_word(word, color_id, results, freq);
+//     if (bit_offset != 0)
+//     {
+//         // 1. Read the first word
+//         uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+//         uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+//         uint64_t word = (*ptr >> bit_offset) & mask;
+//         process_word(word, color_id, results, freq);
 
-        ptr++;
-        color_id += bits_to_read;
-        bits_left -= bits_to_read;
-    }
+//         ptr++;
+//         color_id += bits_to_read;
+//         bits_left -= bits_to_read;
+//     }
 
-    // 2. Read aligned words in btw
-    while (bits_left >= 64)
-    {
-        uint64_t word = *ptr++;
-        process_word(word, color_id, results, freq);
+//     // 2. Read aligned words in btw
+//     while (bits_left >= 64)
+//     {
+//         uint64_t word = *ptr++;
+//         process_word(word, color_id, results, freq);
 
-        color_id += 64;
-        bits_left -= 64;
-    }
+//         color_id += 64;
+//         bits_left -= 64;
+//     }
 
-    // 3. Read the last word (if any)
-    if (bits_left > 0)
-    {
-        uint64_t mask = ((1ULL << bits_left) - 1);
-        uint64_t word = *ptr & mask;
-        process_word(word, color_id, results, freq);
-    }
-}
+//     // 3. Read the last word (if any)
+//     if (bits_left > 0)
+//     {
+//         uint64_t mask = ((1ULL << bits_left) - 1);
+//         uint64_t word = *ptr & mask;
+//         process_word(word, color_id, results, freq);
+//     }
+// }
 
-inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq)
-{
-    while (word)
-    {
-        // uint64_t bit = std::countr_zero(word);
-        uint64_t bit = __builtin_ctzll(word);
-        results[base + bit] += freq;
-        word &= word - 1; // clear lowest bit
-    }
-}
+// inline void process_word(uint64_t word, const uint64_t base, vector<int16_t> &results, const uint64_t freq)
+// {
+//     while (word)
+//     {
+//         // uint64_t bit = std::countr_zero(word);
+//         uint64_t bit = __builtin_ctzll(word);
+//         results[base + bit] += freq;
+//         word &= word - 1; // clear lowest bit
+//     }
+// }
 
-inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results)
-{
+// inline void read_bv(const uint64_t *data, const uint64_t start, const uint64_t freq, const uint64_t n_colors, vector<int16_t> &results)
+// {
 
-    const uint64_t *ptr = data + (start * n_colors) / 64;
-    uint64_t bit_offset = (start * n_colors) % 64;
+//     const uint64_t *ptr = data + (start * n_colors) / 64;
+//     uint64_t bit_offset = (start * n_colors) % 64;
 
-    uint64_t color_id = 0;
-    uint64_t bits_left = n_colors;
+//     uint64_t color_id = 0;
+//     uint64_t bits_left = n_colors;
 
-    if (bit_offset != 0)
-    {
-        // 1. Read the first word
-        uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
-        uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
-        uint64_t word = (*ptr >> bit_offset) & mask;
-        process_word(word, color_id, results, freq);
+//     if (bit_offset != 0)
+//     {
+//         // 1. Read the first word
+//         uint64_t bits_to_read = std::min(64UL - bit_offset, n_colors);
+//         uint64_t mask = (bits_to_read == 64) ? ~0ULL : ((1ULL << bits_to_read) - 1);
+//         uint64_t word = (*ptr >> bit_offset) & mask;
+//         process_word(word, color_id, results, freq);
 
-        ptr++;
-        color_id += bits_to_read;
-        bits_left -= bits_to_read;
-    }
+//         ptr++;
+//         color_id += bits_to_read;
+//         bits_left -= bits_to_read;
+//     }
 
-    // 2. Read aligned words in btw
-    while (bits_left >= 64)
-    {
-        uint64_t word = *ptr++;
-        process_word(word, color_id, results, freq);
-        color_id += 64;
-        bits_left -= 64;
-    }
+//     // 2. Read aligned words in btw
+//     while (bits_left >= 64)
+//     {
+//         uint64_t word = *ptr++;
+//         process_word(word, color_id, results, freq);
+//         color_id += 64;
+//         bits_left -= 64;
+//     }
 
-    // 3. Read the last word (if any)
-    if (bits_left > 0)
-    {
-        uint64_t mask = ((1ULL << bits_left) - 1);
-        uint64_t word = *ptr & mask;
-        process_word(word, color_id, results, freq);
-    }
-}
+//     // 3. Read the last word (if any)
+//     if (bits_left > 0)
+//     {
+//         uint64_t mask = ((1ULL << bits_left) - 1);
+//         uint64_t word = *ptr & mask;
+//         process_word(word, color_id, results, freq);
+//     }
+// }
 
-void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<uint64_t> &results)
-{
-    const size_t end = EF.get_start(pos); // exclusive end
-    size_t start = EF.get_start(pos - 1); // inclusive start
-    for (size_t c = 0; c < n_colors; c++)
-    {
-        if (start < end && L[start] == c)
-        {
-            start++;
-        }
-        else
-        {
-            results[c] += freq;
-        }
-    }
-}
+// void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<uint64_t> &results)
+// {
+//     const size_t end = EF.get_start(pos); // exclusive end
+//     size_t start = EF.get_start(pos - 1); // inclusive start
+//     for (size_t c = 0; c < n_colors; c++)
+//     {
+//         if (start < end && L[start] == c)
+//         {
+//             start++;
+//         }
+//         else
+//         {
+//             results[c] += freq;
+//         }
+//     }
+// }
 
-void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint16_t &dense)
-{
-    dense += freq;
-    const size_t end = EF.get_start(pos); // exclusive end
-    size_t start = EF.get_start(pos - 1); // inclusive start
-    while (start < end)
-    {
-        results[L[start++]] -= freq;
-    }
-}
+// void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, const vector<uint16_t> &L, const uint64_t n_colors, vector<int16_t> &results, uint16_t &dense)
+// {
+//     dense += freq;
+//     const size_t end = EF.get_start(pos); // exclusive end
+//     size_t start = EF.get_start(pos - 1); // inclusive start
+//     while (start < end)
+//     {
+//         results[L[start++]] -= freq;
+//     }
+// }
 
-void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t &dense)
-{
-    const sdsl::bit_vector &BV = CCS.getBV();
-    const uint64_t *data = BV.data();
-    const vector<uint16_t> &L = CCS.getL();
-    const DeltaSet &EF = CCS.getEF();
+// void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const vector<pair<int64_t, uint64_t>> &fmin_v, uint16_t &dense)
+// {
+//     const sdsl::bit_vector &BV = CCS.getBV();
+//     const uint64_t *data = BV.data();
+//     const vector<uint16_t> &L = CCS.getL();
+//     const DeltaSet &EF = CCS.getEF();
 
-    // pos < sparse_count; [sparse]
-    // sparse_count <= pos < dense_count; [very dense]
-    // pos >= dense; [bitmap]
+//     // pos < sparse_count; [sparse]
+//     // sparse_count <= pos < dense_count; [very dense]
+//     // pos >= dense; [bitmap]
 
-    const uint64_t sparse_count = CCS.sparse_count;
-    const uint64_t dense_count = CCS.dense_count;
+//     const uint64_t sparse_count = CCS.sparse_count;
+//     const uint64_t dense_count = CCS.dense_count;
 
-    // Exploit the fact that the pos are sorted
-    uint64_t i;
-    for (i = 0; i < fmin_v.size(); i++)
-    {
-        const auto &[pos, freq] = fmin_v[i];
-        // sparse
-        if (pos < sparse_count)
-        {
-            // read from L
-            const size_t end = EF.get_start(pos); // exclusive end
-            size_t start = EF.get_start(pos - 1); // inclusive start
-            while (start < end)
-            {
-                results[L[start++]] += freq;
-            }
-        }
-        else
-        {
-            break;
-        }
-    }
-    // very dense
-    uint64_t j;
-    for (j = i; j < fmin_v.size(); j++)
-    {
-        const auto &[pos, freq] = fmin_v[j];
-        if (pos < dense_count)
-        {
-            // read complementary values from L
-            read_verydense(pos, freq, EF, L, n_colors, results, dense);
-        }
-        else
-        {
-            break;
-        }
-    }
-    // read from BV
-    for (auto i = j; i < fmin_v.size(); i++)
-    {
-        const auto &[pos, freq] = fmin_v[i];
-        uint64_t start = pos - dense_count;
-        read_bv(data, start, freq, n_colors, results);
-    }
-}
+//     // Exploit the fact that the pos are sorted
+//     uint64_t i;
+//     for (i = 0; i < fmin_v.size(); i++)
+//     {
+//         const auto &[pos, freq] = fmin_v[i];
+//         // sparse
+//         if (pos < sparse_count)
+//         {
+//             // read from L
+//             const size_t end = EF.get_start(pos); // exclusive end
+//             size_t start = EF.get_start(pos - 1); // inclusive start
+//             while (start < end)
+//             {
+//                 results[L[start++]] += freq;
+//             }
+//         }
+//         else
+//         {
+//             break;
+//         }
+//     }
+//     // very dense
+//     uint64_t j;
+//     for (j = i; j < fmin_v.size(); j++)
+//     {
+//         const auto &[pos, freq] = fmin_v[j];
+//         if (pos < dense_count)
+//         {
+//             // read complementary values from L
+//             read_verydense(pos, freq, EF, L, n_colors, results, dense);
+//         }
+//         else
+//         {
+//             break;
+//         }
+//     }
+//     // read from BV
+//     for (auto i = j; i < fmin_v.size(); i++)
+//     {
+//         const auto &[pos, freq] = fmin_v[i];
+//         uint64_t start = pos - dense_count;
+//         read_bv(data, start, freq, n_colors, results);
+//     }
+// }
 
-inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results)
-{
-    // vector<int16_t> results(n_colors, 0);
-    /* if (results.size() != n_colors) {
-        results.assign(n_colors, 0);
-    } else {
-        std::fill(results.begin(), results.end(), 0);
-    }
- */
-    std::fill(results.begin(), results.end(), 0);
+// inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results)
+// {
+//     // vector<int16_t> results(n_colors, 0);
+//     /* if (results.size() != n_colors) {
+//         results.assign(n_colors, 0);
+//     } else {
+//         std::fill(results.begin(), results.end(), 0);
+//     }
+//  */
+//     std::fill(results.begin(), results.end(), 0);
 
-    std::sort(Fmin.begin(), Fmin.end());
-    vector<pair<int64_t, uint64_t>> fmin_v;
-    fmin_v.reserve(Fmin.size());
+//     std::sort(Fmin.begin(), Fmin.end());
+//     vector<pair<int64_t, uint64_t>> fmin_v;
+//     fmin_v.reserve(Fmin.size());
 
-    for (size_t i = 0; i < Fmin.size();)
-    {
-        size_t j = i + 1;
-        while (j < Fmin.size() && Fmin[j] == Fmin[i])
-            ++j;
-        fmin_v.emplace_back(Fmin[i], j - i);
-        i = j;
-    }
+//     for (size_t i = 0; i < Fmin.size();)
+//     {
+//         size_t j = i + 1;
+//         while (j < Fmin.size() && Fmin[j] == Fmin[i])
+//             ++j;
+//         fmin_v.emplace_back(Fmin[i], j - i);
+//         i = j;
+//     }
 
-    /* // Count freq of each fmin
-    std::unordered_map<int64_t, uint64_t> fmin_counts;
-    for (auto v : Fmin) {
-        fmin_counts[v]++;
-    }
+//     /* // Count freq of each fmin
+//     std::unordered_map<int64_t, uint64_t> fmin_counts;
+//     for (auto v : Fmin) {
+//         fmin_counts[v]++;
+//     }
 
-    // vector for sorted output so that it is possible to scan color_set_concat
-    vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
-    std::sort(fmin_v.begin(), fmin_v.end()); */
-    uint16_t dense = 0;
-    read_colors(CCS, n_colors, results, fmin_v, dense);
-    // TODO keep track of which counters were incremented and set to zero only those
-    // Add number of dense sets
-    for (auto &r : results)
-    {
-        r += dense;
-    }
-    const size_t found_fmin = Fmin.size(); // # total finimizers
-    // Sort results so that the output is sorted
-    // counting_sort(results, ans, found_fmin, n_colors);
-    return;
-}
+//     // vector for sorted output so that it is possible to scan color_set_concat
+//     vector<pair<int64_t, uint64_t>> fmin_v(fmin_counts.begin(), fmin_counts.end());
+//     std::sort(fmin_v.begin(), fmin_v.end()); */
+//     uint16_t dense = 0;
+//     read_colors(CCS, n_colors, results, fmin_v, dense);
+//     // TODO keep track of which counters were incremented and set to zero only those
+//     // Add number of dense sets
+//     for (auto &r : results)
+//     {
+//         r += dense;
+//     }
+//     const size_t found_fmin = Fmin.size(); // # total finimizers
+//     // Sort results so that the output is sorted
+//     // counting_sort(results, ans, found_fmin, n_colors);
+//     return;
+// }
 
 inline int16_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSets &CCS, const uint64_t n_colors, vector<int16_t> &results, const float t)
 { // vector<uint64_t>& results,

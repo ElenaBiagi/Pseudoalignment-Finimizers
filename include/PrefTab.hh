@@ -2,6 +2,7 @@
 #define _PREF_TAB_H_
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cstdint>
 #include <ctime>
@@ -159,7 +160,7 @@ class PrefTab {
         return {i-(((_F[i]>>preflenbits)<<preflenbits)==key), (((_F[i]>>preflenbits)<<preflenbits)==key)};
     }
 
-    int64_t finiLookup(uint64_t key, uint64_t keylen){ // const{
+    pair<int64_t, uint64_t> finiLookup(uint64_t key, uint64_t keylen){ const{
        _n_searches++;
        uint64_t preflenbits = _preflen<<1;
        //cerr << "preflenbits: " << preflenbits << '\n';
@@ -173,7 +174,7 @@ class PrefTab {
           //empty bucket
           _n_easy_searches++;
           _n_failed_searches++;
-          return -1;
+          return {-1,0};
        }
        //non-empty bucket
        _n_hard_searches++;
@@ -222,17 +223,16 @@ class PrefTab {
        uint64_t el = (_F[i] & (((uint64_t)1)<<preflenbits)-((uint64_t)1)); //the length of the finimizer
        uint64_t pred = ((_F[i]>>preflenbits)<<preflenbits);
        //uint64_t lcp = (__builtin_clzll((_F[i]>>preflenbits) ^ (~(key >> preflenbits))) - preflenbits)/2;
-       uint64_t lcp = __builtin_clzll(~((pred) ^ (~key)));
+       uint64_t lcp = countl_zero(~((pred) ^ (~key)));
        lcp = _preflen + (lcp >> 1); //convert from bit matches to symbol matches
        //cerr << "pred el lcp: " << i << ' ' << el << ' ' << lcp << ' ' << ((lcp >= el) ? '*' : ' ') << '\n';
        if(lcp >= el && el <= keylen){
-          return i;
+          return {i,el};
        }
        _n_failed_searches++;
-       return -1;
+       return {-1,0};
        //{i-(((_F[i]>>preflenbits)<<preflenbits)==key), (((_F[i]>>preflenbits)<<preflenbits)==key)};
     }
-
 
     uint64_t sizeInBytes() const{
        uint64_t sz = 0;

@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <bit>
+#include <bitset>
 #include <chrono>
 #include <cstdint>
 #include <ctime>
@@ -168,7 +170,7 @@ class Pred8v2 {
                     uint64_t pred = _Y[y+j-(1-(_Y[y+j] == k))];
                     //cerr << "pred: " << pred << '\n'; 
                     //cerr << "k:    " << k << '\n';  
-                    uint64_t lcp = __builtin_clzll(~((pred) ^ (~k))); //lcp in bits, 64-bit oriented
+                    uint64_t lcp = countl_zero(~((pred) ^ (~k))); //lcp in bits, 64-bit oriented
                     //cerr << "lcp: "<<lcp<<'\n';
                     //cerr << "returning from 2\n";
                     return {y+j-(1-(_Y[y+j] == k)),lcp};
@@ -181,7 +183,7 @@ class Pred8v2 {
                  if(_X[bk] & 2){ //is that really the case?
                     bp = _X[bk]>>2; //no, so point to the bucket containing the predecessor
                  }
-                 uint64_t lcp = __builtin_clzll(~((bp<<8) ^ (~(bk<<8))));
+                 uint64_t lcp = countl_zero(~((bp<<8) ^ (~(bk<<8))));
                  //cerr << "returning from 2+\n";
                  return {(_X[bp+1]>>2), lcp};
               }
@@ -190,7 +192,7 @@ class Pred8v2 {
            //this means the last element of the bucket is the predecessor of k, and it is not equal to k
            //cerr << "returning from 3\n";
            uint64_t pred = _Y[y+bcount-1];
-           uint64_t lcp = __builtin_clzll(~((pred) ^ (~k))); //lcp in bits, 64-bit oriented
+           uint64_t lcp = countl_zero(~((pred) ^ (~k))); //lcp in bits, 64-bit oriented
            //cerr << "lcp: "<<lcp<<'\n';
            return {y+bcount-1,lcp};
         }
@@ -201,7 +203,7 @@ class Pred8v2 {
         if(_X[bk] & 2){ //is that really the case?
            bp = _X[bk]>>2; //no, so point to the bucket containing the predecessor
         }
-        uint64_t lcp = __builtin_clzll(~((bp<<8) ^ (~(bk<<8))));
+        uint64_t lcp = countl_zero(~((bp<<8) ^ (~(bk<<8))));
         //cerr << "returning from 4\n";
         return {(_X[bp+1]>>2), lcp};
     }

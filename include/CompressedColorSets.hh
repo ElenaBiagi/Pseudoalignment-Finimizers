@@ -54,8 +54,8 @@ public:
 
         vector<uint16_t> temp_cL;
 
-        vector<size_t> temp_EF_v = {0};                                 // the first value has to be 0
-        vector<size_t> temp_cEF_v = {};                                 // the first value is the last value of L
+        vector<uint64_t> temp_EF_v = {0};                                 // the first value has to be 0
+        vector<uint64_t> temp_cEF_v = {};                                 // the first value is the last value of L
         sdsl::bit_vector temp_BV(deduplicated_cs.size() * n_colors, 0); // ensure that it's all 0s
         // BV.swap(temp_BV);
         size_t BV_size = 0;
@@ -210,7 +210,7 @@ public:
 
         vector<uint16_t> temp_cL;
 
-        vector<size_t> temp_EF_v = {0};                                 // the first value has to be 0
+        vector<uint64_t> temp_EF_v = {0};                                 // the first value has to be 0
         
         size_t BV_size = 0;
         sdsl::bit_vector BV_color_set_ids(color_set_ids.size(), 0);

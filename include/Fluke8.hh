@@ -113,7 +113,7 @@ class Fluke8 {
        }
     }
 
-    int64_t finiLookup(uint64_t key, uint64_t len) { //const{
+    pair<int64_t,uint64_t> finiLookup(uint64_t key, uint64_t len) { const{
        //cerr << "key: " << key << '\n';
        uint64_t cle = key>>(((uint64_t)64) - ((uint64_t)2)*_upperlen);
        //cerr << "cle: " << cle << '\n';
@@ -126,11 +126,11 @@ class Fluke8 {
           //cerr << "key: " << key << " lcp: "<<lcp<<" _lengths[p.first]: "<<((uint64_t)_lengths[p.first])<<" len: "<<len<<'\n';
           //cerr << ((lcp >= _lengths[p.first]) ? '*' : ' ') << '\n';
           if(lcp >= _lengths[p.first] && _lengths[p.first] <= len){
-             return p.first;
+             return {p.first,_lengths[p.first]};
           }
        }
        _n_failed_searches++;
-       return -1;
+       return {-1,0};
     }
 
     pair<int64_t, bool> inline getPred(uint64_t key) const{
