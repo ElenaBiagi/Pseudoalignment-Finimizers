@@ -302,10 +302,10 @@ public:
         
 
         // build fluke
-        Fluke8 f8(short_fmins, 0, short_long_t);
+        this->f8 = std::move(Fluke8(short_fmins, 0, short_long_t));
 
         // build prefix table using plen
-        PrefTab pt(long_fmins, plen);
+        this->pt = std::move(PrefTab(long_fmins, plen));
 
     }
 
