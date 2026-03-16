@@ -28,9 +28,7 @@ class Fluke8 {
     Fluke8() {
     }
 
-    ~Fluke8() {
-       delete [] _lengths;
-    }
+    ~Fluke8() = default;
         
     Fluke8(const std::string filename, const uint64_t lowerlen, const uint64_t upperlen){
        cerr << "Fluke8, constructing from file...\n";
@@ -77,7 +75,7 @@ class Fluke8 {
        is.seekg(0);
 
        cerr << "\tMaking third pass...\n";
-       _lengths = new uint8_t[_n];
+       _lengths.resize(_n);
        uint64_t i=0;
        while (std::getline(is, line)) {
           if(line.length() >= lowerlen && line.length() <= upperlen){
@@ -107,7 +105,7 @@ class Fluke8 {
        _lowerlen = lowerlen;
        _upperlen = upperlen;
        _pred8 = Pred8v2(data);
-       _lengths = new uint8_t[_n];
+       _lengths.resize(_n);
        for(uint64_t i=0;i<_n;i++){
           _lengths[i] = lengths[i];
        }
@@ -162,7 +160,7 @@ class Fluke8 {
         os.write((char *)&_lowerlen, sizeof(uint64_t));
         cerr << "_u _n _min _upperlen _lowerlen: "<<_u<<' '<<_n<<' '<<_min<<' '<<_upperlen<<' '<<_lowerlen<<'\n';
         _pred8.serialize(os);
-        os.write((char *)_lengths, _n*sizeof(uint8_t));
+        os.write((char *)_lengths.data(), _n*sizeof(uint8_t));
         written += 5*sizeof(uint64_t) + _pred8.sizeInBytes() + _n;
         return written;
     }
@@ -176,8 +174,8 @@ class Fluke8 {
        is.read((char *)&_lowerlen, sizeof(uint64_t));
        cerr << "_u _n _min _upperlen _lowerlen: "<<_u<<' '<<_n<<' '<<_min<<' '<<_upperlen<<' '<<_lowerlen<<'\n';
        _pred8.load(is);
-       _lengths = new uint8_t[_n];
-       is.read((char *)_lengths, _n*sizeof(uint8_t));
+       _lengths.resize(_n);
+       is.read((char *)_lengths.data(), _n*sizeof(uint8_t));
     }
     
 //    Fluke8(Fluke8 &other){
@@ -206,7 +204,7 @@ class Fluke8 {
     uint64_t _min = 0;  // value of the smallest element
     uint64_t _upperlen = 0;  // universe size
     uint64_t _lowerlen = 0;  // number of elements
-    uint8_t *_lengths;
+    std::vector<uint8_t> _lengths;
 };
 
 #endif

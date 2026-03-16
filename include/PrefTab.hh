@@ -28,13 +28,10 @@ using namespace std::chrono;
 
 class PrefTab {
    public:
-    PrefTab() {
+    PrefTab() : _preflen(0), _nprefs(0), _nfins(0) {
     }
 
-    ~PrefTab() {
-       delete [] _X;
-       delete [] _F;
-    }
+    ~PrefTab() = default;
 
     PrefTab(const vector<std::string_view> &finstrings, uint64_t preflen) {
 
@@ -55,7 +52,7 @@ class PrefTab {
        uint64_t shift = 64-(preflen<<1);
        _preflen = preflen;
 
-       _X = new uint32_t[_nprefs+1]; //+1 so we can eventually store _n in _X[_nprefs] and save a branch 
+       _X.resize(_nprefs+1); //+1 so we can eventually store _n in _X[_nprefs] and save a branch 
        for(uint64_t i=0;i<_nprefs+1;i++) _X[i] = 0;
        //Count number of items in each bucket
        for(uint64_t i=0;i<data.size();i++){
@@ -97,7 +94,7 @@ class PrefTab {
        _X[_nprefs] = (_nfins << 1) | 1;
 
        //Prepare the array of finimizers in _F, removing there prefixes and tagging them with their lengths in the least significant 5 bits
-       _F = new uint64_t[_nfins];
+       _F.resize(_nfins);
        for(uint64_t i=0;i<_nfins;i++){
           //shift off prefix and tag with len
           _F[i] = (data[i] << (preflen<<1)) | lengths[i];
@@ -248,8 +245,8 @@ class PrefTab {
        os.write((char *)&_preflen, sizeof(uint64_t));
        os.write((char *)&_nprefs, sizeof(uint64_t));
        os.write((char *)&_nfins, sizeof(uint64_t));
-       os.write((char *)_X, (_nprefs+1)*sizeof(uint32_t));
-       os.write((char *)_F, _nfins*sizeof(uint64_t));
+       os.write((char *)_X.data(), (_nprefs+1)*sizeof(uint32_t));
+       os.write((char *)_F.data(), _nfins*sizeof(uint64_t));
        written += 3*sizeof(uint64_t);
        written += _nprefs*sizeof(uint32_t);
        written += _nfins*sizeof(uint64_t);
@@ -270,15 +267,15 @@ class PrefTab {
        is.read((char *)&_nprefs, sizeof(uint64_t));
        is.read((char *)&_nfins, sizeof(uint64_t));
        cerr << "preflen nprefs nfins: "<<_preflen<<' '<<_nprefs<<' '<<_nfins<<'\n';
-       _X = new uint32_t[_nprefs+1];
-       is.read((char *)_X, (_nprefs+1)*sizeof(uint32_t));
+       _X.resize(_nprefs+1);
+       is.read((char *)_X.data(), (_nprefs+1)*sizeof(uint32_t));
        uint64_t nempties = 0;
        for(int i=0;i<_nprefs;i++){
           nempties += (_X[i] & 1);
        }
        cerr << "# empty buckets: "<<nempties<<'\n';
-       _F = new uint64_t[_nfins];
-       is.read((char *)_F, _nfins*sizeof(uint64_t));
+       _F.resize(_nfins);
+       is.read((char *)_F.data(), _nfins*sizeof(uint64_t));
        for(int i=0;i<10;i++){
           cerr << _X[i] << ' ';
        }
@@ -288,6 +285,8 @@ class PrefTab {
        }
        cerr << '\n';
     }
+   
+
    
     //instrumenting statistics
     mutable uint64_t _n_searches = 0;
@@ -299,8 +298,8 @@ class PrefTab {
     uint64_t _preflen; //prefix length used for lookup table
     uint64_t _nprefs; //the number of prefixes == 1<<(_preflen<<1);
     uint64_t _nfins; //the number of finimizers == |_F|
-    uint32_t *_X; //the lookup table _X[0.._nprefs-1]
-    uint64_t *_F; //the finimizers, minus their prefixes, bit-packed and tagged with their lengths
+    std::vector<uint32_t> _X; //the lookup table _X[0.._nprefs-1]
+    std::vector<uint64_t> _F; //the finimizers, minus their prefixes, bit-packed and tagged with their lengths
 };
 
 #endif
