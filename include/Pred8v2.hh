@@ -24,16 +24,16 @@ class Pred8v2 {
    public:
     Pred8v2() {
     }
+    ~Pred8v2() = default;
     Pred8v2(const vector<uint64_t> &data) {
        _n = data.size();
        _min = data[0];
        _u = data[data.size()-1]; // - _min;
        _nblocks = _u/256 + ((_u%256) > 1);
 
-       _X = new uint32_t[_nblocks+1]; //+1 for a useful dummy at the end
+       _X.resize(_nblocks+1); //+1 for a useful dummy at the end
        for(uint64_t i=0;i<_nblocks;i++) _X[i] = 0;
-       uint8_t *_C = new uint8_t[_nblocks];
-       for(uint64_t i=0;i<_nblocks;i++) _C[i] = 0;
+       std::vector<uint8_t> _C(_nblocks, 0);
 
        //NB: TODO currently assumes the 0th bucket is non-empty
 
@@ -53,7 +53,7 @@ class Pred8v2 {
           _X[v>>8]++;
        }
 
-       _Y = new uint8_t[_n];
+       _Y.resize(_n);
 
        cerr << "Pred8v2: _u _n _min _nblocks _nActiveBuckets: "<<_u<<' '<<_n<<' '<<_min<<' '<<_nblocks<<' '<<_nActiveBuckets<<'\n';
        cerr << "Pred8v2: sizeInBytes(): "<<sizeInBytes()<<'\n';
@@ -224,11 +224,11 @@ class Pred8v2 {
         os.write((char *)&_n, sizeof(uint64_t));
         os.write((char *)&_min, sizeof(uint64_t));
         os.write((char *)&_nblocks, sizeof(uint64_t));
-        os.write((char *)_X,sizeof(uint32_t)*(_nblocks+1));
+        os.write((char *)_X.data(),sizeof(uint32_t)*(_nblocks+1));
        cerr << "_u _n _min _nblocks _nActiveBuckets: "<<_u<<' '<<_n<<' '<<_min<<' '<<_nblocks<<' '<<_nActiveBuckets<<'\n';
         //os.write((char *)_C,sizeof(uint8_t)*_nblocks);
         os.write((char *)&_nActiveBuckets, sizeof(uint64_t));
-        os.write((char *)_Y,sizeof(uint8_t)*_n);
+        os.write((char *)_Y.data(),sizeof(uint8_t)*_n);
         written += 4*sizeof(uint64_t) + (sizeof(uint32_t)*_nblocks) + _nblocks + _n;
         return written;
     }
@@ -240,26 +240,26 @@ class Pred8v2 {
        is.read((char *)&_min, sizeof(uint64_t));
        is.read((char *)&_nblocks, sizeof(uint64_t));
        cerr << "_u _n _min _nblocks _nActiveBuckets: "<<_u<<' '<<_n<<' '<<_min<<' '<<_nblocks<<' '<<_nActiveBuckets<<'\n';
-       _X = new uint32_t[_nblocks+1];
-       is.read((char *)_X, sizeof(uint32_t)*(_nblocks+1));
+       _X.resize(_nblocks+1);
+       is.read((char *)_X.data(), sizeof(uint32_t)*(_nblocks+1));
        //_C = new uint8_t[_nblocks];
        //is.read((char *)_C, sizeof(uint8_t)*_nblocks);
        is.read((char *)&_nActiveBuckets, sizeof(uint64_t));
-       _Y = new uint8_t[_n];
-       is.read((char *)_Y, sizeof(uint8_t)*_n);
+       _Y.resize(_n);
+       is.read((char *)_Y.data(), sizeof(uint8_t)*_n);
        //_X[_nblocks] = (((_X[_nblocks-1] >> 1) + _C[_nblocks-1])<<1);
     }
     
-    Pred8v2(Pred8v2 &other){
-       this->_u = other._u;
-       this->_n = other._n;
-       this->_min = other._min;
-       this->_nblocks = other._nblocks;
-       this->_nActiveBuckets = other._nActiveBuckets;
-       this->_X = _X;
-       //this->_C = _C;
-       this->_Y = _Y;
-    }
+   //  Pred8v2(Pred8v2 &other){
+   //     this->_u = other._u;
+   //     this->_n = other._n;
+   //     this->_min = other._min;
+   //     this->_nblocks = other._nblocks;
+   //     this->_nActiveBuckets = other._nActiveBuckets;
+   //     this->_X = _X;
+   //     //this->_C = _C;
+   //     this->_Y = _Y;
+   //  }
 
     //stats
     mutable uint64_t _n_searches = 0;  
@@ -273,9 +273,8 @@ class Pred8v2 {
     uint64_t _min = 0;  // value of the smallest element
     uint64_t _nblocks = 0;
     uint64_t _nActiveBuckets = 0;
-    uint32_t *_X;
-    uint8_t *_Y;
-    //uint8_t *_C;
+    std::vector<uint32_t> _X;
+    std::vector<uint8_t> _Y;
 };
 
 #endif
