@@ -19,6 +19,13 @@ git submodule update --init --recursive
 ```
 
 Then, go to the [finimizer_matrix](https://github.com/jnalanko/finimizer_matrix/tree/2d0127710d8eb6093b43c097de83aaa809da2f6c) submodule and follow the instructions there.
+```
+cd finimizer_matrix 
+
+cargo build -r
+
+cd ..
+```
 
 
 You are now ready to compile the main project!
@@ -56,7 +63,7 @@ build-fmin [OPTION...]
 ```
 cd ..
 
-./finimap build-fmin -i example_data/coli.cfm  -o example_data/coli_index  -k 31 -p 10
+./finimap build-fmin -i example_data/coli.cfm  -o example_data/coli_index  -k 31 -p 8 -x 10
 
 ```
 
