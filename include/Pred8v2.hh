@@ -213,7 +213,7 @@ class Pred8v2 {
     size_t getn() const { return _n; }
 
     uint64_t sizeInBytes() const{
-        uint64_t sz = 4*sizeof(uint64_t) + (sizeof(uint32_t)*(_nblocks+1)) + _n;
+        uint64_t sz = 5*sizeof(uint64_t) + (sizeof(uint32_t)*(_nblocks+1)) + _n;
         return sz;
     }
 
