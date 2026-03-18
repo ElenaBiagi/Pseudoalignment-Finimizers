@@ -203,140 +203,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
     uint64_t checksum2 = 0;
     std::vector<std::pair<uint64_t, uint64_t>> batch;
     std::vector<std::pair<uint64_t, uint64_t>> batch_sorted;
-    // TODO add read lenght
-    batch.reserve(batch_size*query_len); //1000 is the read length, need to do this better
-    uint64_t f8failedsearches = 0;
-    for(uint64_t bi=0; bi<reads.size(); bi+=batch_size){
-        uint64_t batchend = std::min((uint64_t)(reads.size()),bi+batch_size);
-        batch.clear();
-        //prepare the batch
-        uint64_t bptr = 0;
-        for(uint64_t i=bi;i<batchend;i++){
-            std::string r = reads[i];
-            //cerr << r << '\n';
-            uint64_t packedr = 0;
-            for(uint64_t j=0; j<30; j++){
-                //pack a binary representation of the 31-mer into packedr
-                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
-            } 
-            for(uint64_t j=0; j<r.length()-30; j++){
-                //packedr |= (uint64_t)char2bits(r[j+30]);
-                packedr |= ((uint64_t)char2bits(r[j+30])<<(uint64_t)2);
-                batch.push_back({packedr,bptr+j});
-                //cerr << "X bptr: " << bptr+j <<'\n';
-                //int64_t ret = ptab.finiLookup(packedr);
-                //checksum += ret;
-                //if(ret != -1){
-                //   cerr << i << ": " << ret << '\n';
-                //}
-                //pair<int64_t,bool> res = ptab.getPred(packedr);
-                //cerr << packedr << ' ' << res.first << ' ' << res.second << '\n';
-                packedr = packedr << 2;
-                //cerr << "----------------------------\n";
-                //if (j > 3) exit(1);
-            }
-            //TODO: next loop makes k-mers with trailing A's overhanging the end of the read
-            for(uint64_t j=0; j<30; j++){
-                //cerr << "Y bptr: " << bptr+j+r.length()-30 <<'\n';
-                //cerr << "'K-mer starts at j: " << j+r.length()-30 << "\n";
-                //packedr |= (uint64_t)char2bits(r[j+30]);
-                packedr |= ((uint64_t)char2bits('A')<<(uint64_t)2);
-                batch.push_back({packedr,bptr+j+r.length()-30});
-                //cerr << packedr << '\n';
-                //int64_t ret = f8.finiLookup(packedr,30-j);
-                packedr = packedr << 2;
-                //cerr << "----------------------------\n";
-            }
-
-            bptr += r.length(); //-31;
-        }
-        //cerr << "bptr: "<<bptr<<" batch.size(): "<<batch.size()<<'\n';
-        //cerr<<"About tosort\n";
-        //sort the batch
-        //std::sort(batch.begin(),batch.end());
-
-        //partially sort the batch (bucket the elements in it based on prefix into 2^16 groups) --- much faster than sorting
-        batch_sorted.reserve(batch.size());
-        uint64_t C[65536];
-        for(uint64_t i=0;i<65536;i++) C[i] = 0;
-        for(uint64_t i=0;i<batch.size();i++){
-            C[batch[i].first>>48]++;
-        }
-        //cerr<<"Counting done\n";
-        uint64_t psum = 0;
-        for(uint64_t i=0;i<65536;i++){
-            uint64_t count = C[i];
-            C[i] = psum;
-            psum += count;
-            //cerr<<"psum: "<<psum<<"\n";
-        }
-        //cerr<<"Summing done\n";
-        for(uint64_t i=0;i<batch.size();i++){
-            uint64_t pos = C[batch[i].first>>48];
-            //cerr<<"pos: "<<pos<<"\n";
-            //cerr<<"batch[i].first>>48: "<<(batch[i].first>>48)<<"\n";
-            batch_sorted[pos]=batch[i];
-            C[batch[i].first>>48]++;
-        }
-        //cerr<<"Rearrangement done\n";
-
-        for(uint64_t i=0;i<batch.size();i++){
-            uint64_t len = 1000 - (batch_sorted[i].second%1000);
-            len = ((len >= 31) ? 31 : len);
-            //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-            pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
-            batch_sorted[i].second = (((uint64_t)(ret.first+1+n_f8)) << 32) | batch_sorted[i].second;
-            batch_sorted[i].first = ret.second;
-            checksum += (ret.first+1);
-        }
-        for(uint64_t i=0;i<batch.size();i++){
-            if(batch_sorted[i].second>>32 == 0){
-                uint64_t len = 1000 - (batch_sorted[i].second%1000);
-                //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-                len = ((len >= 31) ? 31 : len);
-                // ret is the rank of the finimap found
-                // todo add the number of short finimizers stored in f8  n_f8
-                
-                pair<int64_t,uint64_t> ret = f8.finiLookup(batch_sorted[i].first, len);
-                //cerr << "ret: "<<ret.first<<'\n';
-                batch_sorted[i].second = (((uint64_t)(ret.first+1)) << 32) | batch_sorted[i].second;
-                f8failedsearches += (ret.first == -1);
-                batch_sorted[i].first = ret.second;
-                checksum += (ret.first+1);
-                //cerr << "ret: "<<ret<<'\n';
-            
-            }
-        }
-        for(uint64_t i=0;i<batch.size();i++){
-            batch[batch_sorted[i].second & 0xFFFFFFFF] = batch_sorted[i];
-            //int64_t ret = batch_sorted[i].first;
-        }
-        // for(uint64_t i=0;i<batch.size();i++){
-        //     checksum2 += batch[i].second>>32;
-        //     //if(batch[i].second>>32){
-        //     //   cerr << "Found at: " << i << '\n';
-        //     //}
-        // }
-
-        // Identify correct finimizers for every pos
-        // TODO keep a vector of read lengths or assume they all have the same length
-        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t);
-        // print results at the end of each read
-    }
-    return;
-}
-
-void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k){
-    //do the querying
-    auto start = std::chrono::system_clock::now(); 
-        
-    uint64_t n_f8 = f8.getn();
-
-    uint64_t checksum = 0;
-    uint64_t checksum2 = 0;
-    std::vector<std::pair<uint64_t, uint64_t>> batch;
-    std::vector<std::pair<uint64_t, uint64_t>> batch_sorted;
-    batch.reserve(batch_size*query_len); //1000 is the read length, need to do this better
+    batch.reserve(batch_size*query_len);
     uint64_t f8failedsearches = 0;
     for(uint64_t bi=0; bi<reads.size(); bi+=batch_size){
         uint64_t batchend = std::min((uint64_t)(reads.size()),bi+batch_size);
@@ -456,9 +323,142 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         // }
 
         // Identify correct finimizers for every pos
-        // TODO keep a vector of read lengths or assume they all have the same length
+        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t);
+    }
+    return;
+}
+
+void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k){
+    //do the querying
+    auto start = std::chrono::system_clock::now(); 
+        
+    uint64_t n_f8 = f8.getn();
+
+    uint64_t checksum = 0;
+    uint64_t checksum2 = 0;
+    std::vector<std::pair<uint64_t, uint64_t>> batch;
+    std::vector<std::pair<uint64_t, uint64_t>> batch_sorted;
+    batch.reserve(batch_size*query_len);
+    uint64_t f8failedsearches = 0;
+    for(uint64_t bi=0; bi<reads.size(); bi+=batch_size){
+        uint64_t batchend = std::min((uint64_t)(reads.size()),bi+batch_size);
+        batch.clear();
+        //prepare the batch
+        uint64_t bptr = 0;
+        for(uint64_t i=bi;i<batchend;i++){
+            std::string r = reads[i];
+            //cerr << r << '\n';
+            uint64_t packedr = 0;
+            for(uint64_t j=0; j<30; j++){
+                //pack a binary representation of the 31-mer into packedr
+                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
+            } 
+            for(uint64_t j=0; j<r.length()-30; j++){
+                //packedr |= (uint64_t)char2bits(r[j+30]);
+                packedr |= ((uint64_t)char2bits(r[j+30])<<(uint64_t)2);
+                batch.push_back({packedr,bptr+j});
+                //cerr << "X bptr: " << bptr+j <<'\n';
+                //int64_t ret = ptab.finiLookup(packedr);
+                //checksum += ret;
+                //if(ret != -1){
+                //   cerr << i << ": " << ret << '\n';
+                //}
+                //pair<int64_t,bool> res = ptab.getPred(packedr);
+                //cerr << packedr << ' ' << res.first << ' ' << res.second << '\n';
+                packedr = packedr << 2;
+                //cerr << "----------------------------\n";
+                //if (j > 3) exit(1);
+            }
+            //TODO: next loop makes k-mers with trailing A's overhanging the end of the read
+            for(uint64_t j=0; j<30; j++){
+                //cerr << "Y bptr: " << bptr+j+r.length()-30 <<'\n';
+                //cerr << "'K-mer starts at j: " << j+r.length()-30 << "\n";
+                //packedr |= (uint64_t)char2bits(r[j+30]);
+                packedr |= ((uint64_t)char2bits('A')<<(uint64_t)2);
+                batch.push_back({packedr,bptr+j+r.length()-30});
+                //cerr << packedr << '\n';
+                //int64_t ret = f8.finiLookup(packedr,30-j);
+                packedr = packedr << 2;
+                //cerr << "----------------------------\n";
+            }
+
+            bptr += r.length(); //-31;
+        }
+        //cerr << "bptr: "<<bptr<<" batch.size(): "<<batch.size()<<'\n';
+        //cerr<<"About tosort\n";
+        //sort the batch
+        //std::sort(batch.begin(),batch.end());
+
+        //partially sort the batch (bucket the elements in it based on prefix into 2^16 groups) --- much faster than sorting
+        batch_sorted.reserve(batch.size());
+        uint64_t C[65536];
+        for(uint64_t i=0;i<65536;i++) C[i] = 0;
+        for(uint64_t i=0;i<batch.size();i++){
+            C[batch[i].first>>48]++;
+        }
+        //cerr<<"Counting done\n";
+        uint64_t psum = 0;
+        for(uint64_t i=0;i<65536;i++){
+            uint64_t count = C[i];
+            C[i] = psum;
+            psum += count;
+            //cerr<<"psum: "<<psum<<"\n";
+        }
+        //cerr<<"Summing done\n";
+        for(uint64_t i=0;i<batch.size();i++){
+            uint64_t pos = C[batch[i].first>>48];
+            //cerr<<"pos: "<<pos<<"\n";
+            //cerr<<"batch[i].first>>48: "<<(batch[i].first>>48)<<"\n";
+            batch_sorted[pos]=batch[i];
+            C[batch[i].first>>48]++;
+        }
+        //cerr<<"Rearrangement done\n";
+
+        for(uint64_t i=0;i<batch.size();i++){
+            uint64_t len = 1000 - (batch_sorted[i].second%1000);
+            len = ((len >= 31) ? 31 : len);
+            //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
+            pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
+            if ((uint64_t)(ret.first+1)>0){
+                batch_sorted[i].second = (((uint64_t)(ret.first+1+n_f8)) << 32) | batch_sorted[i].second;
+                batch_sorted[i].first = ret.second;
+            }
+            else{
+                batch_sorted[i].second = (((uint64_t)(ret.first+1)) << 32) | batch_sorted[i].second;
+            }
+            checksum += (ret.first+1);
+        }
+        for(uint64_t i=0;i<batch.size();i++){
+            if(batch_sorted[i].second>>32 == 0){
+                uint64_t len = 1000 - (batch_sorted[i].second%1000);
+                //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
+                len = ((len >= 31) ? 31 : len);
+                // ret is the rank of the finimap found
+                // todo add the number of short finimizers stored in f8  n_f8
+                
+                pair<int64_t,uint64_t> ret = f8.finiLookup(batch_sorted[i].first, len);
+                //cerr << "ret: "<<ret.first<<'\n';
+                batch_sorted[i].second = (((uint64_t)(ret.first+1)) << 32) | batch_sorted[i].second;
+                f8failedsearches += (ret.first == -1);
+                batch_sorted[i].first = ret.second;
+                checksum += (ret.first+1);
+                //cerr << "ret: "<<ret<<'\n';
+            
+            }
+        }
+        for(uint64_t i=0;i<batch.size();i++){
+            batch[batch_sorted[i].second & 0xFFFFFFFF] = batch_sorted[i];
+            //int64_t ret = batch_sorted[i].first;
+        }
+        // for(uint64_t i=0;i<batch.size();i++){
+        //     checksum2 += batch[i].second>>32;
+        //     //if(batch[i].second>>32){
+        //     //   cerr << "Found at: " << i << '\n';
+        //     //}
+        // }
+
+        // Identify correct finimizers for every pos
         FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k);
-        // print results at the end of each read
     }
     return;
 }

@@ -152,10 +152,10 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
 
-    for (size_t i = 0; i < Fmin.size()-1;)
+    for (size_t i = 0; i < Fmin.size();)
     {
         size_t j = i + 1;
-        while (Fmin[j] == Fmin[i])
+        while (j < Fmin.size() && Fmin[j] == Fmin[i])
             ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;

@@ -15,33 +15,6 @@
 using namespace std;
 using namespace sbwt;
 
-template <typename out_stream_t>
-void write_out(const char *data, int64_t data_length, out_stream_t &output_writer, vector<char> &buffer, const size_t flush_t = 8 * 1024 * 1024)
-{ // TODO find a better way to write threshold
-    for (int64_t i = 0; i < data_length; i++)
-    {
-        buffer.push_back(data[i]);
-        if (buffer.size() > flush_t && data[i] == '\n')
-        {
-            output_writer.write(buffer.data(), buffer.size());
-            buffer.clear(); // Let's hope this keeps the reserved capacity of the vector intact
-        }
-    }
-}
-
-uint16_t fast_int_to_string(uint16_t x, char *buffer)
-{
-    uint16_t i = 0;
-    // Write the digits in reverse order (reversed back at the end)
-    do
-    {
-        buffer[i++] = '0' + (x % 10);
-        x /= 10;
-    } while (x > 0);
-    std::reverse(buffer, buffer + i);
-    buffer[i] = '\0';
-    return i;
-}
 
 
 template <typename reader_t, typename out_stream_t>
