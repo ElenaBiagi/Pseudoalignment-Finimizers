@@ -43,149 +43,6 @@ uint16_t fast_int_to_string(uint16_t x, char *buffer)
     return i;
 }
 
-// template <typename reader_t, typename out_stream_t>
-// void run_fmin_queries_streaming(reader_t &reader, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t, const uint64_t batch_size)
-// {
-//     // int64_t total_micros = 0;
-
-//     int i = 0;
-//     constexpr size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
-
-//     std::vector<char> output_buffer;
-//     output_buffer.reserve(flush_t * 2);
-
-//     // For output writing
-//     char int_buf[32]; // Enough space for a 64-bit integer in ascii
-
-//     vector<int64_t> Finimizers;
-//     // vector<pair<uint16_t, uint16_t>> ans;
-//     // ans.resize(index.n_colors)
-
-//     vector<int16_t> results(index.n_colors, 0);
-
-//     if (t > 0)
-//     {
-
-//         while (true)
-//         {   
-//             // TODO add batch
-//             int64_t len = reader.get_next_read_to_buffer();
-//             if (len == 0)
-//                 break;
-
-//             int64_t id_len = fast_int_to_string(i, int_buf);
-//             write_out(int_buf, id_len, out, output_buffer, flush_t);
-//             write_out(" ", 1, out, output_buffer, flush_t);
-
-//             const string &seq = reader.read_buf;
-
-//             const int16_t min_value = index.search(seq, results, t, Finimizers);
-//             auto start = std::chrono::high_resolution_clock::now();
-//             for (auto idx = 0; idx < results.size(); idx++)
-//             {
-//                 const auto &count = results[idx];
-//                 if (count >= min_value)
-//                 {
-//                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
-//                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
-//                     // write_out(" ", 1, out, output_buffer, flush_t);
-
-//                     // print the number of kmers/matches found
-//                     write_out(":", 1, out, output_buffer, flush_t);
-
-//                     uint16_t count_len = fast_int_to_string(count, int_buf);
-//                     write_out(int_buf, count_len, out, output_buffer, flush_t);
-
-//                     write_out(" ", 1, out, output_buffer, flush_t);
-//                 }
-//             }
-//             /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
-//             {
-//                 const auto &[idx, count] = ans[a];
-//                 if (count >= min_value)
-//                 {
-//                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
-//                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
-//                     write_out(" ", 1, out, output_buffer, flush_t);
-//                 }
-//             } */
-
-//             write_out("\n", 1, out, output_buffer, flush_t);
-
-//             i++;
-//             auto end = std::chrono::high_resolution_clock::now();
-//             time_output += (end - start);
-//         }
-//     }
-//     else
-//     { // Print everything
-//         while (true)
-//         {
-//             int64_t len = reader.get_next_read_to_buffer();
-//             if (len == 0)
-//             {
-//                 break;
-//             }
-//             int64_t id_len = fast_int_to_string(i, int_buf);
-//             write_out(int_buf, id_len, out, output_buffer, flush_t);
-//             write_out(" ", 1, out, output_buffer, flush_t);
-
-//             const string &seq = reader.read_buf;
-
-//             index.search(seq, results, Finimizers);
-
-//             auto start = std::chrono::high_resolution_clock::now();
-//             for (auto idx = 0; idx < results.size(); idx++)
-//             {
-//                 const auto &count = results[idx];
-//                 if (count > 0)
-//                 {
-//                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
-//                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
-//                     // write_out(" ", 1, out, output_buffer, flush_t);
-
-//                     // print the number of kmers/matches found
-//                     write_out(":", 1, out, output_buffer, flush_t);
-
-//                     uint16_t count_len = fast_int_to_string(count, int_buf);
-//                     write_out(int_buf, count_len, out, output_buffer, flush_t);
-
-//                     write_out(" ", 1, out, output_buffer, flush_t);
-//                 }
-//             }
-
-//             /* for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
-//             {
-
-//                 const auto &[idx, count] = ans[a];
-//                 if (count >= 0)
-//                 {
-//                     uint16_t idx_len = fast_int_to_string(idx, int_buf);
-//                     write_out(int_buf, idx_len, out, output_buffer, flush_t);
-//                     write_out(" ", 1, out, output_buffer, flush_t);
-//                 }
-//             } */
-
-//             write_out("\n", 1, out, output_buffer, flush_t);
-
-//             i++;
-//             auto end = std::chrono::high_resolution_clock::now();
-//             time_output += (end - start);
-//         }
-//     }
-//     auto start = std::chrono::high_resolution_clock::now();
-
-//     if (!output_buffer.empty())
-//     {
-//         out.write(output_buffer.data(), output_buffer.size());
-//     }
-
-//     auto end = std::chrono::high_resolution_clock::now();
-//     time_output += (end - start);
-
-//     print_search_timing_stats();
-//     return;
-// }
 
 template <typename reader_t, typename out_stream_t>
 void run_fmin_queries_batch(reader_t &reader, out_stream_t &out, const CompressedColoredFinimizers &index, const float &t, const uint64_t batch_size)
@@ -202,31 +59,22 @@ void run_fmin_queries_batch(reader_t &reader, out_stream_t &out, const Compresse
     cerr << "# reads: "<<reads.size()<<'\n';
     cerr << "batch size: "<<batch_size<<'\n';
 
-    int i = 0;
-    constexpr size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
+    // int i = 0;
+    // constexpr size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
 
-    std::vector<char> output_buffer;
-    output_buffer.reserve(flush_t * 2);
+    // std::vector<char> output_buffer;
+    // output_buffer.reserve(flush_t * 2);
 
-    // For output writing
-    char int_buf[32]; // Enough space for a 64-bit integer in ascii
-
-    vector<int64_t> Finimizers;
-    // vector<pair<uint16_t, uint16_t>> ans;
-    // ans.resize(index.n_colors)
-
-    vector<int16_t> results(index.n_colors, 0);
-    
     // 1. Identify finimizers (Fluke8 and PrefTab, batch)
     // 2. Select the smallest finimizer for each k-mer
     // 3. Deal with colorsets (DONE)
     // 4. Print results (~DONE)
     uint64_t k = index.get_k();
     if (t>0){
-        index.search_batch(reads, results, Finimizers, batch_size, k, t);
+        index.search_batch(reads, batch_size, k, t);
     }
     else{
-        index.search_batch(reads, results, Finimizers, batch_size, k);
+        index.search_batch(reads, batch_size, k);
     }
     
     return;

@@ -24,10 +24,6 @@ void print_help(int argc, char** argv){
 
 int main(int argc, char** argv){
 
-    #ifndef __BMI2__
-    cerr << "WARNING: This program was compiled for a CPU without support for the BMI2 instruction set. The performance of the Elias-Fano variants will be very bad." << endl;
-    #endif
-
     if(argc == 1){
         print_help(argc, argv);
         return 1;

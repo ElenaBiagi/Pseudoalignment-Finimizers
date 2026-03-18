@@ -4,6 +4,7 @@
 #include <optional>
 #include <unordered_map>
 #include <map>
+#include <utility>
 
 #include "sdsl/bit_vectors.hpp"
 #include "CompressedColorSets.hh"
@@ -296,6 +297,7 @@ public:
             f_start += cf.lengths[i];
         }
         uint64_t n_short_fmin = short_color_set_ids.size();
+        cerr << "n_short_fmin: "<< n_short_fmin << endl;
         
         short_color_set_ids.insert(short_color_set_ids.end(), long_color_set_ids.begin(), long_color_set_ids.end());
         this->color_set_ids = short_color_set_ids;
@@ -367,99 +369,24 @@ public:
     }
 
 
-    // void search(const std::string &query, vector<int16_t> &results, vector<int64_t> &Finimizers) const
-    // {
-    //     const int64_t query_len = query.length();
-    //     if (query_len < this->k)
-    //         return;
 
-    //     // Forward finimizer search
-    //     // vector<int64_t> Finimizers;
-    //     Finimizers.clear();
-    //     Finimizers.reserve(query_len - k + 1);
-    //     {
-    //         auto start = std::chrono::high_resolution_clock::now();
-    //         //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
-    //         auto end = std::chrono::high_resolution_clock::now();
-    //         time_rarest_fmin += (end - start);
-    //     }
-    //     // Color sets
-    //     {
-    //         auto start = std::chrono::high_resolution_clock::now();
-    //         // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-    //         pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
-    //         auto end = std::chrono::high_resolution_clock::now();
-    //         time_combine += (end - start);
-    //     }
-    // }
 
-    // Threshold-based search: returns minimum value and fills ans
-    // uint16_t search(const std::string &query, vector<int16_t> &results, const float t, vector<int64_t> &Finimizers) const
-    // {
-
-    //     const int64_t query_len = query.length();
-    //     if (query_len < this->k)
-    //         return 0;
-
-    //     // Forward finimizer search
-    //     // vector<int64_t> Finimizers;
-    //     Finimizers.clear();
-    //     Finimizers.reserve(query_len - k + 1);
-    //     {
-    //         auto start = std::chrono::high_resolution_clock::now();
-    //         //rarest_fmin_streaming_search(query, this->non_empty_buckets, this->non_empty_bv, this->non_empty_bv_rs, this->sB, this->plen, this->k, Finimizers);
-    //         auto end = std::chrono::high_resolution_clock::now();
-    //         time_rarest_fmin += (end - start);
-    //     }
-
-    //     // Combine the results of finimizers color ids for forward and reverse
-    //     int16_t T;
-    //     {
-    //         auto start = std::chrono::high_resolution_clock::now();
-    //         // min_value = combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, t, results);
-    //         T = pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results, t);
-
-    //         auto end = std::chrono::high_resolution_clock::now();
-    //         time_combine += (end - start);
-    //     }
-    //     return T;
-    // }
-
-    void search_batch(const vector<std::string> &reads, vector<int16_t> &results, vector<int64_t> &Finimizers, const uint64_t batch_size, const uint64_t k, const float &t) const
+    void search_batch(const vector<std::string> &reads, const uint64_t batch_size, const uint64_t k, const float &t) const
     {   
-        // It's not possible to reuse the same vector for every query as we now have a batch
-        //Finimizers.clear();
-        //Finimizers.reserve(query_len - k + 1);
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            // what should this output?
-            batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k, t);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_rarest_fmin += (end - start);
-        }
-
-        
-        // {
-        //     auto start = std::chrono::high_resolution_clock::now();
-        //     // combine_f_rc(Finimizers, r_Finimizers, this->CCS, this->n_colors, ans, results);
-        //     // pseudoalignment_stats(Finimizers, this->CCS, this->n_colors, results);
-        //     auto end = std::chrono::high_resolution_clock::now();
-        //     time_combine += (end - start);
-        // }
+        auto start = std::chrono::high_resolution_clock::now();
+        // what should this output?
+        batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k, t);
+        auto end = std::chrono::high_resolution_clock::now();
+        time_rarest_fmin += (end - start);
     }
 
-    void search_batch(const vector<std::string> &reads, vector<int16_t> &results, vector<int64_t> &Finimizers, const uint64_t batch_size, const uint64_t k) const
-    {   
-        // It's not possible to reuse the same vector for every query as we now have a batch
-        //Finimizers.clear();
-        //Finimizers.reserve(query_len - k + 1);
-        {
-            auto start = std::chrono::high_resolution_clock::now();
-            // what should this output?
-            batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k);
-            auto end = std::chrono::high_resolution_clock::now();
-            time_rarest_fmin += (end - start);
-        }
+    void search_batch(const vector<std::string> &reads, const uint64_t batch_size, const uint64_t k) const
+    {    
+        auto start = std::chrono::high_resolution_clock::now();
+        // what should this output?
+        batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k);
+        auto end = std::chrono::high_resolution_clock::now();
+        time_rarest_fmin += (end - start);
     }
 
     void serialize(const std::string &index_prefix) const

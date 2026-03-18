@@ -141,16 +141,21 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
         std::fill(results.begin(), results.end(), 0);
     }
  */
+    if (Fmin.empty())
+    {
+        return;
+    } // not 0 as everything wuold be >=
+
     std::fill(results.begin(), results.end(), 0);
 
     std::sort(Fmin.begin(), Fmin.end());
     vector<pair<int64_t, uint64_t>> fmin_v;
     fmin_v.reserve(Fmin.size());
 
-    for (size_t i = 0; i < Fmin.size();)
+    for (size_t i = 0; i < Fmin.size()-1;)
     {
         size_t j = i + 1;
-        while (j < Fmin.size() && Fmin[j] == Fmin[i])
+        while (Fmin[j] == Fmin[i])
             ++j;
         fmin_v.emplace_back(Fmin[i], j - i);
         i = j;
@@ -173,7 +178,7 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
     {
         r += dense;
     }
-    const size_t found_fmin = Fmin.size(); // # total finimizers
+    //const size_t found_fmin = Fmin.size(); // # total finimizers
     // Sort results so that the output is sorted
     // counting_sort(results, ans, found_fmin, n_colors);
     return;
