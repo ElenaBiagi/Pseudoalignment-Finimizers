@@ -54,12 +54,12 @@ public:
     VecConcat sparse_colors;  // Sparse color representation (when meta=true)
 
     VecConcat load_sparse_colors(std::istream& file) {
-        uint8_t is_sparse;
-        file.read(reinterpret_cast<char*>(&is_sparse), 1);
+        // uint8_t is_sparse;
+        // file.read(reinterpret_cast<char*>(&is_sparse), 1);
         
-        if (is_sparse != 1) {
-            throw std::runtime_error("Expected sparse format");
-        }
+        // if (is_sparse != 1) {
+        //     throw std::runtime_error("Expected sparse format");
+        // }
         
         uint64_t n_elements, n_sets;
         file.read(reinterpret_cast<char*>(&n_elements), sizeof(uint64_t));
@@ -76,7 +76,7 @@ public:
     // Loads from the format output by the Rust CLI command `finimizer_matrix` with option --reverse.
     // That format has colexicographically sorted reverse finimizers. We reverse them to
     // get lex-sorted finimizers.
-    void load(std::istream &in, bool meta)
+    void load(std::istream &in)
     {
         cerr << "Loading uncompressed tails" << endl;
         uint64_t n_finimizers;

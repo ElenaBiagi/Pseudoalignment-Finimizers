@@ -29,11 +29,11 @@ int build_fmin(int argc, char **argv)
     string indexfile = opts["index-file"].as<string>();
     ColoredFinimizers cf;
     ifstream in(indexfile);
-    bool meta = opts["m"].as<bool>();
-    cf.load(in, meta);
+    cf.load(in);
     int64_t prefix_len = opts["p"].as<int64_t>();
     int64_t short_long_t = opts["x"].as<int64_t>();
 
+    bool meta = opts["m"].as<bool>();
     int64_t k = opts["k"].as<int64_t>();
 
     CompressedColoredFinimizers ccf(std::move(cf), prefix_len, short_long_t, k, meta); // TODO Search currently works only with 31
