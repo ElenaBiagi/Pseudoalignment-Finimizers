@@ -55,6 +55,7 @@ build-fmin [OPTION...]
   -i, --index-file arg  ColoredFinimizers file.
   -o, --out-file arg    Output index filename prefix.
   -p, --p_len arg       Finimizers prefix length. (default: 10)
+  -x, --x_len arg       Short/long Finimizer threshold. (default: 18)
   -k arg                k-mer length. (default: 31)
   -m, --meta            Metagenome.
   -h, --help            Print usage
