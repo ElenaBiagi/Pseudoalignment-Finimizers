@@ -56,8 +56,12 @@ void run_fmin_queries_batch(reader_t &reader, out_stream_t &out, const Compresse
         reads.push_back(seq);
     }
     
-    cerr << "# reads: "<<reads.size()<<'\n';
-    cerr << "batch size: "<<batch_size<<'\n';
+    // This assumes that all the reads have the same length
+    const uint64_t query_len = reads[0].size();
+
+    cerr << "# reads: " << reads.size() <<'\n';
+    cerr << "read length: " << query_len <<'\n';
+    cerr << "batch size: " << batch_size <<'\n';
 
     // int i = 0;
     // constexpr size_t flush_t = 8 * 1024 * 1024; // 8 MB //1 << 20; // 1MB
@@ -71,10 +75,10 @@ void run_fmin_queries_batch(reader_t &reader, out_stream_t &out, const Compresse
     // 4. Print results (~DONE)
     uint64_t k = index.get_k();
     if (t>0){
-        index.search_batch(reads, batch_size, k, t);
+        index.search_batch(reads, query_len, batch_size, k, t);
     }
     else{
-        index.search_batch(reads, batch_size, k);
+        index.search_batch(reads, query_len, batch_size, k);
     }
     
     return;

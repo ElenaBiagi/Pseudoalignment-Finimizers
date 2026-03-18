@@ -371,20 +371,20 @@ public:
 
 
 
-    void search_batch(const vector<std::string> &reads, const uint64_t batch_size, const uint64_t k, const float &t) const
+    void search_batch(const vector<std::string> &reads, const uint64_t query_len, const uint64_t batch_size, const uint64_t k, const float &t) const
     {   
         auto start = std::chrono::high_resolution_clock::now();
         // what should this output?
-        batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k, t);
+        batch_querying(reads, query_len, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k, t);
         auto end = std::chrono::high_resolution_clock::now();
         time_rarest_fmin += (end - start);
     }
 
-    void search_batch(const vector<std::string> &reads, const uint64_t batch_size, const uint64_t k) const
+    void search_batch(const vector<std::string> &reads, const uint64_t query_len, const uint64_t batch_size, const uint64_t k) const
     {    
         auto start = std::chrono::high_resolution_clock::now();
         // what should this output?
-        batch_querying(reads, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k);
+        batch_querying(reads, query_len, this->f8, this->pt, batch_size, this->CCS, this->n_colors, this->color_set_ids, k);
         auto end = std::chrono::high_resolution_clock::now();
         time_rarest_fmin += (end - start);
     }
