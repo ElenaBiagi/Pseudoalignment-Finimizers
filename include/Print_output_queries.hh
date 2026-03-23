@@ -103,7 +103,7 @@ void print_cout_queries(const vector<int16_t> results, const uint16_t q_id, cons
     for (auto idx = 0; idx < results.size(); idx++)
     {
         const auto &count = results[idx];
-        if (count > T)
+        if (count >= T)
         {   
             cout << idx << ":" << count << " ";
         }

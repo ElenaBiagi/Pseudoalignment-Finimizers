@@ -31,14 +31,15 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
         Fmin.push_back(get<2>(k_fmin));
     }
 
-    // 1. Check if this finimizer is good for the next k-mer (still in the window)
-    while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start) // ==kmer_start is bad a the next kmer will start at kmer_start+1
+    // Check if this finimizer is good for the next k-mer (still in the window)
+    // 1. start > current kmer_start
+    while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start)
     {   
         curr_candidates.pop_front();
     }
     k_fmin = (curr_candidates.empty()) ? static_cast<tuple<uint64_t, uint64_t, uint64_t, uint64_t>>(make_tuple(k + 1, 0, 0, kmer_start + 1)) : curr_candidates.front();
 
-    // 2. Check if the NEXT finimizer would be good for the next k-mer
+    // 2. end <= next end (kmer_start +k) 
     if (!next_candidates.empty())
     {   
         // ending pos(start+len-1), len, rank, color_set_id[rank] ->  // len, rank, color_set_id[rank], start(i)
@@ -66,11 +67,17 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
     }
 }
 
-void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t start, const uint64_t end, const vector<uint64_t> &color_set_ids, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin){ //, const string& input){
+void AddFinimizer_first(const uint64_t rank, const uint64_t f_len, const uint64_t start, const uint64_t end, const vector<uint64_t> &color_set_ids, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin){ //, const string& input){
     if ((start + f_len)-1 > end)
     {   
         // ending pos, length, rank, color_set_id[rank]
-        next_candidates.push_back(make_tuple(start + f_len-1, f_len, rank, color_set_ids[rank]));
+        tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
+        // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
+        while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
+        {
+            next_candidates.pop_back();
+        }
+        next_candidates.push_back(next_fmin);
     } // Sorted based on END
     else
     {
@@ -92,8 +99,19 @@ void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t star
 
 }
 
+void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t start, const vector<uint64_t> &color_set_ids, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin){ //, const string& input){   
+    // ending pos, length, rank, color_set_id[rank]
+    tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
+    // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
+    while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
+    {
+        next_candidates.pop_back();
+    }
+    next_candidates.push_back(next_fmin);
+}
+
 void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t){
-    // TODO this assumes that all the queries have the same length (1000)
+    // TODO this assumes that all the queries have the same length 
     const uint64_t batch_size = batch.size()/query_len;
     
     uint64_t q = 0;
@@ -115,19 +133,19 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
             {   
                 uint64_t f_len = batch[i+q].first;
                 rank--; // 0 is a valid result 
-                AddFinimizer(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
+                AddFinimizer_first(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
             }
         }
         // Now we have info on the first k-1 pos and we can make decisions
         vector<int64_t> Fmin;
         vector<int16_t> results(n_colors);
-        for (auto i = k-1; i < query_len; i++, end++){
-            uint64_t rank = (batch[i+q].second >> 32);  // extract upper 32 bits
+        for (auto end = k-1; end < query_len; end++){
+            uint64_t rank = (batch[end+q].second >> 32);  // extract upper 32 bits
             if (rank > 0) // 0 == -1
             {   
-                uint64_t f_len = batch[i+q].first;
+                uint64_t f_len = batch[end+q].first;
                 rank--; // 0 is a valid result 
-                AddFinimizer(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
+                AddFinimizer(rank, f_len, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
             }
             PickFinimizer(Fmin, end-k+1, k, curr_candidates, next_candidates, k_fmin);
         }
@@ -167,19 +185,19 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
             {   
                 uint64_t f_len = batch[i+q].first;
                 rank--; // 0 is a valid result 
-                AddFinimizer(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
+                AddFinimizer_first(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
             }
         }
         // Now we have info on the first k-1 pos and we can make decisions
         vector<int64_t> Fmin;
         vector<int16_t> results(n_colors);
-        for (auto i = k-1; i < query_len; i++, end++){
-            uint64_t rank = (batch[i+q].second >> 32);  // extract upper 32 bits
+        for (auto end = k-1; end < query_len; end++){
+            uint64_t rank = (batch[end+q].second >> 32);  // extract upper 32 bits
             if (rank > 0) // 0 == -1
             {   
-                uint64_t f_len = batch[i+q].first;
+                uint64_t f_len = batch[end+q].first;
                 rank--; // 0 is a valid result 
-                AddFinimizer(rank, f_len, i, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
+                AddFinimizer(rank, f_len, end, color_set_ids, curr_candidates, next_candidates, k_fmin);
             }
             PickFinimizer(Fmin, end-k+1, k, curr_candidates, next_candidates, k_fmin);
         }
@@ -216,7 +234,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
             uint64_t packedr = 0;
             for(uint64_t j=0; j<30; j++){
                 //pack a binary representation of the 31-mer into packedr
-                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
+                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(k-j)));
             } 
             for(uint64_t j=0; j<r.length()-30; j++){
                 //packedr |= (uint64_t)char2bits(r[j+30]);
@@ -280,8 +298,8 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         //cerr<<"Rearrangement done\n";
 
         for(uint64_t i=0;i<batch.size();i++){
-            uint64_t len = 1000 - (batch_sorted[i].second%1000);
-            len = ((len >= 31) ? 31 : len);
+            uint64_t len = query_len - (batch_sorted[i].second%query_len);
+            len = ((len >= k) ? k : len);
             //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
             pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
             if ((uint64_t)(ret.first+1)>0){
@@ -295,9 +313,9 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         }
         for(uint64_t i=0;i<batch.size();i++){
             if(batch_sorted[i].second>>32 == 0){
-                uint64_t len = 1000 - (batch_sorted[i].second%1000);
+                uint64_t len = query_len - (batch_sorted[i].second%query_len);
                 //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-                len = ((len >= 31) ? 31 : len);
+                len = ((len >= k) ? k : len);
                 // ret is the rank of the finimap found
                 // todo add the number of short finimizers stored in f8  n_f8
                 
@@ -351,7 +369,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
             uint64_t packedr = 0;
             for(uint64_t j=0; j<30; j++){
                 //pack a binary representation of the 31-mer into packedr
-                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
+                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(k-j)));
             } 
             for(uint64_t j=0; j<r.length()-30; j++){
                 //packedr |= (uint64_t)char2bits(r[j+30]);
@@ -415,8 +433,8 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         //cerr<<"Rearrangement done\n";
 
         for(uint64_t i=0;i<batch.size();i++){
-            uint64_t len = 1000 - (batch_sorted[i].second%1000);
-            len = ((len >= 31) ? 31 : len);
+            uint64_t len = query_len - (batch_sorted[i].second%query_len);
+            len = ((len >= k) ? k : len);
             //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
             pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
             if ((uint64_t)(ret.first+1)>0){
@@ -430,9 +448,9 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         }
         for(uint64_t i=0;i<batch.size();i++){
             if(batch_sorted[i].second>>32 == 0){
-                uint64_t len = 1000 - (batch_sorted[i].second%1000);
+                uint64_t len = query_len - (batch_sorted[i].second%query_len);
                 //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-                len = ((len >= 31) ? 31 : len);
+                len = ((len >= k) ? k : len);
                 // ret is the rank of the finimap found
                 // todo add the number of short finimizers stored in f8  n_f8
                 
