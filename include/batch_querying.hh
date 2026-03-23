@@ -71,7 +71,13 @@ void AddFinimizer_first(const uint64_t rank, const uint64_t f_len, const uint64_
     if ((start + f_len)-1 > end)
     {   
         // ending pos, length, rank, color_set_id[rank]
-        next_candidates.push_back(make_tuple(start + f_len-1, f_len, rank, color_set_ids[rank]));
+        tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
+        // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
+        while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
+        {
+            next_candidates.pop_back();
+        }
+        next_candidates.push_back(next_fmin);
     } // Sorted based on END
     else
     {
@@ -95,11 +101,17 @@ void AddFinimizer_first(const uint64_t rank, const uint64_t f_len, const uint64_
 
 void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t start, const vector<uint64_t> &color_set_ids, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin){ //, const string& input){   
     // ending pos, length, rank, color_set_id[rank]
-    next_candidates.push_back(make_tuple(start + f_len-1, f_len, rank, color_set_ids[rank]));
+    tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
+    // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
+    while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
+    {
+        next_candidates.pop_back();
+    }
+    next_candidates.push_back(next_fmin);
 }
 
 void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t){
-    // TODO this assumes that all the queries have the same length (1000)
+    // TODO this assumes that all the queries have the same length 
     const uint64_t batch_size = batch.size()/query_len;
     
     uint64_t q = 0;
@@ -222,7 +234,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
             uint64_t packedr = 0;
             for(uint64_t j=0; j<30; j++){
                 //pack a binary representation of the 31-mer into packedr
-                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
+                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(k-j)));
             } 
             for(uint64_t j=0; j<r.length()-30; j++){
                 //packedr |= (uint64_t)char2bits(r[j+30]);
@@ -286,8 +298,8 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         //cerr<<"Rearrangement done\n";
 
         for(uint64_t i=0;i<batch.size();i++){
-            uint64_t len = 1000 - (batch_sorted[i].second%1000);
-            len = ((len >= 31) ? 31 : len);
+            uint64_t len = query_len - (batch_sorted[i].second%query_len);
+            len = ((len >= k) ? k : len);
             //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
             pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
             if ((uint64_t)(ret.first+1)>0){
@@ -301,9 +313,9 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         }
         for(uint64_t i=0;i<batch.size();i++){
             if(batch_sorted[i].second>>32 == 0){
-                uint64_t len = 1000 - (batch_sorted[i].second%1000);
+                uint64_t len = query_len - (batch_sorted[i].second%query_len);
                 //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-                len = ((len >= 31) ? 31 : len);
+                len = ((len >= k) ? k : len);
                 // ret is the rank of the finimap found
                 // todo add the number of short finimizers stored in f8  n_f8
                 
@@ -357,7 +369,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
             uint64_t packedr = 0;
             for(uint64_t j=0; j<30; j++){
                 //pack a binary representation of the 31-mer into packedr
-                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(31-j)));
+                packedr |= ((uint64_t)char2bits(r[j])) << ((uint64_t)(2*(k-j)));
             } 
             for(uint64_t j=0; j<r.length()-30; j++){
                 //packedr |= (uint64_t)char2bits(r[j+30]);
@@ -421,8 +433,8 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         //cerr<<"Rearrangement done\n";
 
         for(uint64_t i=0;i<batch.size();i++){
-            uint64_t len = 1000 - (batch_sorted[i].second%1000);
-            len = ((len >= 31) ? 31 : len);
+            uint64_t len = query_len - (batch_sorted[i].second%query_len);
+            len = ((len >= k) ? k : len);
             //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
             pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
             if ((uint64_t)(ret.first+1)>0){
@@ -436,9 +448,9 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         }
         for(uint64_t i=0;i<batch.size();i++){
             if(batch_sorted[i].second>>32 == 0){
-                uint64_t len = 1000 - (batch_sorted[i].second%1000);
+                uint64_t len = query_len - (batch_sorted[i].second%query_len);
                 //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
-                len = ((len >= 31) ? 31 : len);
+                len = ((len >= k) ? k : len);
                 // ret is the rank of the finimap found
                 // todo add the number of short finimizers stored in f8  n_f8
                 
