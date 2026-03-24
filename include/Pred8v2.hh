@@ -144,9 +144,14 @@ class Pred8v2 {
     pair<uint64_t, uint64_t> inline getPredPrefix(int64_t key) const{
         _n_searches++;
         //cerr << "key: " << key << '\n';
-        if (key < _min) {
+        if(key < _min) {
             //cerr << "returning from 1\n";
             return {-1, 0};
+        }
+        if(key > _u) {
+           //TODO: double check the lcp is being computed correctly in this case
+           uint64_t lux = countl_zero(~((_u) ^ (~key))); 
+           return {_n-1,lux};
         }
         //cerr << "key: " << key << '\n';
         uint32_t x = _X[key>>8];
