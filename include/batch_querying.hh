@@ -213,6 +213,8 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
 
 void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k, const float &t){
     //do the querying
+    //cerr << "batch_querying 1\n";
+
     auto start = std::chrono::system_clock::now(); 
         
     uint64_t n_f8 = f8.getn();
@@ -348,6 +350,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
 
 void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k){
     //do the querying
+    //cerr << "batch_querying 2\n";
     auto start = std::chrono::system_clock::now(); 
         
     uint64_t n_f8 = f8.getn();
@@ -432,11 +435,15 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         }
         //cerr<<"Rearrangement done\n";
 
+        //cerr << "Before ptab loop\n";
         for(uint64_t i=0;i<batch.size();i++){
             uint64_t len = query_len - (batch_sorted[i].second%query_len);
             len = ((len >= k) ? k : len);
             //cerr << "pos: " << (batch_sorted[i].second%1000) << " len: "<<len<<'\n';
+            //cerr << "rpos: " << (batch_sorted[i].second%1000)<<'\n';
             pair<int64_t,uint64_t> ret = ptab.finiLookup(batch_sorted[i].first,len);
+            //cerr << "ret: "<<ret.first<<' '<<ret.second<<'\n';
+            //cerr << "flen: "<<ret.second<<'\n';
             if ((uint64_t)(ret.first+1)>0){
                 batch_sorted[i].second = (((uint64_t)(ret.first+1+n_f8)) << 32) | batch_sorted[i].second;
                 batch_sorted[i].first = ret.second;
@@ -446,6 +453,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
             }
             checksum += (ret.first+1);
         }
+        //cerr << "Before f8 loop\n";
         for(uint64_t i=0;i<batch.size();i++){
             if(batch_sorted[i].second>>32 == 0){
                 uint64_t len = query_len - (batch_sorted[i].second%query_len);
@@ -455,6 +463,7 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
                 // todo add the number of short finimizers stored in f8  n_f8
                 
                 pair<int64_t,uint64_t> ret = f8.finiLookup(batch_sorted[i].first, len);
+                //cerr << "ret: "<<ret.first<<' '<<ret.second<<'\n';
                 //cerr << "ret: "<<ret.first<<'\n';
                 batch_sorted[i].second = (((uint64_t)(ret.first+1)) << 32) | batch_sorted[i].second;
                 f8failedsearches += (ret.first == -1);

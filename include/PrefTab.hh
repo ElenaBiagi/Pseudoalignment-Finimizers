@@ -174,9 +174,14 @@ class PrefTab {
           return {-1,0};
        }
        //non-empty bucket
+       //cerr << "Non-empty bucket\n";
        _n_hard_searches++;
        v = v >> 1;
-       //cerr << "Non-empty bucket\n";
+       //check if we are smaller than everything in our bucket
+       if(((_F[v]>>preflenbits)<<preflenbits)>key){
+          //cerr << "No predecessor in bucket\n";
+          return {-1,0};
+       }
        uint32_t blen = (_X[p+1]>>1) + (_X[p+1]&1) - v; //compute # items in bucket
        //cerr << "blen: " << blen << '\n';
        //cerr << "v: " << v << '\n';
@@ -188,11 +193,12 @@ class PrefTab {
           for(;i<v+blen;i++){
              //cerr << "Item: " << (i-v) << ", key: " << key << " curr: " << ((_F[i]>>preflenbits)<<preflenbits) <<'\n';
              if(((_F[i]>>preflenbits)<<preflenbits)>=key){
+                //cerr << "breaking\n";
                 break;
              }
           }
           //cerr << "Normal i: "<<i<<'\n';
-          //cerr << (((_F[i]>>preflenbits)<<preflenbits)==key);
+          //cerr << "Equal to key? " << (((_F[i]>>preflenbits)<<preflenbits)==key)<<'\n';
        }
        else{
           //cerr << "Binary search...\n";
@@ -214,7 +220,11 @@ class PrefTab {
           //cerr << "Binary i: "<<i<<'\n';
        }
        //cerr << "i: " << i << '\n';
-       i -= (1 - (((_F[i]>>preflenbits)<<preflenbits)==key)); //i now points to the predecessor
+       if(i == (v + blen)){
+          i--; //i now points to the predecessor
+       }else{
+          i -= (1 - (((_F[i]>>preflenbits)<<preflenbits)==key)); //i now points to the predecessor
+       }
        //cerr << "Adjust i: " << i << '\n';
        //compute the LCP between the query and the predecessor
        uint64_t el = (_F[i] & (((uint64_t)1)<<preflenbits)-((uint64_t)1)); //the length of the finimizer
