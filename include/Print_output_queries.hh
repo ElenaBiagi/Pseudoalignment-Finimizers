@@ -95,7 +95,37 @@ using namespace std;
 
 // }
 
-void print_cout_queries(const vector<int16_t> results, const uint16_t q_id, const uint64_t T){
+void print_cout_queries_sorted(const vector<pair<uint16_t, uint16_t>> &ans, const uint16_t q_id, const uint64_t T){
+    cout << q_id << " ";
+    //auto start = std::chrono::high_resolution_clock::now();
+    for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
+    {
+        const auto &[idx, count] = ans[a];
+        if (count >= T)
+        {
+            cout << idx << ":" << count << " ";
+        }
+    } 
+    cout << "\n";
+    //auto end = std::chrono::high_resolution_clock::now();
+}
+
+void print_cout_queries_sorted(const vector<pair<uint16_t, uint16_t>> &ans, const uint16_t q_id){
+    cout << q_id << " ";
+    //auto start = std::chrono::high_resolution_clock::now();
+    for (int a = static_cast<int>(ans.size()) - 1; a >= 0; a--)
+    {
+        const auto &[idx, count] = ans[a];
+        if (count > 0)
+        {
+            cout << idx << ":" << count << " ";
+        }
+    } 
+    cout << "\n";
+    //auto end = std::chrono::high_resolution_clock::now();
+}
+
+void print_cout_queries(const vector<int16_t> &results, const uint16_t q_id, const uint64_t T){
     
     cout << q_id << " ";
 
@@ -114,7 +144,8 @@ void print_cout_queries(const vector<int16_t> results, const uint16_t q_id, cons
 
 }
 
-void print_cout_queries(const vector<int16_t> results, const uint16_t q_id){
+
+void print_cout_queries(const vector<int16_t> &results, const uint16_t q_id){
     
     cout << q_id << " ";
 

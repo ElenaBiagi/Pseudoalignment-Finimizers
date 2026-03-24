@@ -71,13 +71,7 @@ void AddFinimizer_first(const uint64_t rank, const uint64_t f_len, const uint64_
     if ((start + f_len)-1 > end)
     {   
         // ending pos, length, rank, color_set_id[rank]
-        tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
-        // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
-        while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
-        {
-            next_candidates.pop_back();
-        }
-        next_candidates.push_back(next_fmin);
+        next_candidates.push_back(make_tuple(start + f_len-1, f_len, rank, color_set_ids[rank]));
     } // Sorted based on END
     else
     {
@@ -101,16 +95,10 @@ void AddFinimizer_first(const uint64_t rank, const uint64_t f_len, const uint64_
 
 void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t start, const vector<uint64_t> &color_set_ids, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &curr_candidates, BoundedDeque<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> &next_candidates, tuple<uint64_t, uint64_t, uint64_t, uint64_t> &k_fmin){ //, const string& input){   
     // ending pos, length, rank, color_set_id[rank]
-    tuple<uint64_t, uint64_t, uint64_t, uint64_t> next_fmin = {start + f_len-1, f_len, rank, color_set_ids[rank]};
-    // THIS SHOULD ALWAYS BE THE CASE: next_candidates.back() < next_fmin
-    while (!next_candidates.empty() && next_candidates.back() >= next_fmin)
-    {
-        next_candidates.pop_back();
-    }
-    next_candidates.push_back(next_fmin);
+    next_candidates.push_back(make_tuple(start + f_len-1, f_len, rank, color_set_ids[rank]));
 }
 
-void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t){
+void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t, uint64_t bi){
     // TODO this assumes that all the queries have the same length 
     const uint64_t batch_size = batch.size()/query_len;
     
@@ -150,9 +138,13 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
             PickFinimizer(Fmin, end-k+1, k, curr_candidates, next_candidates, k_fmin);
         }
         
-        int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
-        print_cout_queries(results,q_idx, T);
-                
+        vector<pair<uint16_t, uint16_t>> ans;
+        int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
+        print_cout_queries_sorted(ans,q_idx+bi, T);
+        // Not sorted
+        // int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
+        // print_cout_queries(results,q_idx+bi, T);
+
         q+=query_len;
 
     }
@@ -160,9 +152,8 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
 }
 
 
-void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k){
-    // TODO this assumes that all the queries have the same length (1000)
-    //const vector<uint64_t> query_lens(10000,1000);
+void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k, uint64_t bi){
+    // TODO this assumes that all the queries have the same length
     const uint64_t batch_size = batch.size()/query_len;
 
     uint64_t q = 0;
@@ -201,10 +192,13 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
             }
             PickFinimizer(Fmin, end-k+1, k, curr_candidates, next_candidates, k_fmin);
         }
-        
-        pseudoalignment_stats(Fmin, CCS, n_colors, results);
-        print_cout_queries(results,q_idx);
-                
+        vector<pair<uint16_t, uint16_t>> ans;
+        pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, ans);
+        print_cout_queries_sorted(ans,q_idx+bi);
+        // Not sorted
+        // pseudoalignment_stats(Fmin, CCS, n_colors, results);
+        // print_cout_queries(results,q_idx+bi);
+           
         q+=query_len;
     }
 
@@ -213,8 +207,6 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
 
 void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k, const float &t){
     //do the querying
-    //cerr << "batch_querying 1\n";
-
     auto start = std::chrono::system_clock::now(); 
         
     uint64_t n_f8 = f8.getn();
@@ -343,14 +335,13 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         // }
 
         // Identify correct finimizers for every pos
-        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t);
+        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t, bi);
     }
     return;
 }
 
 void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k){
     //do the querying
-    //cerr << "batch_querying 2\n";
     auto start = std::chrono::system_clock::now(); 
         
     uint64_t n_f8 = f8.getn();
@@ -485,30 +476,8 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         // }
 
         // Identify correct finimizers for every pos
-        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k);
+        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, bi);
     }
     return;
 }
 
-void counting_sort(const vector<int16_t> &results, vector<pair<uint16_t, uint16_t>> &ans, const size_t found_fmin, const uint16_t n_colors)
-{
-    vector<uint16_t> counts(found_fmin + 1);
-
-    for (size_t idx = 0; idx < n_colors; idx++)
-    {
-        counts[results[idx]]++;
-    }
-
-    // Cumulative Sums
-    for (size_t c = 1; c < counts.size(); c++)
-    {
-        counts[c] += counts[c - 1];
-    }
-
-    ans.resize(n_colors);
-    for (size_t idx = 0; idx < n_colors; idx++)
-    {
-        ans[counts[results[idx]] - 1] = {static_cast<uint16_t>(idx), results[idx]};
-        counts[results[idx]]--;
-    }
-}
