@@ -205,6 +205,57 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
 }
 
 
+void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t, uint64_t bi){
+    // TODO this assumes that all the queries have the same length 
+    const uint64_t batch_size = batch.size()/query_len;
+    
+    uint64_t q = 0;
+    for (auto q_idx = 0; q_idx < batch_size; q_idx++){
+        vector<int64_t> Fmin;
+        Fmin.reserve(query_len);        
+        uint64_t end = k-1; // start +k -1
+        for (auto start = 0; start < query_len -k +1; start++, end++){
+            // for every kmer check k values from start
+            tuple<uint64_t, uint64_t, uint64_t> k_fmin = {k + 1, 0, 0};
+            for (auto i = start; i <= end; i++){
+
+                uint64_t rank = (batch[i+q].second >> 32);  // extract upper 32 bits
+                if (rank > 0) // 0 == -1
+                {   
+                    uint64_t f_len = batch[i+q].first;
+                    rank--; // 0 is a valid result 
+                    if (f_len + i -1 > end){
+                        break;
+                    }else{
+                        // length, rank, color_set_id[rank]
+                        tuple<uint64_t, uint64_t, uint64_t> curr_fmin = {f_len, rank, color_set_ids[rank]};
+                        if (curr_fmin < k_fmin){
+                            k_fmin = curr_fmin;
+                        }
+                    }
+                }
+            }
+            Fmin.emplace_back(get<2>(k_fmin));
+        }
+    
+        // Now we have info on the first k-1 pos and we can make decisions
+        vector<int16_t> results(n_colors);
+
+        vector<pair<uint16_t, uint16_t>> ans;
+        int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
+        // auto start = std::chrono::system_clock::now(); 
+
+        print_cout_queries_sorted(ans,q_idx+bi, T);
+        // Not sorted
+        // int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
+        // print_cout_queries(results,q_idx+bi, T);
+
+        q+=query_len;
+
+    }
+
+}
+
 void batch_querying(const vector<std::string> &reads, const uint64_t query_len, const Fluke8 &f8, const PrefTab &ptab, const uint64_t batch_size, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, const uint64_t k, const float &t){
     //do the querying
     auto start = std::chrono::system_clock::now(); 
@@ -335,7 +386,9 @@ void batch_querying(const vector<std::string> &reads, const uint64_t query_len, 
         // }
 
         // Identify correct finimizers for every pos
-        FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t, bi);
+        // FindFinimizers (batch, query_len, CCS, n_colors, color_set_ids, k, t, bi);
+        FindFinimizers_naive (batch, query_len, CCS, n_colors, color_set_ids, k, t, bi);
+
     }
     return;
 }
