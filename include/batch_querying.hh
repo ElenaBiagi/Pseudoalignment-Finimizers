@@ -150,7 +150,7 @@ void AddFinimizer(const uint64_t rank, const uint64_t f_len, const uint64_t star
 void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, const uint64_t query_len, const CompressedColorSets &CCS, const uint64_t n_colors, const vector<uint64_t> &color_set_ids, uint64_t k, const float &t, uint64_t bi){
     // TODO this assumes that all the queries have the same length 
     const uint64_t batch_size = batch.size()/query_len;
-    vector<int16_t> results(n_colors);
+    // vector<int16_t> results(n_colors);
 
     uint64_t q = 0;
     // cerr << endl << bi << endl;
@@ -191,8 +191,8 @@ void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, c
         }
         // if (q == 0){cerr << endl << endl;}
     
-        // Now we have info on the first k-1 pos and we can make decisions
-        results.clear();
+        // results.clear();
+        vector<int16_t> results(n_colors);
 
         // vector<pair<uint16_t, uint16_t>> ans;
         // int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
@@ -200,7 +200,9 @@ void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, c
 
         // print_cout_queries_sorted(ans,q_idx+bi, T);
         // Not sorted
+        // if (Fmin.size() != 970) cerr << Fmin.size()<< endl;
         int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
+        // cerr << "T: "<< T << endl;
         print_cout_queries(results,q_idx+bi, T);
 
         q+=query_len;
@@ -263,10 +265,12 @@ void FindFinimizers (const vector<std::pair<uint64_t, uint64_t>> &batch, const u
         // int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
         // print_cout_queries_sorted(ans,q_idx+bi, T);
         // Not sorted
+        // if (Fmin.size() != 970) cerr << Fmin.size()<< endl;
         int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
         print_cout_queries(results,q_idx+bi, T);
 
         q+=query_len;
+        // cerr << endl << endl;
 
     }
 

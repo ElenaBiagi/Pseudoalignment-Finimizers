@@ -64,6 +64,7 @@ public:
         uint64_t n_elements, n_sets;
         file.read(reinterpret_cast<char*>(&n_elements), sizeof(uint64_t));
         file.read(reinterpret_cast<char*>(&n_sets), sizeof(uint64_t));
+        cerr << n_sets << endl;
         
         std::vector<size_t> concat(n_elements);
         file.read(reinterpret_cast<char*>(concat.data()), n_elements * sizeof(size_t));
@@ -97,6 +98,7 @@ public:
 
         uint8_t is_sparse;
         in.read(reinterpret_cast<char *>(&is_sparse), 1);
+        cerr << (int)is_sparse << endl;
         if (is_sparse == 1) {
             cerr << "meta" << endl;
             sparse_colors = load_sparse_colors(in);
@@ -204,7 +206,7 @@ public:
         if (meta) {
             // Sparse deduplication
             cerr << "Deduplicate sparse color sets" << endl;
-            n_colors = cf.sparse_colors.ends.size();
+            n_colors = 10000;//cf.sparse_colors.ends.size();
             
             map<vector<size_t>, vector<size_t>> color_set_to_finimizers;
             
@@ -437,6 +439,8 @@ public:
 
         uint64_t color_set_ids_size;
         in.read(reinterpret_cast<char *>(&color_set_ids_size), sizeof(uint64_t));
+        cerr << "color_set_ids_size: " << color_set_ids_size << endl; // TODO do we need this?
+
         color_set_ids.resize(color_set_ids_size);
         in.read(reinterpret_cast<char *>(color_set_ids.data()), color_set_ids_size * sizeof(uint64_t));
 
@@ -445,7 +449,10 @@ public:
 
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
-        in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers)); // TODO do we need this?
+        this->n_colors = 10000;
+        cerr << "n_colors: " << n_colors << endl; // TODO do we need this?
+        in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers));
+        cerr << "n_finimizers: " << n_finimizers << endl; // TODO do we need this?
         //in.read(reinterpret_cast<char *>(&plen), sizeof(plen));
         in.read(reinterpret_cast<char *>(&k), sizeof(k));
 

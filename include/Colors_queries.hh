@@ -64,7 +64,7 @@ void read_verydense(const int64_t pos, const uint64_t freq, const DeltaSet &EF, 
 {
     dense += freq;
     const size_t end = EF.get_start(pos); // exclusive end
-    size_t start = EF.get_start(pos - 1); // inclusive start
+    size_t start = (pos > 0) ? EF.get_start(pos - 1) : 0; // inclusive start
     while (start < end)
     {
         results[L[start++]] -= freq;
@@ -91,9 +91,9 @@ void read_colors(const CompressedColorSets &CCS, const uint64_t n_colors, vector
     {
         const auto &[pos, freq] = fmin_v[i];
         // sparse
-        if (pos < sparse_count)
+        if (pos < sparse_count && pos > 0)
         {
-            // read from L
+            // read from L - in sparse mode, start is always > 0
             const size_t end = EF.get_start(pos); // exclusive end
             size_t start = EF.get_start(pos - 1); // inclusive start
             while (start < end)
