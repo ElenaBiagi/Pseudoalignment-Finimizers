@@ -1242,7 +1242,10 @@ inline void pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColorSe
         size_t j = i + 1;
         while (j < Fmin.size() && Fmin[j] == Fmin[i])
             ++j;
-        fmin_v.emplace_back(Fmin[i], j - i);
+        if (Fmin[i] >= 0)
+        {
+            fmin_v.emplace_back(Fmin[i], j - i);
+        }
         i = j;
     }
 
@@ -1294,8 +1297,16 @@ inline int64_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
         size_t j = i + 1;
         while (j < Fmin.size() && Fmin[j] == Fmin[i])
             ++j;
-        fmin_v.emplace_back(Fmin[i], j - i);
+        if (Fmin[i] >= 0)
+        {
+            fmin_v.emplace_back(Fmin[i], j - i);
+        }
         i = j;
+    }
+
+    if (fmin_v.empty())
+    {
+        return 1;
     }
 
     /* // Count freq of each fmin
@@ -1310,7 +1321,11 @@ inline int64_t pseudoalignment_stats(vector<int64_t> &Fmin, const CompressedColo
     std::sort(fmin_v.begin(), fmin_v.end()); */
 
     // Check the values above the minimum in search
-    const size_t found_fmin = Fmin.size(); // # total finimizers
+    size_t found_fmin = 0; // # total valid finimizers
+    for (const auto &p : fmin_v)
+    {
+        found_fmin += p.second;
+    }
     int64_t T = found_fmin * t;
     uint64_t dense = 0;
 

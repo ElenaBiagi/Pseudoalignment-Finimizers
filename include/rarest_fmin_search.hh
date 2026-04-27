@@ -142,7 +142,7 @@ void PickFinimizer(vector<int64_t> &Fmin, const uint64_t kmer_start, const uint6
         // cout << input.substr(get<3>(k_fmin),get<0>(k_fmin)) << endl;
         Fmin.push_back(get<2>(k_fmin));
     }
-    //else {Fmin.push_back(-1);}
+    else {Fmin.push_back(-1);}
 
     // 1. Check if this finimizer is good for the next k-mer (still in the window)
     while (!curr_candidates.empty() && get<3>(curr_candidates.front()) <= kmer_start)
