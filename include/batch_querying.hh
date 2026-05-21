@@ -156,7 +156,7 @@ void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, c
     // cerr << endl << bi << endl;
     for (auto q_idx = 0; q_idx < batch_size; q_idx++){
         vector<int64_t> Fmin;
-        Fmin.reserve(query_len);        
+        Fmin.reserve(query_len - k + 1);        
         uint64_t end = k-1; // start +k -1
         for (auto start = 0; start < query_len -k +1; start++, end++){
             // for every kmer check k values from start
@@ -168,7 +168,6 @@ void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, c
                 if (rank > 0) // 0 == -1
                 {   
                     uint64_t f_len = batch[i+q].first;
-                    // if (q == 0){cerr << f_len << ",";}
                     rank--; // 0 is a valid result 
                     if (f_len + i -1 > end){
                         break;
@@ -187,23 +186,23 @@ void FindFinimizers_naive (const vector<std::pair<uint64_t, uint64_t>> &batch, c
             // if (q == 0){cerr << endl;}
             // if (get<2>(k_fmin)==0){cerr << q << " get<2>(k_fmin): "<< get<2>(k_fmin)<< ", "<< get<0>(k_fmin) << endl;}
             // if (q == 0 && get<0>(k_fmin) == 32 ){cerr << "empty: " << start << "-"<< end << endl;}
-            Fmin.emplace_back(get<2>(k_fmin));
+            if (get<0>(k_fmin) <= k) {
+                Fmin.emplace_back(get<2>(k_fmin));
+            }
         }
         // if (q == 0){cerr << endl << endl;}
     
         // results.clear();
         vector<int16_t> results(n_colors);
 
-        // vector<pair<uint16_t, uint16_t>> ans;
-        // int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
+        vector<pair<uint16_t, uint16_t>> ans;
+        int64_t T = pseudoalignment_stats_sorted(Fmin, CCS, n_colors, results, t, ans);
         // auto start = std::chrono::system_clock::now(); 
+        print_cout_queries_sorted(ans,q_idx+bi, T);
 
-        // print_cout_queries_sorted(ans,q_idx+bi, T);
         // Not sorted
-        // if (Fmin.size() != 970) cerr << Fmin.size()<< endl;
-        int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
-        // cerr << "T: "<< T << endl;
-        print_cout_queries(results,q_idx+bi, T);
+        // int64_t T = pseudoalignment_stats(Fmin, CCS, n_colors, results, t);
+        // print_cout_queries(results,q_idx+bi, T);
 
         q+=query_len;
 

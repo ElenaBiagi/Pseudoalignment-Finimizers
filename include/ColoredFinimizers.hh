@@ -206,8 +206,7 @@ public:
         if (meta) {
             // Sparse deduplication
             cerr << "Deduplicate sparse color sets" << endl;
-            n_colors = 10000;//cf.sparse_colors.ends.size();
-            
+            n_colors = cf.sparse_colors.ends.size();
             map<vector<size_t>, vector<size_t>> color_set_to_finimizers;
             
             size_t start = 0;
@@ -417,7 +416,7 @@ public:
 
         // metadata
         out.write(reinterpret_cast<const char *>(&n_colors), sizeof(n_colors));
-        out.write(reinterpret_cast<const char *>(&n_finimizers), sizeof(n_finimizers)); // TODO do we need this?
+        out.write(reinterpret_cast<const char *>(&n_finimizers), sizeof(n_finimizers)); // this is not needed
         out.write(reinterpret_cast<const char *>(&k), sizeof(k));
 
         out.close();
@@ -439,7 +438,7 @@ public:
 
         uint64_t color_set_ids_size;
         in.read(reinterpret_cast<char *>(&color_set_ids_size), sizeof(uint64_t));
-        cerr << "color_set_ids_size: " << color_set_ids_size << endl; // TODO do we need this?
+        cerr << "color_set_ids_size: " << color_set_ids_size << endl; // Do we need this?
 
         color_set_ids.resize(color_set_ids_size);
         in.read(reinterpret_cast<char *>(color_set_ids.data()), color_set_ids_size * sizeof(uint64_t));
@@ -450,9 +449,9 @@ public:
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
         this->n_colors = 10000;
-        cerr << "n_colors: " << n_colors << endl; // TODO do we need this?
+        cerr << "n_colors: " << n_colors << endl;
         in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers));
-        cerr << "n_finimizers: " << n_finimizers << endl; // TODO do we need this?
+        cerr << "n_finimizers: " << n_finimizers << endl; // this is not needed
         //in.read(reinterpret_cast<char *>(&plen), sizeof(plen));
         in.read(reinterpret_cast<char *>(&k), sizeof(k));
 
