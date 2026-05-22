@@ -47,6 +47,15 @@ cargo build -r
 cd ..
 ```
 
+Then, build the [SBWT](https://github.com/jnalanko/SBWT) submodule using the provided instructions:
+```bash
+cd SBWT/build
+cmake .. -DCMAKE_C_COMPILER=$(which gcc-10) -DCMAKE_CXX_COMPILER=$(which g++-10)
+make -j4
+cd ../..
+```
+
+
 Compile the main project:
 ```bash
 make finimap
