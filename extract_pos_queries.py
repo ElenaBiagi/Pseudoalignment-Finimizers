@@ -2,7 +2,7 @@
 import os
 import gzip
 
-NB_QUERIES = 50000
+NB_QUERIES = 100000000
 
 
 def extract_random_sequences(fof, output, query_length, queries_per_contig):
@@ -16,7 +16,7 @@ def extract_random_sequences(fof, output, query_length, queries_per_contig):
                 i = write_random_sequences(fasta_file, outfh, i, query_length, queries_per_contig) 
     print("\tfinished with", i, " queries")
 
-def write_random_sequences(fasta_file, outputstream, i, query_length, queries_per_contig):
+def old_write_random_sequences(fasta_file, outputstream, i, query_length, queries_per_contig):
     if fasta_file.endswith('.gz'): 
         fh = gzip.open(fasta_file, "rt")
     else:
@@ -54,7 +54,54 @@ def write_random_sequences(fasta_file, outputstream, i, query_length, queries_pe
             contig += line.strip()
 
     
+def write_random_sequences(fasta_file, outputstream, i, query_length, queries_per_contig):
+    if fasta_file.endswith('.gz'):
+        fh = gzip.open(fasta_file, "rt")
+    else:
+        fh = open(fasta_file, "r")
 
+    contig = ""
+
+    while True:
+        line = fh.readline()
+
+        # EOF
+        if line == "":
+            if contig:
+                seqs = read_to_query_seqs(contig, query_length, queries_per_contig)
+
+                for query_seq in seqs:
+                    outputstream.write(f'>{i}\n{query_seq}\n')
+                    i += 1
+
+                    if i == NB_QUERIES:
+                        fh.close()
+                        return i
+
+            fh.close()
+            return i
+
+        # New contig
+        if line.startswith('>'):
+
+            # process previous contig
+            if contig:
+                seqs = read_to_query_seqs(contig, query_length, queries_per_contig)
+
+                for query_seq in seqs:
+                    outputstream.write(f'>{i}\n{query_seq}\n')
+                    i += 1
+
+                    if i == NB_QUERIES:
+                        fh.close()
+                        return i
+
+            # reset for next contig
+            contig = ""
+
+        else:
+            contig += line.strip()
+            
 def read_to_query_seqs(line, query_length, queries_per_contig):
     seqs = []
     j = 0
@@ -105,15 +152,15 @@ if __name__ == "__main__":
     #dataset_genome_human need 840 queries / contig, others can go w/ 200
     #repos = ["dataset_genome_ecoli", "dataset_metagenome_gut"]
     #repos = ["Ecoli", "Salmonella", "661kSalmonella", "Human"]
-    repos = ["AllTheBacteria"]
+    repos = ["661kSalmonella"]
 
     home_dir = '/home/biagiele'
     for repo in repos:
         #for q_length in [80, 500, 2000]:
-        for q_length in [1000]:
+        for q_length in [200]:
             print("doing " + repo + " with query length " + str(q_length))
             fof = f"{home_dir}/{repo}/{repo}_list.list"
-            queries_per_contig = 200
+            queries_per_contig = 10000 # 100,000,000 queries, 28000 for Ecoli
             
             # fof = f"{home_dir}/Pseudoalignment-Finimizers/example_data/Ecoli_list.list"
             # queries_per_contig = 10
@@ -126,7 +173,7 @@ if __name__ == "__main__":
             # output_dir = f"{home_dir}/Pseudoalignment-Finimizers/example_data/queries"
             
             os.makedirs(os.path.expanduser(output_dir), exist_ok=True)
-            output = f"{output_dir}/pos_queries_{q_length}.fasta"
+            output = f"{output_dir}/pos_queries_{q_length}_{NB_QUERIES}.fasta"
             
             extract_random_sequences(fof, output, q_length, queries_per_contig)
     

@@ -31,4 +31,6 @@ fi
 #     #$HOME/Pseudoalignment-Finimizers/mutate_seq $HOME/queries/queries_${folder}_1000_200_${i}.fa $HOME/${folder}/queries/m_queries_${folder}_1000_200_${i}_ $m $i
 # done
 
-python3 extract_pos_queries.py 
+python3 /home/biagiele/Pseudoalignment-Finimizers/extract_pos_queries.py 
+
+
