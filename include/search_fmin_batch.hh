@@ -2,6 +2,10 @@
 
 #include <string>
 #include <cstring>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <chrono>
 
 #include <filesystem>
 #include <cstdio>
@@ -9,11 +13,11 @@
 #include <variant>
 #include <sstream>
 
-#include <sbwt/SeqIO.hh>
+#include "SeqIO.hh"
 #include "ColoredFinimizers.hh"
+#include <cxxopts.hpp>
 
 using namespace std;
-using namespace sbwt;
 
 
 
@@ -78,36 +82,19 @@ void run_fmin_queries(const vector<string> &infiles, const optional<vector<strin
         }
     }
 
-    typedef SeqIO::Reader<Buffered_ifstream<zstr::ifstream>> in_gzip;
-    typedef SeqIO::Reader<Buffered_ifstream<ifstream>> in_no_gzip;
+    typedef SeqIO::Reader<Buffered_ifstream<ifstream>> Reader;
 
     int64_t n_queries_run = 0;
     for (int64_t i = 0; i < infiles.size(); i++)
     {
-        bool gzip_input = SeqIO::figure_out_file_format(infiles[i]).gzipped;
-        if (gzip_input)
+        if (outfiles.has_value())
         {
-            if (outfiles.has_value())
-            {
-                ofstream out(outfiles.value()[i]);
-                run_fmin_file<in_gzip>(infiles[i], out, index, t, batch_size);
-            }
-            else
-            { // To stdout
-                run_fmin_file<in_gzip>(infiles[i], cout, index, t, batch_size);
-            }
+            ofstream out(outfiles.value()[i]);
+            run_fmin_file<Reader>(infiles[i], out, index, t, batch_size);
         }
         else
-        {
-            if (outfiles.has_value())
-            {
-                ofstream out(outfiles.value()[i]);
-                run_fmin_file<in_no_gzip>(infiles[i], out, index, t, batch_size);
-            }
-            else
-            { // To stdout
-                run_fmin_file<in_no_gzip>(infiles[i], cout, index, t, batch_size);
-            }
+        { // To stdout
+            run_fmin_file<Reader>(infiles[i], cout, index, t, batch_size);
         }
     }
     return;
@@ -116,9 +103,9 @@ void run_fmin_queries(const vector<string> &infiles, const optional<vector<strin
 int search_fmin_batch(int argc, char **argv)
 {
 
-    int64_t micros_start = cur_time_micros();
+    // int64_t micros_start = cur_time_micros();
 
-    set_log_level(LogLevel::MINOR);
+    // set_log_level(LogLevel::MINOR);
 
     cxxopts::Options options(argv[0], "Query all Finimizers of all input reads.");
 
@@ -173,7 +160,8 @@ int search_fmin_batch(int argc, char **argv)
     }
     catch (cxxopts::option_has_no_value_exception &e)
     {
-        write_log("No output file given, writing to stdout", LogLevel::MAJOR);
+        cerr << "No output file given, writing to stdout" << endl;
+        // write_log("No output file given, writing to stdout", LogLevel::MAJOR);
     }
 
     string index_prefix = opts["index-file"].as<string>();
@@ -188,10 +176,10 @@ int search_fmin_batch(int argc, char **argv)
     */
     CompressedColoredFinimizers index;
     {
-        auto start = std::chrono::high_resolution_clock::now();
+        // auto start = std::chrono::high_resolution_clock::now();
         index.load(index_prefix);
-        auto end = std::chrono::high_resolution_clock::now();
-        time_index_loading += (end - start);
+        // auto end = std::chrono::high_resolution_clock::now();
+        // time_index_loading += (end - start);
     }
 
     /* total_micros += cur_time_micros() - t0;
@@ -199,7 +187,7 @@ int search_fmin_batch(int argc, char **argv)
     cerr << "Index loaded" << endl;
 
     run_fmin_queries(query_files, output_files, index, t, batch_size);
-    int64_t new_total_micros = cur_time_micros() - micros_start;
+    // int64_t new_total_micros = cur_time_micros() - micros_start;
 
     /*
     int64_t total_micros = cur_time_micros() - micros_start;
