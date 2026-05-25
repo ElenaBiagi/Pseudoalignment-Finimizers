@@ -7,3 +7,6 @@
 [submodule "finimizer_matrix"]
 	path = finimizer_matrix
 	url = https://github.com/jnalanko/finimizer_matrix.git
+[submodule "sdsl-lite"]
+	path = sdsl-lite
+	url = https://github.com/iosfwd/sdsl-lite.git
