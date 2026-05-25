@@ -47,14 +47,13 @@ cargo build -r
 cd ..
 ```
 
-Then, build the [SBWT](https://github.com/jnalanko/SBWT) submodule using the provided instructions:
+Build the [sdsl-lite](https://github.com/iosfwd/sdsl-lite.git) dependency:
 ```bash
-cd SBWT/build
-cmake .. -DCMAKE_C_COMPILER=$(which gcc-10) -DCMAKE_CXX_COMPILER=$(which g++-10)
+cd sdsl-lite && mkdir -p build && cd build
+cmake .. -DCMAKE_CXX_FLAGS="-std=c++2a -O2 -march=native"
 make -j4
 cd ../..
 ```
-
 
 Compile the main project:
 ```bash

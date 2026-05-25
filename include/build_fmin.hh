@@ -36,7 +36,7 @@ int build_fmin(int argc, char **argv)
     bool meta = opts["m"].as<bool>();
     int64_t k = opts["k"].as<int64_t>();
 
-    CompressedColoredFinimizers ccf(std::move(cf), prefix_len, short_long_t, k, meta); // TODO Search currently works only with 31
+    CompressedColoredFinimizers ccf(std::move(cf), prefix_len, short_long_t, k, meta); // Search currently works only with 31
 
     ccf.serialize(out_prefix);
 
