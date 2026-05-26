@@ -224,6 +224,7 @@ Colors are assigned in the order references were listed in the original input fi
 ./finimap search-fmin \
   -i example_data/coli_index \
   -q example_data/queries.fna \
+  -b 4 \
   -o results.txt \
   -t 1
 ```
@@ -240,6 +241,7 @@ read_003 1:50 2:50
 ./finimap search-fmin \
   -i example_data/coli_index \
   -q example_data/queries.fna \
+  -b 4 \
   -o results.txt \
   -t 0.8
 ```
