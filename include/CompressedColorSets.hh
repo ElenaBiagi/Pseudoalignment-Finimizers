@@ -172,28 +172,34 @@ public:
         this->EF = std::move(ef);
         this->BV = std::move(temp_BV);
 
-        cerr << "BV: " << (int)BV_size << endl;
-        cerr << "sparse : " << sparse_count - 1 << endl;
-        cerr << "very dense:" << dense_count - (sparse_count) << endl;
+        cerr << "sparse: " << sparse_count - 1 << endl;
+        cerr << "dense: " << (int)BV_size << endl;
+        cerr << "very dense: " << dense_count - (sparse_count) << endl;
+
         // uint64_t max = *std::max_element(L.begin(), L.end());
         // cerr << "Max value in L: " << max << std::endl;
 
-        // float BV_sizes_averge = average(BV_sizes);
-        // float L_sizes_averge = average(L_sizes);
-        // float dense_sizes_averge = average(dense_sizes);
+        float BV_sizes_averge = average(BV_sizes);
+        float L_sizes_averge = average(L_sizes);
+        float dense_sizes_averge = average(dense_sizes);
 
-        // double max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
-        // double max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
-        // double max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
+        double max_BV;
+        double max_L;
+        double max_dense;
+       
+        if (BV_size > 0) max_BV = *std::max_element(BV_sizes.begin(), BV_sizes.end());
+        if (sparse_count - 1 > 0) max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
+        if (dense_count - (sparse_count) > 0) max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
 
-        // cerr << "BV sizes average = " << BV_sizes_averge << endl;
-        // cerr << "BV sizes max = " << max_BV << endl;
+        if (sparse_count - 1 > 0) cerr << "sparse sizes average = " << L_sizes_averge << endl;
+        if (sparse_count - 1 > 0) cerr << "sparse sizes max = " << max_L << endl;
 
-        // cerr << "L sizes average = " << L_sizes_averge << endl;
-        // cerr << "L sizes max = " << max_L << endl;
+        if (BV_size > 0) cerr << "dense sizes average = " << BV_sizes_averge << endl;
+        if (BV_size > 0) cerr << "dense sizes max = " << max_BV << endl;
 
-        // cerr << "dense sizes average = " << dense_sizes_averge << endl;
-        // cerr << "dense sizes max = " << max_dense << endl;
+        if (dense_count - (sparse_count) > 0) cerr << "very dense sizes average = " << dense_sizes_averge << endl;
+        if (dense_count - (sparse_count) > 0) cerr << "very dense sizes max = " << max_dense << endl;
+
     }
 
     CompressedColorSets(const vector<pair<vector<size_t>, vector<size_t>>> &deduplicated_cs_sparse, const uint64_t n_colors, vector<uint64_t> &color_set_ids)
@@ -326,11 +332,11 @@ public:
         this->EF = std::move(ef);
         this->BV = std::move(temp_BV);
 
-        cerr << "BV: " << (int)BV_size << endl;
-        cerr << "sparse : " << sparse_count - 1 << endl;
-        cerr << "very dense:" << dense_count - (sparse_count) << endl;
-        uint64_t max = *std::max_element(L.begin(), L.end());
-        cerr << "Max value in L: " << max << std::endl;
+        cerr << "sparse: " << sparse_count - 1 << endl;
+        cerr << "dense: " << (int)BV_size << endl;
+        cerr << "very dense: " << dense_count - (sparse_count) << endl;
+        //uint64_t max = *std::max_element(L.begin(), L.end());
+        //cerr << "Max value in L: " << max << std::endl;
 
         float BV_sizes_averge = average(BV_sizes);
         float L_sizes_averge = average(L_sizes);
@@ -343,14 +349,14 @@ public:
         if (sparse_count - 1 > 0) max_L = *std::max_element(L_sizes.begin(), L_sizes.end());
         if (dense_count - (sparse_count) > 0) max_dense = *std::max_element(dense_sizes.begin(), dense_sizes.end());
 
-        if (BV_size > 0) cerr << "BV sizes average = " << BV_sizes_averge << endl;
-        if (BV_size > 0) cerr << "BV sizes max = " << max_BV << endl;
+        if (sparse_count - 1 > 0) cerr << "sparse sizes average = " << L_sizes_averge << endl;
+        if (sparse_count - 1 > 0) cerr << "sparse sizes max = " << max_L << endl;
 
-        if (sparse_count - 1 > 0) cerr << "L sizes average = " << L_sizes_averge << endl;
-        if (sparse_count - 1 > 0) cerr << "L sizes max = " << max_L << endl;
+        if (BV_size > 0) cerr << "dense sizes average = " << BV_sizes_averge << endl;
+        if (BV_size > 0) cerr << "dense sizes max = " << max_BV << endl;
 
-        if (dense_count - (sparse_count) > 0) cerr << "dense sizes average = " << dense_sizes_averge << endl;
-        if (dense_count - (sparse_count) > 0) cerr << "dense sizes max = " << max_dense << endl;
+        if (dense_count - (sparse_count) > 0) cerr << "very dense sizes average = " << dense_sizes_averge << endl;
+        if (dense_count - (sparse_count) > 0) cerr << "very dense sizes max = " << max_dense << endl;
     }
 
     void serialize(std::ostream &out) const

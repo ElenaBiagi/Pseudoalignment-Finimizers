@@ -172,17 +172,6 @@ This produces an index with prefix: `example_data/coli_index` and creates files 
 - `coli_index.colors.sdsl` (color information)
 - `coli_index.meta` (metadata)
 
-**Metagenomic index (multiple genomes, e.g., Human microbiome):**
-```bash
-./finimap build-fmin \
-  -i example_data/human_gut.cfm \
-  -o example_data/human_gut_index \
-  -k 31 \
-  -p 12 \
-  -x 20 \
-  --meta true
-```
-
 **Compact index with smaller memory footprint:**
 ```bash
 ./finimap build-fmin \
@@ -230,13 +219,13 @@ Colors are assigned in the order references were listed in the original input fi
 
 ### Examples
 
-**Basic query with absolute counts:**
+**Threshold union queries (no minimium match requirement):**
 ```bash
 ./finimap search-fmin \
-  -i bacteria_index \
-  -q sample_reads.fasta \
+  -i example_data/coli_index \
+  -q example_data/queries.fna \
   -o results.txt \
-  -t 0
+  -t 1
 ```
 
 Output example:
@@ -246,13 +235,13 @@ read_002 0:8 1:42 2:5
 read_003 1:50 2:50
 ```
 
-**Query with percentage threshold (50% match required):**
+**Threshold union queries (80% match required):**
 ```bash
 ./finimap search-fmin \
-  -i bacteria_index \
-  -q sample_reads.fastq.gz \
-  -o results_pct.txt \
-  -t 50
+  -i example_data/coli_index \
+  -q example_data/queries.fna \
+  -o results.txt \
+  -t 0.8
 ```
 
 **Batch query processing with file lists:**

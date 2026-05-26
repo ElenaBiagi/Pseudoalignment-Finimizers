@@ -79,7 +79,7 @@ public:
     // get lex-sorted finimizers.
     void load(std::istream &in)
     {
-        cerr << "Loading uncompressed tails" << endl;
+        cerr << "Loading uncompressed finimizers..." << endl;
         uint64_t n_finimizers;
         in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers));
 
@@ -98,7 +98,7 @@ public:
 
         uint8_t is_sparse;
         in.read(reinterpret_cast<char *>(&is_sparse), 1);
-        cerr << (int)is_sparse << endl;
+        //cerr << (int)is_sparse << endl;
         if (is_sparse == 1) {
             cerr << "meta" << endl;
             sparse_colors = load_sparse_colors(in);
@@ -121,7 +121,7 @@ public:
         lengths_by_freq.resize(lengths_by_freq_size);
         in.read(reinterpret_cast<char *>(lengths_by_freq.data()), lengths_by_freq_size * sizeof(uint8_t));
 
-        cerr << "Reversing finimizer strings" << endl;
+        cerr << "Reversing finimizer strings..." << endl;
         int64_t start_in_concat = 0;
         for (uint64_t f_idx = 0; f_idx < lengths.size(); f_idx++)
         {
@@ -205,7 +205,7 @@ public:
 
         if (meta) {
             // Sparse deduplication
-            cerr << "Deduplicate sparse color sets" << endl;
+            cerr << "Deduplicate sparse color sets..." << endl;
             n_colors = cf.sparse_colors.ends.size();
             map<vector<size_t>, vector<size_t>> color_set_to_finimizers;
             
@@ -448,7 +448,7 @@ public:
 
         // metadata
         in.read(reinterpret_cast<char *>(&n_colors), sizeof(n_colors));
-        this->n_colors = 10000;
+        //this->n_colors = 10000;
         cerr << "n_colors: " << n_colors << endl;
         in.read(reinterpret_cast<char *>(&n_finimizers), sizeof(n_finimizers));
         cerr << "n_finimizers: " << n_finimizers << endl; // this is not needed
