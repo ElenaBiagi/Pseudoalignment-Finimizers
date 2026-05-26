@@ -1,6 +1,8 @@
 # Pseudoalignment with Finimizers
 
-**Finimizers** is a tool for building and querying compressed colored finimizer indexes for fast sequence pseudoalignment and containment queries. 
+**Finimizers** is a tool for building and querying compressed colored finimizer indexes for fast sequence pseudoalignment.
+
+Original paper: **Finimap: fast and accurate single-species bacterial pseudoalignment with finimizers** by J. N. Alanko, E. Biagi, S. J. Puglisi.
 
 Finimizers paper: [**Finimizers: Variable-length bounded-frequency minimizers for k-mer sets**](https://www.biorxiv.org/content/10.1101/2024.02.19.580943v1) by J. N. Alanko, E. Biagi, S. J. Puglisi.
 
