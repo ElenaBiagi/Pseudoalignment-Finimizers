@@ -1,6 +1,6 @@
-# Pseudoalignment with Finimizers
+# Finimap
 
-**Finimizers** is a tool for building and querying compressed colored finimizer indexes for fast sequence pseudoalignment.
+**Finimap** is a tool for building and querying compressed colored finimizer indexes for fast sequence pseudoalignment.
 
 Original paper: **Finimap: fast and accurate single-species bacterial pseudoalignment with finimizers** by J. N. Alanko, E. Biagi, S. J. Puglisi.
 
