@@ -231,9 +231,10 @@ Colors are assigned in the order references were listed in the original input fi
 
 Output example:
 ```
-read_001 0:45 1:3 2:12
-read_002 0:8 1:42 2:5
-read_003 1:50 2:50
+0 0:50 2:50 1:32 
+1 2:50 0:44 1:44 
+2 2:26 0:23 1:2 
+3 2:50 0:21 1:21
 ```
 
 **Threshold union queries (80% match required):**
