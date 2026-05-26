@@ -8,8 +8,8 @@ Finimizers paper: [**Finimizers: Variable-length bounded-frequency minimizers fo
 
 A finimizer index enables fast querying of sequence data (e.g., DNA reads) against reference genomes or genome collections. The tool builds a compact index by:
 
-1. **Extracting finimizers** from reference sequences (variable-length k-mer substrings that are unique or occur with bounded frequency)
-2. **Compacting the index** to achieve space-efficient representation
+1. **Extracting finimizers** from reference sequences
+2. **Compacting the index**
 3. **Querying efficiently** by extracting finimizers from query sequences and finding matches in the index
 
 This approach provides superior speed compared to traditional k-mer indexes while maintaining query accuracy.
@@ -80,9 +80,9 @@ Create a list file (`.list`) containing paths to your reference sequence files (
 
 ```bash
 # example_data/coli_file_list.list
-../genomes/ecoli_ref_1.fasta
-../genomes/ecoli_ref_2.fasta
-../genomes/ecoli_ref_3.fasta
+../example_data/GCA_000005845.2_ASM584v2.fna
+../example_data/GCA_000006665.1_ASM666v1.fna
+../example_data/GCA_000007445.1_ASM744v1.fna
 ```
 
 #### Command
@@ -101,7 +101,7 @@ cd finimizer_matrix
 - `-t <THREADS>`: Number of threads (default: 1)
 - `-d, --temp-dir <DIR>`: Temporary directory for intermediate files
 - `-m <MEMORY>`: Maximum memory usage in MB
-- `--reverse`: Include reverse complement of sequences (recommended for DNA searches)
+- `--reverse`: Include reverse complement of sequences 
 - `--sparse`: Use sparse representation for finimizers (saves memory/space)
 
 #### Example
@@ -147,11 +147,11 @@ cd ..
 
 #### Parameter Tuning
 
-- **`-p` (prefix length)**: Controls index bucket size. Typical values: 8-12
+- **`-p` (prefix length)**: Controls index bucket size in long finimizers. Typical values: 8-12, (p > x)
   - Smaller values: smaller index, slower queries
   - Larger values: faster queries, larger index size
   
-- **`-x` (short/long threshold)**: Affects finimizer representation
+- **`-x` (short/long threshold)**: Affects short/long finimizer representation
   - Typical values: 10-20
   - Adjust based on your finimizer distribution
 
@@ -167,15 +167,12 @@ cd ..
   -x 18
 ```
 
-This produces an index with prefix: `example_data/coli_index` and creates files like:
-- `coli_index.sB.BIN` (main index)
-- `coli_index.colors.sdsl` (color information)
-- `coli_index.meta` (metadata)
+This produces an index `example_data/coli_index.fmin`.
 
 **Compact index with smaller memory footprint:**
 ```bash
 ./finimap build-fmin \
-  -i example_data/large_database.cfm \
+  -i example_data/coli.cfm \
   -o example_data/compact_index \
   -k 31 \
   -p 8 \
@@ -200,7 +197,8 @@ The `search-fmin` command finds finimizer matches in your query sequences agains
 | `-i, --index-file` | FILE | Required | Index filename prefix (from `build-fmin`) |
 | `-q, --query-file` | FILE | Required | Query sequences in FASTA/FASTQ format (may be gzipped). Or `.txt` file with list of query files (one per line) |
 | `-o, --out-file` | FILE | Required | Output filename (or stdout if omitted). Or `.txt` file with output file list (one per line, paired with query list) |
-| `-t` | INT | 0 | Threshold for reporting matches. If 0: absolute counts; if > 0: percentage of matching finimizers (0-100) |
+| `-t` | INT | 0 | Threshold for reporting matches in threshold union queries. If 0: absolute counts; if > 0: percentage of matching k-mers; if 1 intersection union |
+| `-b` | INT | 1000 | Number of batched queries. |
 | `-h, --help` | - | - | Display help message |
 
 ### Output Format
@@ -211,11 +209,15 @@ QUERY_ID color_1:count_1 color_2:count_2 color_3:count_3 ...
 ```
 
 Where:
-- **QUERY_ID**: Sequence identifier from the query file
+- **QUERY_ID**: Sequence identifier from the query file (int)
 - **color_N**: Index of a reference genome in the index
 - **count_N**: Number of matching finimizers (absolute or percentage depending on `-t` threshold)
 
 Colors are assigned in the order references were listed in the original input file.
+
+```color:count``` pairs are sorted in decreasing order. 
+
+
 
 ### Examples
 
@@ -247,82 +249,6 @@ Output example:
   -t 0.8
 ```
 
-**Batch query processing with file lists:**
-
-Create query file list:
-```bash
-cat > query_files.txt << EOF
-reads_sample_1.fastq
-reads_sample_2.fastq
-reads_sample_3.fastq
-EOF
-
-cat > output_files.txt << EOF
-results_sample_1.txt
-results_sample_2.txt
-results_sample_3.txt
-EOF
-```
-
-Process all at once:
-```bash
-./finimap search-fmin \
-  -i bacteria_index \
-  -q query_files.txt \
-  -o output_files.txt \
-  -t 0
-```
-
-## Complete Workflow Example
-
-Here's a full example from start to finish:
-
-### 1. Prepare reference sequences
-
-Create a reference list file:
-```bash
-cat > references.list << EOF
-genomes/ecoli_k12.fasta
-genomes/ecoli_o157.fasta
-genomes/salmonella.fasta
-EOF
-```
-
-### 2. Build colored finimizer matrix
-
-```bash
-cd finimizer_matrix
-./target/release/finimizer_matrix build \
-  -i ../references.list \
-  -o ../bacteria.cfm \
-  -k 31 \
-  -t 8 \
-  -d ./temp \
-  --reverse
-cd ..
-```
-
-### 3. Build finimizer index
-
-```bash
-./finimap build-fmin \
-  -i bacteria.cfm \
-  -o bacteria_index \
-  -k 31 \
-  -p 10 \
-  -x 18 \
-  --meta true
-```
-
-### 4. Query the index
-
-```bash
-./finimap search-fmin \
-  -i bacteria_index \
-  -q sample_reads.fastq.gz \
-  -o results.txt \
-  -t 0
-```
 
 ## Additional Information
 
@@ -331,4 +257,4 @@ cd ..
 - **Metagenomic data**: Use `--meta true` in `build-fmin` for collections of multiple genomes
 - **Large databases**: For very large reference collections (>100GB), consider:
   - Using higher `-p` values for faster queries
-  - Building separate indexes for different organism groups
+  - Using the sparse representation
